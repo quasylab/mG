@@ -1,4 +1,4 @@
-from sources.grammar import mg_grammar
+from libmg.grammar import mg_grammar
 import tensorflow as tf
 from lark import Lark
 

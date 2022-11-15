@@ -4,12 +4,11 @@ import tensorflow as tf
 import time
 
 # a, e, i cannot change
-from sources.loaders.multiple_graph_loader import MultipleGraphLoader
-from sources.loaders.single_graph_loader import SingleGraphLoader
-from sources.macros import ApplyMacros
-from sources.dummy_dataset import DummyDataset
-from sources.grammar import mg_grammar
-from sources.layers import PreImage, PostImage, LeastFixPoint, GreatestFixPoint, FunctionApplication
+from .loaders import SingleGraphLoader, MultipleGraphLoader
+from .macros import ApplyMacros
+from .dummy_dataset import DummyDataset
+from .grammar import mg_grammar
+from .layers import PreImage, PostImage, LeastFixPoint, GreatestFixPoint, FunctionApplication
 
 
 class NodeConfig:
