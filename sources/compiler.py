@@ -1,17 +1,15 @@
 from lark import Lark, v_args
 from lark.visitors import Interpreter, visit_children_decor
-
-from dummy_dataset import DummyDataset
-from grammar import mg_grammar
-from layers import PreImage, PostImage, LeastFixPoint, GreatestFixPoint, FunctionApplication
-
 import tensorflow as tf
 import time
 
 # a, e, i cannot change
-from loaders.multiple_graph_loader import MultipleGraphLoader
-from loaders.single_graph_loader import SingleGraphLoader
-from macros import ApplyMacros
+from sources.loaders.multiple_graph_loader import MultipleGraphLoader
+from sources.loaders.single_graph_loader import SingleGraphLoader
+from sources.macros import ApplyMacros
+from sources.dummy_dataset import DummyDataset
+from sources.grammar import mg_grammar
+from sources.layers import PreImage, PostImage, LeastFixPoint, GreatestFixPoint, FunctionApplication
 
 
 class NodeConfig:

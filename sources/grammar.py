@@ -1,6 +1,6 @@
-'''
+"""
 The notation (gnn_formula)? ";" gnn_formula forces the parser to evaluate the sequential op left to right
-'''
+"""
 
 
 mg_grammar = r"""
@@ -28,3 +28,4 @@ mg_grammar = r"""
                 %import common.UCASE_LETTER
                 %ignore WS
                 """
+

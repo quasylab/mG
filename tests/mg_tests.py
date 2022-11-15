@@ -5,9 +5,9 @@ import numpy as np
 from scipy.sparse import coo_matrix
 from spektral.data import Dataset, Graph
 
-from layers import PsiLocal, Sigma, PsiGlobal
-from loaders.multiple_graph_loader import MultipleGraphLoader
-from loaders.single_graph_loader import SingleGraphLoader
+from sources.layers import PsiLocal, Sigma, PsiGlobal
+from sources.loaders.multiple_graph_loader import MultipleGraphLoader
+from sources.loaders.single_graph_loader import SingleGraphLoader
 from sources.compiler import GNNCompiler, CompilationConfig, Bottom, Top, FixPointConfig
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = "0"
 
