@@ -42,6 +42,27 @@ class EdgeConfig:
         return self._size
 
 
+class Preset:
+    def __init__(self, single, edges):
+        self.single = single
+        self.edges = edges
+
+    @property
+    def suggested_loader(self):
+        return SingleGraphLoader if self.single else MultipleGraphLoader
+
+    @property
+    def suggested_config(self):
+        if self.single and self.edges:
+            return CompilationConfig.xae_config
+        elif self.single and not self.edges:
+            return CompilationConfig.xa_config
+        elif not self.single and self.edges:
+            return CompilationConfig.xai_config
+        else:
+            return CompilationConfig.xaei_config
+
+
 class CompilationConfig:
     def __init__(self, node_config, edge_config, matrix_type, disjoint_loader):
         self.node_config = node_config
@@ -104,6 +125,10 @@ class CompilationConfig:
         if self.use_disjoint:
             specs.append(tf.TensorSpec(shape=(None,), dtype=tf.int64))
         return tuple(specs)
+
+    @property
+    def suggested_loader(self):
+        return MultipleGraphLoader if self.use_disjoint else SingleGraphLoader
 
 
 class IntermediateOutput:

@@ -1,6 +1,5 @@
 from spektral.data import SingleLoader
 from spektral.data.utils import collate_labels_disjoint, to_disjoint, sp_matrices_to_sp_tensors
-import tensorflow as tf
 
 
 class SingleGraphLoader(SingleLoader):

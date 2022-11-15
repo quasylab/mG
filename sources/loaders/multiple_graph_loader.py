@@ -1,7 +1,6 @@
 from spektral.data import DisjointLoader
-from spektral.data.loaders import tf_loader_available
 from spektral.data.utils import collate_labels_disjoint, sp_matrices_to_sp_tensors, to_disjoint, prepend_none, \
-    to_tf_signature, batch_generator
+    to_tf_signature
 import tensorflow as tf
 
 

@@ -1,6 +1,6 @@
 import tensorflow as tf
 from spektral.layers.pooling.global_pool import GlobalPool
-from tensorflow.keras import backend as K
+from tensorflow.python.keras import backend as K
 from spektral.layers import MessagePassing
 
 

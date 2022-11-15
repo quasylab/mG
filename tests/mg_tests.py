@@ -1,18 +1,34 @@
 import os
 import tensorflow as tf
 import numpy as np
-from spektral.layers import MessagePassing
 
 from scipy.sparse import coo_matrix
-from spektral.data import DisjointLoader, Dataset, Graph, SingleLoader
+from spektral.data import Dataset, Graph
 
 from layers import PsiLocal, Sigma, PsiGlobal
 from loaders.multiple_graph_loader import MultipleGraphLoader
 from loaders.single_graph_loader import SingleGraphLoader
 from sources.compiler import GNNCompiler, CompilationConfig, Bottom, Top, FixPointConfig
-from sources.examples.CTL.datasets.random_kripke_dataset import RandomKripkeDataset
-
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = "0"
+
+
+class TestDataset(Dataset):
+    def __init__(self, n=1, edges=False, **kwargs):
+        self.n = n
+        self.edges = edges
+        super().__init__(**kwargs)
+
+    def read(self):
+        graphs = []
+        for i in range(self.n):
+            x = np.array([[1], [2], [4], [1], [1]])
+            a = coo_matrix(([1, 1, 1, 1, 1, 1, 1], ([0, 0, 1, 2, 2, 3, 4], [1, 2, 2, 1, 3, 4, 1])), shape=(5, 5))
+            e = np.array([[1], [0], [0], [0], [1], [1], [1]])
+            if self.edges:
+                graphs.append(Graph(x, a, e))
+            else:
+                graphs.append(Graph(x, a))
+        return graphs
 
 
 class CudaTest(tf.test.TestCase):
@@ -26,9 +42,7 @@ class CudaTest(tf.test.TestCase):
 class BaseTest(tf.test.TestCase):
     def setUp(self):
         super().setUp()
-        self.dataset = RandomKripkeDataset(1, 1000, 100, ['a', 'b', 'c'],
-                                           formulae=None, name='Base_Formula_Test', skip_model_checking=True,
-                                           probabilistic=False)
+        self.dataset = TestDataset(n=1, edges=False)
         self.compilers = [GNNCompiler(
             psi_functions={'a': PsiLocal(
                 lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 0, dtype=tf.uint8)), tf.bool)),
@@ -81,7 +95,7 @@ class BaseTest(tf.test.TestCase):
         for loader, compiler in zip(loaders, self.compilers):
             for e in expr:
                 model = compiler.compile(e)
-                for inputs, _ in loader.load():
+                for inputs in loader.load():
                     model.call([inputs], training=False)
 
     def test_fixpoint_expr(self):
@@ -92,7 +106,7 @@ class BaseTest(tf.test.TestCase):
         for loader, compiler in zip(loaders, self.compilers):
             for e in expr:
                 model = compiler.compile(e)
-                for inputs, _ in loader().load():
+                for inputs in loader().load():
                     model.call([inputs], training=False)
 
     def test_seq_expr(self):
@@ -103,7 +117,7 @@ class BaseTest(tf.test.TestCase):
         for loader, compiler in zip(loaders, self.compilers):
             for e in expr:
                 model = compiler.compile(e)
-                for inputs, _ in loader().load():
+                for inputs in loader().load():
                     model.call([inputs], training=False)
 
     def test_par_expr(self):
@@ -113,7 +127,7 @@ class BaseTest(tf.test.TestCase):
         for loader, compiler in zip(loaders, self.compilers):
             for e in expr:
                 model = compiler.compile(e)
-                for inputs, _ in loader().load():
+                for inputs in loader().load():
                     model.call([inputs], training=False)
 
         # These give an error about wrong shapes in a loop, which is to be expected
@@ -126,27 +140,16 @@ class BaseTest(tf.test.TestCase):
         expected_n_layers = 10
         for loader, compiler in zip(loaders, self.compilers):
             model = compiler.compile(expr)
-            for inputs, _ in loader().load():
+            for inputs in loader().load():
                 model.call([inputs], training=False)
             self.assertEqual(len(model.layers), expected_n_layers)
             expected_n_layers += 1  # account for the I layer
 
 
 class EdgeTest(tf.test.TestCase):
-    class EdgeDataset(Dataset):
-        def download(self):
-            pass
-
-        def read(self):
-            x = np.array([[1], [2], [4], [1], [1]])
-            a = coo_matrix(([1, 1, 1, 1, 1, 1, 1], ([0, 0, 1, 2, 2, 3, 4], [1, 2, 2, 1, 3, 4, 1])), shape=(5, 5))
-            e = np.array([[1], [0], [0], [0], [1], [1], [1]])
-            i = tf.constant([0, 0, 0, 0, 0], dtype=tf.uint8)
-            return [Graph(x, a, e)]
-
     def setUp(self):
         super().setUp()
-        self.dataset = EdgeTest.EdgeDataset()
+        self.dataset = TestDataset(n=1, edges=True)
         self.compilers = [GNNCompiler(
             psi_functions={'a': PsiLocal(
                 lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 0, dtype=tf.uint8)), tf.bool)),
@@ -217,13 +220,8 @@ class EdgeTest(tf.test.TestCase):
 class PoolTest(tf.test.TestCase):
     def setUp(self):
         super().setUp()
-        self.single_dataset = RandomKripkeDataset(1, 1000, 100, ['a', 'b', 'c'],
-                                                  formulae=None, name='Pool_Dataset_Single', skip_model_checking=True,
-                                                  probabilistic=False)
-        self.multiple_dataset = RandomKripkeDataset(10, 1000, 100, ['a', 'b', 'c'],
-                                                    formulae=None, name='Pool_Dataset_Multiple',
-                                                    skip_model_checking=True,
-                                                    probabilistic=False)
+        self.single_dataset = TestDataset(n=1, edges=False)
+        self.multiple_dataset = TestDataset(n=10, edges=False)
         self.compilers = [GNNCompiler(
             psi_functions={'a': PsiLocal(
                 lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 0, dtype=tf.uint8)), tf.bool)),
