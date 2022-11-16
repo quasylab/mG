@@ -26,6 +26,3 @@ class DummyDataset(Dataset):
         else:
             e = None
         return [Graph(x=x, a=a, e=e)]
-
-
-

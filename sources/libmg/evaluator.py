@@ -29,7 +29,7 @@ class CallPerformance(PerformanceTest):
     def __call__(self, dataset):
         loader = self.loader_constructor(dataset)
         model = self.model_constructor(dataset)
-        tot = 0
+        tot = 0.0
         for x, y in loader.load():
             start = time.perf_counter()
             model(x)

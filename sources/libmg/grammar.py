@@ -7,16 +7,16 @@ mg_grammar = r"""
                 ?gnn_formula: function_name                                         -> fun_app
                          | "<" function_name? "|" function_name                     -> lhd
                          | "|" function_name? ">" function_name                     -> rhd
-                         | UCASE_LETTER                                             -> variable                                             
+                         | UCASE_LETTER                                             -> variable
                          | "mu" variable_decl "," type_decl "."  gnn_formula        -> mu_formula
                          | "nu" variable_decl "," type_decl "."  gnn_formula        -> nu_formula
                          | "(" start ")"
 
-                ?s_formula:  gnn_formula 
+                ?s_formula:  gnn_formula
                          | gnn_formula ";" start                                    -> composition
-    
-                ?start:    s_formula 
-                         | s_formula ( "||" s_formula )+                            -> parallel 
+
+                ?start:    s_formula
+                         | s_formula ( "||" s_formula )+                            -> parallel
 
                 function_name: /[a-zA-Z_0-9][a-zA-Z_0-9]*/
 
@@ -28,4 +28,3 @@ mg_grammar = r"""
                 %import common.UCASE_LETTER
                 %ignore WS
                 """
-

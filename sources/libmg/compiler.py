@@ -1,3 +1,5 @@
+from typing import List, Union, Type
+
 from lark import Lark, v_args
 from lark.visitors import Interpreter, visit_children_decor
 import tensorflow as tf
@@ -286,15 +288,16 @@ class FixPointConfig:
 # make function for parallel op, only interested in the x and ignores a, e, i
 def make_function_ops(op_layer, layers, name):
     args = []
-    mappings = []
+    mappings: List[Union[int, List[int]]] = []
     signature = None
     for layer in layers:
         if type(layer) is FixPointExpression:
-            mappings.append([])
+            idx_args = []
             signature = layer.signature
             for layer_arg in layer.args:
                 args.append(layer_arg)
-                mappings[-1].append(len(args) - 1)
+                idx_args.append(len(args) - 1)
+            mappings.append(idx_args)
         else:
             args.append(layer.x)
             mappings.append(len(args) - 1)
@@ -304,6 +307,7 @@ def make_function_ops(op_layer, layers, name):
         for i in range(len(layers)):
             if type(layers[i]) is FixPointExpression:
                 mapped_args = mappings[i]
+                assert isinstance(mapped_args, list)
                 inputs = [_args[mapped_arg] for mapped_arg in mapped_args]
                 inputs.append(_args[-1])
                 arg = layers[i].expr(inputs)
@@ -320,6 +324,7 @@ def make_function_ops(op_layer, layers, name):
         else:
             output_dimension += layer.x.shape[1]
 
+    assert signature is not None
     new_expr = FixPointExpression('(' + name + ')', tf.keras.Input(shape=output_dimension, dtype=signature.dtype))
     new_expr.expr = f
     new_expr.args = args
@@ -332,7 +337,6 @@ def make_function_ops(op_layer, layers, name):
 
 
 class TreeToTF(Interpreter):
-
     def __init__(self, psi_functions, sigma_functions, phi_functions, bottoms, tops, inputs, parser):
         super().__init__()
         self.psi_functions = psi_functions
@@ -343,13 +347,12 @@ class TreeToTF(Interpreter):
         self.initial_inputs = inputs
         self.parser = parser
         # Initialization
-        self.var = None
-        self.var_type = None
-        self.context = None
-        self.layers = None
-        self.disable_saving_layers = None
-        self.inputs = None
-        self.initialize()
+        self.var = []
+        self.var_type = []
+        self.context = []
+        self.layers = {}
+        self.disable_saving_layers = False
+        self.inputs = self.initial_inputs
 
     def add_layer(self, layer, ctx_name):
         if not self.disable_saving_layers:
@@ -576,7 +579,7 @@ class GNNCompiler:
 
     @staticmethod
     def dummy_run(model, dummy_loader, method):
-        elapsed = 0
+        elapsed = 0.0
         if method == 'call':
             for x, y in dummy_loader.load():
                 start = time.perf_counter()
