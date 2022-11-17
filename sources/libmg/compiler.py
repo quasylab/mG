@@ -1,7 +1,7 @@
-from typing import List, Union, Type
+from typing import List, Union
 
 from lark import Lark, v_args
-from lark.visitors import Interpreter, visit_children_decor
+from lark.visitors import Interpreter
 import tensorflow as tf
 import time
 
@@ -396,9 +396,9 @@ class TreeToTF(Interpreter):
     def type_decl(self, type_decl):
         return str(type_decl)
 
-    @visit_children_decor
-    def fun_app(self, args):
-        f, = args
+    @v_args(inline=True)
+    def fun_app(self, function):
+        f = self.visit(function)
         ctx_name = self.get_contextualized_name(f)
         f_layer = FunctionApplication(self.psi_functions[f])
         if ctx_name not in self.layers:
@@ -408,8 +408,8 @@ class TreeToTF(Interpreter):
         else:
             return self.layers[ctx_name]
 
-    @visit_children_decor
     def lhd(self, args):
+        args = self.visit_children(args)
         if len(args) == 2:
             edge_function, agg_function = args
             name = '<' + edge_function + '| ' + agg_function
@@ -425,8 +425,8 @@ class TreeToTF(Interpreter):
             return layer
         return self.layers[ctx_name]
 
-    @visit_children_decor
     def rhd(self, args):
+        args = self.visit_children(args)
         if len(args) == 2:
             edge_function, agg_function = args
             name = '|' + edge_function + '> ' + agg_function
@@ -479,8 +479,8 @@ class TreeToTF(Interpreter):
             self.inputs = current_inputs
             return psi
 
-    @visit_children_decor
     def parallel(self, args):
+        args = self.visit_children(args)
         name = ' || '.join([arg.name for arg in args])
         has_var = False
         for layer in args:
