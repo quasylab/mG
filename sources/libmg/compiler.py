@@ -534,11 +534,10 @@ class GNNCompiler:
             self.model_inputs.append(tf.keras.Input(shape=(), name="INPUT_I", dtype=tf.int64))
             intermediate_output_args[3] = self.model_inputs[-1]
         self.model_input_spec = config.input_spec
-        self._loader = config.loader
         dummy_dataset = DummyDataset(config.node_feature_size, config.node_feature_type, config.matrix_type,
                                      config.edge_feature_size, config.edge_feature_type)
-        self.dummy_loader = self.loader(dummy_dataset, node_level=True, batch_size=1, shuffle=False, epochs=1) if\
-            config.use_disjoint else self.loader(dummy_dataset, epochs=1)
+        self.dummy_loader = MultipleGraphLoader(dummy_dataset, node_level=True, batch_size=1, shuffle=False, epochs=1) if\
+            config.use_disjoint else SingleGraphLoader(dummy_dataset, epochs=1)
         self.interpreter = TreeToTF(psi_functions, sigma_functions, phi_functions, bottoms, tops,
                                     IntermediateOutput("INPUT", *intermediate_output_args), self.parser)
 
@@ -577,10 +576,6 @@ class GNNCompiler:
             elapsed = end - start
             print("Dummy run completed in", elapsed, "s", sep=' ')
         return elapsed
-
-    @property
-    def loader(self):
-        return self._loader
 
     def compile(self, expr, loss=None, verbose=False, optimize=None, return_compilation_time=False):
         self.interpreter.initialize()
