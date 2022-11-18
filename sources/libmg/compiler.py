@@ -66,6 +66,11 @@ class CompilationConfig:
         return CompilationConfig(NodeConfig(node_feature_type, node_feature_size),
                                  EdgeConfig(edge_feature_type, edge_feature_size), matrix_type, True)
 
+    single_graph_no_edges_config = xa_config
+    single_graph_with_edges_config = xae_config
+    multiple_graphs_no_edges_config = xai_config
+    multiple_graphs_with_edges_config = xaei_config
+
     @property
     def node_feature_type(self):
         return self.node_config.type
