@@ -7,7 +7,7 @@ import time
 
 # a, e, i cannot change
 from .loaders import SingleGraphLoader, MultipleGraphLoader
-from .macros import ApplyMacros
+from .normalizer import Normalizer
 from .dummy_dataset import DummyDataset
 from .grammar import mg_grammar
 from .layers import PreImage, PostImage, LeastFixPoint, GreatestFixPoint, FunctionApplication
@@ -15,6 +15,14 @@ from .layers import PreImage, PostImage, LeastFixPoint, GreatestFixPoint, Functi
 
 class NodeConfig:
     def __init__(self, node_type, node_size):
+        """
+        Specifies the initial type of node labels, in the form of a feature vector
+
+        :param node_type: The Tensorflow type of each element in the feature vector, e.g. tf.float32 or tf.uint8
+        :type node_type: tf.DType
+        :param node_size: The length of the feature vector
+        :type node_size: int
+        """
         self._type = node_type
         self._size = node_size
 
@@ -29,6 +37,14 @@ class NodeConfig:
 
 class EdgeConfig:
     def __init__(self, edge_type, edge_size):
+        """
+        Specifies the initial type of edge labels, in the form of a feature vector
+
+        :param edge_type: The Tensorflow type of each element in the feature vector, e.g. tf.float32 or tf.uint8
+        :type edge_type: tf.DType
+        :param edge_size: The length of the feature vector
+        :type edge_size: int
+        """
         self._type = edge_type
         self._size = edge_size
 
@@ -43,28 +59,87 @@ class EdgeConfig:
 
 class CompilationConfig:
     def __init__(self, node_config, edge_config, matrix_type, disjoint_loader):
+        """
+        Configures how to compile a mG formula into a Model. The constructor isn't meant to be used very often, it
+        is recommended to use the static constructor methods to build this object.
+
+        :param node_config: A NodeConfig object specifying the initial type of the node labels in the graph
+        :type node_config: NodeConfig
+        :param edge_config: An EdgeConfig object specifying the initial type of the node edges in the graph, if any
+        :type edge_config: EdgeConfig | None
+        :param matrix_type: A Tensorflow type specifying the type of the adjacency matrix entries, usually tf.uint8
+        :type matrix_type: tf.DType
+        :param disjoint_loader: Set this to True if will be using a MultipleGraphLoader, False for a SingleGraphLoader
+        :type disjoint_loader: bool
+        """
         self.node_config = node_config
         self.edge_config = edge_config
         self._matrix_type = matrix_type
         self.disjoint_loader = disjoint_loader
 
     @staticmethod
-    def xa_config(node_feature_type, node_feature_size, matrix_type):
-        return CompilationConfig(NodeConfig(node_feature_type, node_feature_size), None, matrix_type, False)
+    def xa_config(node_config, matrix_type):
+        """
+        Creates a CompilationConfig object that expects no edge labels in the graph and the use of the
+        SingleGraphLoader
+
+        :param node_config: A NodeConfig object specifying the initial type of the node labels in the graph
+        :type node_config: NodeConfig
+        :param matrix_type: A Tensorflow type specifying the type of the adjacency matrix entries, usually tf.uint8
+        :type matrix_type: tf.DType
+        :return: A CompilationConfig object
+        :rtype: CompilationConfig
+        """
+        return CompilationConfig(node_config, None, matrix_type, False)
 
     @staticmethod
-    def xai_config(node_feature_type, node_feature_size, matrix_type):
-        return CompilationConfig(NodeConfig(node_feature_type, node_feature_size), None, matrix_type, True)
+    def xai_config(node_config, matrix_type):
+        """
+        Creates a CompilationConfig object that expects no edge labels in the graph and the use of the
+        MultipleGraphLoader
+
+        :param node_config: A NodeConfig object specifying the initial type of the node labels in the graph
+        :type node_config: NodeConfig
+        :param matrix_type: A Tensorflow type specifying the type of the adjacency matrix entries, usually tf.uint8
+        :type matrix_type: tf.DType
+        :return: A CompilationConfig object
+        :rtype: CompilationConfig
+        """
+        return CompilationConfig(node_config, None, matrix_type, True)
 
     @staticmethod
-    def xae_config(node_feature_type, node_feature_size, edge_feature_type, edge_feature_size, matrix_type):
-        return CompilationConfig(NodeConfig(node_feature_type, node_feature_size),
-                                 EdgeConfig(edge_feature_type, edge_feature_size), matrix_type, False)
+    def xae_config(node_config, edge_config, matrix_type):
+        """
+        Creates a CompilationConfig object that expects edge labels in the graph and the use of the
+        SingleGraphLoader
+
+        :param node_config: A NodeConfig object specifying the initial type of the node labels in the graph
+        :type node_config: NodeConfig
+        :param edge_config: An EdgeConfig object specifying the initial type of the node edges in the graph, if any
+        :type edge_config: EdgeConfig
+        :param matrix_type: A Tensorflow type specifying the type of the adjacency matrix entries, usually tf.uint8
+        :type matrix_type: tf.DType
+        :return: A CompilationConfig object
+        :rtype: CompilationConfig
+        """
+        return CompilationConfig(node_config, edge_config, matrix_type, False)
 
     @staticmethod
-    def xaei_config(node_feature_type, node_feature_size, edge_feature_type, edge_feature_size, matrix_type):
-        return CompilationConfig(NodeConfig(node_feature_type, node_feature_size),
-                                 EdgeConfig(edge_feature_type, edge_feature_size), matrix_type, True)
+    def xaei_config(node_config, edge_config, matrix_type):
+        """
+        Creates a CompilationConfig object that expects edge labels in the graph and the use of the
+        MultipleGraphLoader
+
+        :param node_config: A NodeConfig object specifying the initial type of the node labels in the graph
+        :type node_config: NodeConfig
+        :param edge_config: An EdgeConfig object specifying the initial type of the node edges in the graph, if any
+        :type edge_config: EdgeConfig
+        :param matrix_type: A Tensorflow type specifying the type of the adjacency matrix entries, usually tf.uint8
+        :type matrix_type: tf.DType
+        :return: A CompilationConfig object
+        :rtype: CompilationConfig
+        """
+        return CompilationConfig(node_config, edge_config, matrix_type, True)
 
     single_graph_no_edges_config = xa_config
     single_graph_with_edges_config = xae_config
@@ -217,47 +292,26 @@ class FixPointExpression:
         return self._signature
 
 
-class Bottom:
-    def __init__(self, dimension, value):
-        self._dimension = dimension
-        self._value = value if tf.is_tensor(value) else tf.constant(value)
-        self.constructor = lambda x: tf.fill(dims=(tf.shape(x)[0], dimension), value=value)
-
-    def __call__(self, x):
-        return self.constructor(x)
-
-    @property
-    def dimension(self):
-        return self._dimension
-
-    @property
-    def value(self):
-        return self._value
-
-
-class Top:
-    def __init__(self, dimension, value):
-        self._dimension = dimension
-        self._value = value if tf.is_tensor(value) else tf.constant(value)
-        self.constructor = lambda x: tf.fill(dims=(tf.shape(x)[0], dimension), value=value)
-
-    def __call__(self, x):
-        return self.constructor(x)
-
-    @property
-    def dimension(self):
-        return self._dimension
-
-    @property
-    def value(self):
-        return self._value
-
-
 class FixPointConfig:
-    def __init__(self, config, precision=None):
-        self._constructor = config
-        self._signature = tf.keras.Input(shape=config.dimension, dtype=config.value.dtype)
+    def __init__(self, dimension, value, precision=None):
+        """
+        Configure a fixpoint computation by specifying the value with which to initialize the variables and, if needed,
+        the precision with which to compute equality of two points.
+
+        :param dimension: The length of the feature vector associated to the variable
+        :type dimension: int
+        :param value: The Tensorflow type of each element in the feature vector associated to the variable,
+         e.g. tf.float32 or tf.uint8
+        :type value: tf.Tensor | int | float
+        :param precision: Floating-point value that specifies the precision of the fixpoint computation.
+         If two points differ in each component by less than this value, they are considered to be the same.
+        :type precision: float
+        """
+        self._dimension = dimension
+        self._value = value if tf.is_tensor(value) else tf.constant(value)
         self._precision = precision
+        self._constructor = lambda x: tf.fill(dims=(tf.shape(x)[0], dimension), value=value)
+        self._signature = tf.keras.Input(shape=self.dimension, dtype=self.value.dtype)
 
     @property
     def signature(self):
@@ -266,6 +320,14 @@ class FixPointConfig:
     @property
     def precision(self):
         return self._precision
+
+    @property
+    def dimension(self):
+        return self._dimension
+
+    @property
+    def value(self):
+        return self._value
 
     @property
     def constructor(self):
@@ -525,8 +587,24 @@ class TreeToTF(Interpreter):
 
 class GNNCompiler:
     def __init__(self, psi_functions, sigma_functions, phi_functions, bottoms, tops, config: CompilationConfig):
+        """
+        A compiler for mG formulas. A formula is transformed into a Tensorflow model using the compile method.
+
+        :param psi_functions: A dictionary of Psi functions, from any among the Psi, PsiLocal and PsiGlobal classes
+        :type psi_functions: dict[str, libmg.Psi | libmg.PsiLocal | libmg.PsiGlobal]
+        :param sigma_functions: A dictionary of Sigma functions
+        :type sigma_functions: dict[str, libmg.Sigma]
+        :param phi_functions: A dictionary of Phi functions
+        :type phi_functions: dict[str, libmg.Phi]
+        :param bottoms: A dictionary of FixPointConfig objects to be used as bottom configurations
+        :type bottoms: dict[str, libmg.FixPointConfig]
+        :param tops: A dictionary of FixPointConfig objects to be used as top configurations
+        :type tops: dict[str, libmg.FixPointConfig]
+        :param config: A CompilationConfig object to configure this GNNCompiler object
+        :type config: CompilationConfig
+        """
         self.parser = Lark(mg_grammar, maybe_placeholders=False)
-        self.macros = ApplyMacros(self.parser)
+        self.macros = Normalizer(self.parser)
         self.model_inputs = [
             tf.keras.Input(shape=config.node_feature_size, name="INPUT_X", dtype=config.node_feature_type),
             tf.keras.Input(shape=(None,), sparse=True, name="INPUT_A", dtype=config.matrix_type)]
@@ -583,6 +661,25 @@ class GNNCompiler:
         return elapsed
 
     def compile(self, expr, loss=None, verbose=False, optimize=None, return_compilation_time=False):
+        """
+        Compiles a mG formula `expr` into a Tensorflow Model.
+
+        :param expr: A mG formula to evaluate
+        :type expr: str
+        :param loss: A Tensorflow loss function to be used if the model has to be trained. [Not yet implemented]
+        :type loss: tf.keras.losses.Loss
+        :param verbose: Set this to True to print some debug information.
+        :type verbose: bool
+        :param optimize: Set this to "call" to optimize the model for being used with the "call" API, set this to
+         "predict" to optimize the model for being used with the "predict" API, set this to None to leave the model as
+         is. When set to "call" the model is transformed into a function.
+        :type optimize: None | str
+        :param return_compilation_time: Set this to True to also return the time spent to compile the model. If optimize
+        was set to None, compilation time is always 0.
+        :type return_compilation_time: bool
+        :return: A Tensorflow Model that is the mG evaluation of 'expr'.
+        :rtype: tf.keras.Model | typing.Callable | (tf.keras.Model, float) | (typing.Callable, float)
+        """
         self.interpreter.initialize()
         outputs = self.interpreter.visit(self.macros.transform(self.parser.parse(expr)))
         model = tf.keras.Model(inputs=self.model_inputs, outputs=outputs.x)

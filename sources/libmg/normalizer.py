@@ -2,37 +2,40 @@ from lark import Transformer, v_args
 from lark.reconstruct import Reconstructor
 
 
-class IsFixpoint(Transformer):
-    def fun_app(self, _):
-        return False
-
-    def lhd(self, _):
-        return False
-
-    def rhd(self, _):
-        return False
-
-    def variable(self, _):
-        return True
-
-    @v_args(inline=True)
-    def composition(self, phi, psi):
-        if phi or psi:
-            return True
-        else:
+def is_fixpoint(tree):
+    class IsFixpoint(Transformer):
+        def fun_app(self, _):
             return False
 
-    def mu_formula(self, _):
-        return False
+        def lhd(self, _):
+            return False
 
-    def nu_formula(self, _):
-        return False
+        def rhd(self, _):
+            return False
 
-    def parallel(self, args):
-        for arg in args:
-            if arg is True:
+        def variable(self, _):
+            return True
+
+        @v_args(inline=True)
+        def composition(self, phi, psi):
+            if phi or psi:
                 return True
-        return False
+            else:
+                return False
+
+        def mu_formula(self, _):
+            return False
+
+        def nu_formula(self, _):
+            return False
+
+        def parallel(self, args):
+            for arg in args:
+                if arg is True:
+                    return True
+            return False
+
+    return IsFixpoint().transform(tree)
 
 
 def fixpoint_no_vars(tree):
@@ -61,7 +64,7 @@ def seq_rhs_fixpoint(tree, reconstructor, parser):
         return parser.parse('||'.join(new_expr))
 
 
-class ApplyMacros(Transformer):
+class Normalizer(Transformer):
 
     def __init__(self, parser):
         super().__init__()
@@ -70,21 +73,21 @@ class ApplyMacros(Transformer):
 
     @v_args(tree=True)
     def composition(self, tree):
-        if IsFixpoint().transform(tree.children[1]):
+        if is_fixpoint(tree.children[1]):
             return self.transform(seq_rhs_fixpoint(tree, self.reconstructor, self.parser))
         else:
             return tree
 
     @v_args(tree=True)
     def mu_formula(self, tree):
-        if not IsFixpoint().transform(tree.children[2]):
+        if not is_fixpoint(tree.children[2]):
             return self.transform(fixpoint_no_vars(tree))
         else:
             return tree
 
     @v_args(tree=True)
     def nu_formula(self, tree):
-        if not IsFixpoint().transform(tree.children[2]):
+        if not is_fixpoint(tree.children[2]):
             return self.transform(fixpoint_no_vars(tree))
         else:
             return tree

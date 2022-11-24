@@ -3,10 +3,12 @@ import tensorflow as tf
 import numpy as np
 
 from scipy.sparse import coo_matrix
-from spektral.data import Dataset, Graph
-from libmg.layers import PsiLocal, Sigma, PsiGlobal
-from libmg.loaders import SingleGraphLoader, MultipleGraphLoader
-from libmg.compiler import GNNCompiler, CompilationConfig, Bottom, Top, FixPointConfig
+from spektral.data import Graph
+from libmg import PsiLocal, PsiGlobal, Sigma, Phi
+from libmg import SingleGraphLoader, MultipleGraphLoader
+from libmg import GNNCompiler, CompilationConfig, FixPointConfig, NodeConfig, EdgeConfig
+from libmg import Dataset
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = "0"
 
 
@@ -14,7 +16,7 @@ class TestDataset(Dataset):
     def __init__(self, n=1, edges=False, **kwargs):
         self.n = n
         self.edges = edges
-        super().__init__(**kwargs)
+        super().__init__("libmg_test_dataset", **kwargs)
 
     def read(self):
         graphs = []
@@ -60,9 +62,9 @@ class BaseTest(tf.test.TestCase):
                     lambda m, i, n, x: tf.cast(tf.math.unsorted_segment_max(tf.cast(m, tf.uint8), i, n),
                                                tf.bool))},
             phi_functions={},
-            bottoms={'b': FixPointConfig(Bottom(1, False))},
-            tops={'b': FixPointConfig(Top(1, False))},
-            config=CompilationConfig.xa_config(tf.uint8, 1, tf.uint8)),
+            bottoms={'b': FixPointConfig(1, False)},
+            tops={'b': FixPointConfig(1, True)},
+            config=CompilationConfig.xa_config(NodeConfig(tf.uint8, 1), tf.uint8)),
             GNNCompiler(
                 psi_functions={'a': PsiLocal(
                     lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 0, dtype=tf.uint8)), tf.bool)),
@@ -82,9 +84,9 @@ class BaseTest(tf.test.TestCase):
                         lambda m, i, n, x: tf.cast(tf.math.unsorted_segment_max(tf.cast(m, tf.uint8), i, n),
                                                    tf.bool))},
                 phi_functions={},
-                bottoms={'b': FixPointConfig(Bottom(1, False))},
-                tops={'b': FixPointConfig(Top(1, False))},
-                config=CompilationConfig.xai_config(tf.uint8, 1, tf.uint8))]
+                bottoms={'b': FixPointConfig(1, False)},
+                tops={'b': FixPointConfig(1, True)},
+                config=CompilationConfig.xai_config(NodeConfig(tf.uint8, 1), tf.uint8))]
 
     def test_simple_expr(self):
         expr = ['a', '<| uor', '|> or', 'a;not', '(a || b);and', '(a || b);or', 'a; false', 'a || b']
@@ -161,13 +163,14 @@ class EdgeTest(tf.test.TestCase):
                 'or': PsiLocal(lambda x: tf.math.reduce_any(x, axis=1, keepdims=True)),
                 'not': PsiLocal(lambda x: tf.math.logical_not(x)),
                 'id': PsiLocal(lambda x: x)},
-            sigma_functions={'or': lambda m, i, n, x: tf.cast(tf.math.segment_max(tf.cast(m, tf.uint8), i), tf.bool),
-                             'uor': lambda m, i, n, x: tf.cast(tf.math.unsorted_segment_max(tf.cast(m, tf.uint8), i, n),
-                                                               tf.bool)},
-            phi_functions={'z': lambda i, e, j: tf.math.logical_and(j, tf.equal(e, 0))},
-            bottoms={'b': FixPointConfig(Bottom(1, False))},
-            tops={'b': FixPointConfig(Top(1, False))},
-            config=CompilationConfig.xae_config(tf.uint8, 1, tf.uint8, 1, tf.uint8)),
+            sigma_functions={
+                'or': Sigma(lambda m, i, n, x: tf.cast(tf.math.segment_max(tf.cast(m, tf.uint8), i), tf.bool)),
+                'uor': Sigma(lambda m, i, n, x: tf.cast(tf.math.unsorted_segment_max(tf.cast(m, tf.uint8), i, n),
+                                                        tf.bool))},
+            phi_functions={'z': Phi(lambda i, e, j: tf.math.logical_and(j, tf.equal(e, 0)))},
+            bottoms={'b': FixPointConfig(1, False)},
+            tops={'b': FixPointConfig(1, True)},
+            config=CompilationConfig.xae_config(NodeConfig(tf.uint8, 1), EdgeConfig(tf.uint8, 1), tf.uint8)),
             GNNCompiler(
                 {'a': PsiLocal(
                     lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 0, dtype=tf.uint8)), tf.bool)),
@@ -182,14 +185,14 @@ class EdgeTest(tf.test.TestCase):
                     'not': PsiLocal(lambda x: tf.math.logical_not(x)),
                     'id': PsiLocal(lambda x: x)},
                 sigma_functions={
-                    'or': lambda m, i, n, x: tf.cast(tf.math.segment_max(tf.cast(m, tf.uint8), i), tf.bool),
-                    'uor': lambda m, i, n, x: tf.cast(
+                    'or': Sigma(lambda m, i, n, x: tf.cast(tf.math.segment_max(tf.cast(m, tf.uint8), i), tf.bool)),
+                    'uor': Sigma(lambda m, i, n, x: tf.cast(
                         tf.math.unsorted_segment_max(tf.cast(m, tf.uint8), i, n),
-                        tf.bool)},
-                phi_functions={'z': lambda i, e, j: tf.math.logical_and(j, tf.equal(e, 0))},
-                bottoms={'b': FixPointConfig(Bottom(1, False))},
-                tops={'b': FixPointConfig(Top(1, False))},
-                config=CompilationConfig.xaei_config(tf.uint8, 1, tf.uint8, 1, tf.uint8))]
+                        tf.bool))},
+                phi_functions={'z': Phi(lambda i, e, j: tf.math.logical_and(j, tf.equal(e, 0)))},
+                bottoms={'b': FixPointConfig(1, False)},
+                tops={'b': FixPointConfig(1, True)},
+                config=CompilationConfig.xaei_config(NodeConfig(tf.uint8, 1), EdgeConfig(tf.uint8, 1), tf.uint8))]
 
     def test_edge_expr(self):
         expr = ['a ; |z> or', 'a ; <z| uor', '( (a ; |z> or) || (b ; |z> or) ); or', ' a ; |z> or ; |z> or',
@@ -242,9 +245,9 @@ class PoolTest(tf.test.TestCase):
                     lambda m, i, n, x: tf.cast(tf.math.unsorted_segment_max(tf.cast(m, tf.uint8), i, n),
                                                tf.bool))},
             phi_functions={},
-            bottoms={'b': FixPointConfig(Bottom(1, False))},
-            tops={'b': FixPointConfig(Top(1, False))},
-            config=CompilationConfig.xa_config(tf.uint8, 1, tf.uint8)),
+            bottoms={'b': FixPointConfig(1, False)},
+            tops={'b': FixPointConfig(1, True)},
+            config=CompilationConfig.xa_config(NodeConfig(tf.uint8, 1), tf.uint8)),
             GNNCompiler(
                 psi_functions={'a': PsiLocal(
                     lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 0, dtype=tf.uint8)), tf.bool)),
@@ -267,9 +270,9 @@ class PoolTest(tf.test.TestCase):
                         lambda m, i, n, x: tf.cast(tf.math.unsorted_segment_max(tf.cast(m, tf.uint8), i, n),
                                                    tf.bool))},
                 phi_functions={},
-                bottoms={'b': FixPointConfig(Bottom(1, False))},
-                tops={'b': FixPointConfig(Top(1, False))},
-                config=CompilationConfig.xai_config(tf.uint8, 1, tf.uint8))]
+                bottoms={'b': FixPointConfig(1, False)},
+                tops={'b': FixPointConfig(1, True)},
+                config=CompilationConfig.xai_config(NodeConfig(tf.uint8, 1), tf.uint8))]
 
     def test_global_pooling(self):
         expr = ['gsum', '(gsum || one);min']
