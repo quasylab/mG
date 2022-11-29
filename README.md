@@ -17,3 +17,6 @@
     ```
   to run your model on the dataset.
 - Check the tests folder for some examples of the above steps.
+
+## Compatibility
+Python 3.10
