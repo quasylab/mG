@@ -4,22 +4,51 @@ from lark import Lark
 
 
 class GrammarTests(tf.test.TestCase):
+    def setUp(self):
+        super().setUp()
+        self.parser = Lark(mg_grammar)
+
     def test_seq(self):
         expr = 'a;b;c;d;e'
-        parser = Lark(mg_grammar)
-        print(parser.parse(expr).pretty())
+        tree = self.parser.parse(expr)
+        self.assertEqual(len(tree.children), 2)
+        self.assertEqual(len(tree.children[1].children), 2)
+        self.assertEqual(len(tree.children[1].children[1].children), 2)
+        self.assertEqual(len(tree.children[1].children[1].children[1].children), 2)
 
     def test_par(self):
         expr = 'a || b || c || d || e'
-        parser = Lark(mg_grammar)
-        print(parser.parse(expr).pretty())
+        tree = self.parser.parse(expr)
+        self.assertEqual(len(tree.children), 5)
 
     def test_nested_par(self):
         expr = '(a || b) ; c ; d ; ( e || f)'
-        parser = Lark(mg_grammar)
-        print(parser.parse(expr).pretty())
+        tree = self.parser.parse(expr)
+        self.assertEqual(len(tree.children), 2)
+        self.assertEqual(len(tree.children[0].children), 2)
+        self.assertEqual(len(tree.children[1].children), 2)
+        self.assertEqual(len(tree.children[1].children[1].children), 2)
+        self.assertEqual(len(tree.children[1].children[1].children[1].children), 2)
 
     def test_nested_seq(self):
         expr = 'a || (b;c) || c || (d;e) || e'
-        parser = Lark(mg_grammar)
-        print(parser.parse(expr).pretty())
+        tree = self.parser.parse(expr)
+        self.assertEqual(len(tree.children), 5)
+
+    def test_special_characters(self):
+        expr = '<+|*'
+        tree = self.parser.parse(expr)
+        self.assertEqual(tree.children[0].data, 'function_name')
+        self.assertEqual(tree.children[1].data, 'function_name')
+
+        expr = '/;:;|%>&'
+        tree = self.parser.parse(expr)
+        self.assertEqual(tree.children[0].data, 'fun_app')
+        self.assertEqual(tree.children[1].children[0].data, 'fun_app')
+        self.assertEqual(tree.children[1].children[1].data, 'rhd')
+        self.assertEqual(tree.children[1].children[1].children[0].data, 'function_name')
+        self.assertEqual(tree.children[1].children[1].children[1].data, 'function_name')
+
+
+if __name__ == '__main__':
+    tf.test.main()

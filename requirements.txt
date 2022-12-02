@@ -2,6 +2,6 @@ spektral
 numpy
 lark
 scipy
-tensorflow_addons
 tensorflow
 tensorflow-gpu
+tensorflow_addons

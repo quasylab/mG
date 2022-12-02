@@ -18,7 +18,7 @@ mg_grammar = r"""
                 ?start:    s_formula
                          | s_formula ( "||" s_formula )+                            -> parallel
 
-                function_name: /[a-zA-Z_0-9][a-zA-Z_0-9]*/
+                !function_name: /[a-zA-Z_0-9\+\*\^\-\!\#\%\&\=\~\:\/][a-zA-Z_0-9]*/
 
                 variable_decl: UCASE_LETTER
 
