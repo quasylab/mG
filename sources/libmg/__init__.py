@@ -8,3 +8,5 @@ from .dataset import Dataset
 __all__ = ['SingleGraphLoader', 'MultipleGraphLoader', 'PerformanceTest', 'PredictPerformance', 'CallPerformance',
            'save_output_to_csv', 'PsiLocal', 'PsiGlobal', 'Psi', 'Phi', 'Sigma', 'FunctionDict', 'GNNCompiler',
            'CompilationConfig', 'FixPointConfig', 'NodeConfig', 'EdgeConfig', 'Dataset']
+
+__version__ = '0.0.1'
