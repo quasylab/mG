@@ -1,55 +1,27 @@
 import tensorflow as tf
+from collections import UserDict
 
 
-class PsiLocal(tf.keras.layers.Layer):
-    def __init__(self, f, **kwargs):
-        """
-        A local transformation of node labels f: T -> U
+# Custom dictionary class
+class FunctionDict(UserDict):
+    @staticmethod
+    def parse_key(key):
+        tokens = key.split('[')
+        true_key = tokens[0]
+        arg = '' if len(tokens) == 1 else tokens[1][: tokens[1].find(']')]
+        return true_key, arg
 
-        :param f: A function that transforms a Tensor of node labels of type T to a Tensor of node labels of type U.
-         The function must be compatible with Tensorflow's broadcasting rules.
-        :type f: (tf.Tensor[T]) -> tf.Tensor[U]
-        """
-        super().__init__(**kwargs)
-        self.f = f
+    def __getitem__(self, key):
+        true_key, arg = self.parse_key(key)
+        return self.data[true_key](arg)
 
-    def __call__(self, x, i=None):
-        return self.f(x)
-
-
-class PsiGlobal(tf.keras.layers.Layer):
-    def __init__(self, single_op=None, multiple_op=None, **kwargs):
-        """
-        A global pooling operation on node labels f: T* -> U. For single graph datasets, which use the
-        SingleGraphLoader, only the single_op parameter is necessary. For multiple graph datasets, using the
-        MultipleGraphLoader, only the multiple_op parameter is necessary. The multiple_op argument is a function which
-        takes an additional parameter to distinguish which values in the first argument refer to which graph. For
-        more information, refer to the disjoint data mode in the Spektral library documentation.
-
-        :param single_op: A function that transforms a Tensor of node labels of type T to a node label of type U.
-        :type single_op: (tf.Tensor[T]) -> U
-        :param multiple_op: A function that transforms a Tensor of node labels of type T and a Tensor of their
-         respective graph indices of type int64 to a node label of type U.
-        :type multiple_op: (tf.Tensor[T], tf.Tensor[int]) -> U
-        """
-        super().__init__(**kwargs)
-        if single_op is None and multiple_op is None:
-            raise ValueError("At least one operation must be defined!")
-        self.single_op = single_op
-        self.multiple_op = multiple_op
-
-    def __call__(self, x, i=None):
-        if i is not None:
-            if self.multiple_op is None:
-                raise ValueError("Undefined operation")
-            output = self.multiple_op(x, i)
-            _, _, count = tf.unique_with_counts(i)
-            return tf.repeat(output, count, axis=0)
+    def __setitem__(self, key, value):
+        if isinstance(value, tf.keras.layers.Layer):
+            self.data[key] = lambda x: value
+        elif callable(value):
+            self.data[key] = value
         else:
-            if self.single_op is None:
-                raise ValueError("Undefined operation")
-            output = self.single_op(x)
-            return tf.repeat(output, tf.shape(x)[0], axis=0)
+            raise ValueError("Invalid item:", str(value))
 
 
 class Psi(tf.keras.layers.Layer):
@@ -86,6 +58,52 @@ class Psi(tf.keras.layers.Layer):
             if self.single_op is None:
                 raise ValueError("Undefined operation")
             return self.single_op(x)
+
+
+class PsiLocal(Psi):
+    def __init__(self, f, **kwargs):
+        """
+        A local transformation of node labels f: T -> U
+
+        :param f: A function that transforms a Tensor of node labels of type T to a Tensor of node labels of type U.
+         The function must be compatible with Tensorflow's broadcasting rules.
+        :type f: (tf.Tensor[T]) -> tf.Tensor[U]
+        """
+        super().__init__(single_op=f)
+
+    def __call__(self, x, i=None):
+        return self.single_op(x)
+
+
+class PsiGlobal(Psi):
+    def __init__(self, single_op=None, multiple_op=None, **kwargs):
+        """
+        A global pooling operation on node labels f: T* -> U. For single graph datasets, which use the
+        SingleGraphLoader, only the single_op parameter is necessary. For multiple graph datasets, using the
+        MultipleGraphLoader, only the multiple_op parameter is necessary. The multiple_op argument is a function which
+        takes an additional parameter to distinguish which values in the first argument refer to which graph. For
+        more information, refer to the disjoint data mode in the Spektral library documentation.
+
+        :param single_op: A function that transforms a Tensor of node labels of type T to a node label of type U.
+        :type single_op: (tf.Tensor[T]) -> U
+        :param multiple_op: A function that transforms a Tensor of node labels of type T and a Tensor of their
+         respective graph indices of type int64 to a node label of type U.
+        :type multiple_op: (tf.Tensor[T], tf.Tensor[int]) -> U
+        """
+        super().__init__(single_op=single_op, multiple_op=multiple_op)
+
+    def __call__(self, x, i=None):
+        if i is not None:
+            if self.multiple_op is None:
+                raise ValueError("Undefined operation")
+            output = self.multiple_op(x, i)
+            _, _, count = tf.unique_with_counts(i)
+            return tf.repeat(output, count, axis=0)
+        else:
+            if self.single_op is None:
+                raise ValueError("Undefined operation")
+            output = self.single_op(x)
+            return tf.repeat(output, tf.shape(x)[0], axis=0)
 
 
 class Phi(tf.keras.layers.Layer):

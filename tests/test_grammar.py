@@ -49,6 +49,17 @@ class GrammarTests(tf.test.TestCase):
         self.assertEqual(tree.children[1].children[1].children[0].data, 'function_name')
         self.assertEqual(tree.children[1].children[1].children[1].data, 'function_name')
 
+    def test_var_function_name(self):
+        expr = 'add[1]'
+        tree = self.parser.parse(expr)
+        self.assertEqual(tree.data, 'fun_app')
+        self.assertEqual(tree.children[0].data, 'function_name')
+
+        expr = 'add1'
+        tree = self.parser.parse(expr)
+        self.assertEqual(tree.data, 'fun_app')
+        self.assertEqual(tree.children[0].data, 'function_name')
+
 
 if __name__ == '__main__':
     tf.test.main()

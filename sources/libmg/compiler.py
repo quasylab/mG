@@ -591,11 +591,11 @@ class GNNCompiler:
         A compiler for mG formulas. A formula is transformed into a Tensorflow model using the compile method.
 
         :param psi_functions: A dictionary of Psi functions, from any among the Psi, PsiLocal and PsiGlobal classes
-        :type psi_functions: dict[str, libmg.Psi | libmg.PsiLocal | libmg.PsiGlobal]
+        :type psi_functions: libmg.FunctionDict[str, libmg.Psi | (str) -> libmg.Psi]
         :param sigma_functions: A dictionary of Sigma functions
-        :type sigma_functions: dict[str, libmg.Sigma]
+        :type sigma_functions: libmg.FunctionDict[str, libmg.Sigma | (str) -> libmg.Sigma]
         :param phi_functions: A dictionary of Phi functions
-        :type phi_functions: dict[str, libmg.Phi]
+        :type phi_functions: libmg.FunctionDict[str, libmg.Phi | (str) -> libmg.Phi]
         :param bottoms: A dictionary of FixPointConfig objects to be used as bottom configurations
         :type bottoms: dict[str, libmg.FixPointConfig]
         :param tops: A dictionary of FixPointConfig objects to be used as top configurations
