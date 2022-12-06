@@ -21,7 +21,7 @@ mg_grammar = r"""
                 function_name: /[a-zA-Z_0-9\+\*\^\-\!\#\%\&\=\~\:\/]+/
                             |  FUNC_GEN
 
-                FUNC_GEN: /[a-zA-Z_0-9\+\*\^\-\!\#\%\&\=\~\:\/]+/ "[" /[a-zA-Z_0-9\+\*\^\-\!\#\%\&\=\~\:\/][a-zA-Z_0-9]*/ "]"
+                FUNC_GEN: /[a-zA-Z_0-9\+\*\^\-\!\#\%\&\=\~\:\/]+/ "[" /.+/ "]"
 
                 variable_decl: UCASE_LETTER
 

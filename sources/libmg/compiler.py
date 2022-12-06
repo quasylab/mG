@@ -300,8 +300,7 @@ class FixPointConfig:
 
         :param dimension: The length of the feature vector associated to the variable
         :type dimension: int
-        :param value: The Tensorflow type of each element in the feature vector associated to the variable,
-         e.g. tf.float32 or tf.uint8
+        :param value: The value with which to fill the feature vector associated to the variable
         :type value: tf.Tensor | int | float
         :param precision: Floating-point value that specifies the precision of the fixpoint computation.
          If two points differ in each component by less than this value, they are considered to be the same.
