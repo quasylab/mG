@@ -1,3 +1,5 @@
+from typing import Callable, Optional
+
 from spektral.data import Dataset as _Dataset
 
 
@@ -86,17 +88,13 @@ class Dataset(_Dataset):
                return [Graph(x=x, y=y) for x, y in some_magic_list]
        ```
        """
-    def __init__(self, name, transforms=None, **kwargs):
+    def __init__(self, name: str, transforms: Optional[Callable | list[Callable]] = None, **kwargs):
         """
         Creates a Dataset object with the given name
 
         :param name: a name for the dataset
-        :type name: str
         :param transforms: a callable or list of callables that are automatically applied to the graphs after loading
          the dataset.
-        :type transforms: typing.Callable | list[typing.Callable]
-        :param kwargs:
-        :type kwargs:
         """
         self._name = name
         super().__init__(transforms, **kwargs)

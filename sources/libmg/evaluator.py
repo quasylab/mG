@@ -1,20 +1,22 @@
+from typing import Callable, Iterable
+import tensorflow as tf
 import os
 import time
 import csv
 
+from .dataset import Dataset
+from .loaders import SingleGraphLoader, MultipleGraphLoader
+
 
 class PerformanceTest:
-    def __init__(self, model_constructor, loader_constructor):
+    def __init__(self, model_constructor: Callable[[Dataset], tf.keras.Model],
+                 loader_constructor: Callable[[Dataset], SingleGraphLoader | MultipleGraphLoader]):
         """
         Base class for measuring performance of the model by overriding the __call__ method
 
         :param model_constructor: A function from a Dataset to a Model
-        :type model_constructor: (libmg.Dataset) -> tensorflow.keras.Model
         :param loader_constructor: A function from a Dataset to a SingleGraphLoader or MultipleGraphLoader
-        :type loader_constructor: (libmg.Dataset) -> libmg.loaders.SingleGraphLoader |
-         libmg.loaders.MultipleGraphLoader
         :returns: A PerformanceTest object
-        :rtype: PerformanceTest
         """
         self.model_constructor = model_constructor
         self.loader_constructor = loader_constructor
@@ -24,14 +26,12 @@ class PerformanceTest:
 
 
 class PredictPerformance(PerformanceTest):
-    def __call__(self, dataset):
+    def __call__(self, dataset: Dataset) -> float:
         """
         Builds a model and a loader given the dataset, then runs and times model.predict
 
         :param dataset: A dataset on which to measure the model's performance
-        :type dataset: libmg.Dataset
         :return: Execution time in seconds
-        :rtype: float
         """
         loader = self.loader_constructor(dataset)
         model = self.model_constructor(dataset)
@@ -43,14 +43,12 @@ class PredictPerformance(PerformanceTest):
 
 
 class CallPerformance(PerformanceTest):
-    def __call__(self, dataset):
+    def __call__(self, dataset: Dataset) -> float:
         """
         Builds a model and a loader given the dataset, then runs and times model.call on each element of the dataset
 
         :param dataset: A dataset on which to measure the model's performance
-        :type dataset: libmg.Dataset
         :return: Execution time in seconds
-        :rtype: float
         """
         loader = self.loader_constructor(dataset)
         model = self.model_constructor(dataset)
@@ -64,19 +62,18 @@ class CallPerformance(PerformanceTest):
         return tot
 
 
-def save_output_to_csv(dataset_generator, methods, names, filename):
+def save_output_to_csv(dataset_generator: Iterable[Dataset], methods: list[PerformanceTest], names: list[str],
+                       filename: str) -> None:
     """
+    For each dataset in `dataset_generator`, every method in `methods` is called on the given dataset. The output is
+    collected row by row, each column labelled with the name provided in `names`. The resulting data is saved in a csv
+    file with name given by `filename` in the 'data' folder.
 
     :param dataset_generator: An iterable of datasets
-    :type dataset_generator: typing.Iterable[libmg.Dataset]
     :param methods: A list of PerformanceTest objects to call
-    :type methods: list[PerformanceTest]
     :param names: A list of names, corresponding to each method
-    :type names: list[str]
     :param filename: The name of the file where to save the data
-    :type filename: str
     :return: Nothing
-    :rtype: None
     """
     labels = ['index'] + names
     values = []
