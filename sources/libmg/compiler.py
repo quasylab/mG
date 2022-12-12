@@ -427,6 +427,7 @@ class TreeToTF(Interpreter):
         ctx_name = self.get_contextualized_name(f)
         f_layer = FunctionApplication(self.psi_functions[f])
         if ctx_name not in self.layers:
+            # noinspection PyCallingNonCallable
             layer = self.inputs.step(ctx_name, f_layer(self.inputs.func_inputs))
             self.add_layer(layer, ctx_name)
             return layer
@@ -445,6 +446,7 @@ class TreeToTF(Interpreter):
             lhd_layer = PreImage(self.sigma_functions[agg_function])
         ctx_name = self.get_contextualized_name(name)
         if ctx_name not in self.layers:
+            # noinspection PyCallingNonCallable
             layer = self.inputs.step(ctx_name, lhd_layer(self.inputs.img_inputs))
             self.add_layer(layer, ctx_name)
             return layer
@@ -462,6 +464,7 @@ class TreeToTF(Interpreter):
             rhd_layer = PostImage(self.sigma_functions[agg_function])
         ctx_name = self.get_contextualized_name(name)
         if ctx_name not in self.layers:
+            # noinspection PyCallingNonCallable
             layer = self.inputs.step(ctx_name, rhd_layer(self.inputs.img_inputs))
             self.add_layer(layer, ctx_name)
             return layer
@@ -536,6 +539,7 @@ class TreeToTF(Interpreter):
         ctx_name = self.get_contextualized_name(name)
         lfp_layer = LeastFixPoint(nx.expr, type_config.constructor, type_config.precision)
         if ctx_name not in self.layers:
+            # noinspection PyCallingNonCallable
             layer = self.inputs.step(ctx_name, lfp_layer(nx.args + self.inputs.fixpoint_inputs))
             self.add_layer(layer, ctx_name)
             return layer
@@ -555,6 +559,7 @@ class TreeToTF(Interpreter):
         ctx_name = self.get_contextualized_name(name)
         gfp_layer = GreatestFixPoint(nx.expr, type_config.constructor, type_config.precision)
         if ctx_name not in self.layers:
+            # noinspection PyCallingNonCallable
             layer = self.inputs.step(ctx_name, gfp_layer(nx.args + self.inputs.fixpoint_inputs))
             self.add_layer(layer, ctx_name)
             return layer

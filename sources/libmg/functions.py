@@ -1,9 +1,9 @@
 from __future__ import annotations
-
-import typing
-from typing import Callable, TypeVar, Optional
 import tensorflow as tf
 from collections import UserDict
+import typing
+from typing import Callable, TypeVar, Optional, Tuple
+
 
 T = TypeVar('T')
 U = TypeVar('U')
@@ -14,8 +14,44 @@ VT = TypeVar('VT')
 
 # Custom dictionary class
 class FunctionDict(UserDict, typing.Mapping[KT, VT]):
+    """
+    This custom dictionary class has a few differences compared to a normal dict. It only accepts ``Callable`` items.
+    In particular, a ``tf.keras.layers.Layer`` object is a ``Callable`` that is  processed differently than any other
+    ``Callable`` object.
+
+    ``__setitem__`` interface
+    --------------------------
+
+    - A ``tf.keras.layers.Layer`` is stored in the dictionary wrapped in a one-argument lambda that discards its
+      argument and simply returns it.
+    - Any other ``Callable`` object is stored as is.
+    - An attempt to save a non-``Callable`` object results in a ``ValueError`` exception.
+
+    ``__getitem__`` interface
+    --------------------------
+    The given key is first parsed using the ``parse_key`` method. The key can either be of the form 'xyz[a]' or 'xyz':
+
+    - A key of the form 'xyz' is parsed as is
+    - A key of the form 'xyz[a]' is split into the substring before the square brackets 'xyz' and the substring in the
+      square brackets 'a'.
+    We call the first substring ``true_key`` and the second substring ``arg``.
+
+    Once the key is parsed, we obtain the item in the dictionary using ``true_key``. The dictionary does not return the
+    ``Callable`` object directly, but instead returns the output of the application of ``arg`` to the ``Callable``.
+
+    """
     @staticmethod
-    def parse_key(key):
+    def parse_key(key: str) -> Tuple[str, Optional[str]]:
+        """
+        Parses a string of the form 'xyz[a]' or 'xyz'.
+
+        - 'xyz[a]' is parsed to a tuple (xyz, a)
+        - 'xyz' is parsed to a tuple (xyz, None)
+
+        :param key: String to parse.
+        :return: Tuple that contains the substring before the square brackets and, if present, the
+                 substring inside the square brackets or ``None``.
+        """
         tokens = key.split('[')
         true_key = tokens[0]
         arg = None if len(tokens) == 1 else tokens[1][: tokens[1].find(']')]
@@ -130,7 +166,8 @@ class PsiGlobal(Psi):
 
 
 class Phi(tf.keras.layers.Layer):
-    def __init__(self, f: Optional[Callable[[tf.Tensor[T], tf.Tensor[U], tf.Tensor[T]], tf.Tensor[V]]] = None, **kwargs):
+    def __init__(self, f: Optional[Callable[[tf.Tensor[T], tf.Tensor[U], tf.Tensor[T]], tf.Tensor[V]]] = None,
+                 **kwargs):
         """
          A function  f: (T, U, T) -> V to compute the message sent by a node i to a node j through edge e.
 
@@ -155,8 +192,8 @@ class Sigma(tf.keras.layers.Layer):
         A function f: (T*, U) -> V to aggregate the messages sent to a node, including the current label of the node.
 
         :param f: A function of four arguments: a Tensor of messages of type T, a Tensor of integer indices that specify
-         the id of the node each message is being sent to, a integer that specify the total number of nodes in the graph
-         and finally a Tensor of node labels of type U. The function must return a Tensor of node labels of type V.
+        the id of the node each message is being sent to, an integer that specify the total number of nodes in the
+        graph and finally a Tensor of node labels of type U. The function must return a Tensor of node labels of type V.
         """
         super().__init__(**kwargs)
         if f is not None:

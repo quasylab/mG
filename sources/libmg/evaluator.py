@@ -65,13 +65,19 @@ class CallPerformance(PerformanceTest):
 def save_output_to_csv(dataset_generator: Iterable[Dataset], methods: list[PerformanceTest], names: list[str],
                        filename: str) -> None:
     """
-    For each dataset in `dataset_generator`, every method in `methods` is called on the given dataset. The output is
-    collected row by row, each column labelled with the name provided in `names`. The resulting data is saved in a csv
-    file with name given by `filename` in the 'data' folder.
+    This function uses `PerformanceTest` objects to create a .csv file of their outputs. For each dataset in the
+     `dataset_generator`, it runs all the callable `PerformanceTest` objects in the `methods` list by giving the dataset
+     as input. The csv file is then generated as follows:
+
+     - The first row consists of labels, given by 'index' concatenated with the name in the list `names`
+     - Then for each dataset processed, a row is added that consists of the name of the dataset and the outputs of the
+       `PerformanceTest` objects on that dataset
+
+     The output is then saved as 'filename' with a '.csv' extension in a local 'data' directory.
 
     :param dataset_generator: An iterable of datasets
     :param methods: A list of PerformanceTest objects to call
-    :param names: A list of names, corresponding to each method
+    :param names: A list of names, corresponding to each object in `methods`
     :param filename: The name of the file where to save the data
     :return: Nothing
     """
