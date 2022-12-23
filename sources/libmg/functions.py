@@ -130,18 +130,21 @@ class PsiLocal(Psi):
 
 
 class PsiGlobal(Psi):
-    def __init__(self, single_op: Optional[Callable[[tf.Tensor[T]], U]] = None,
-                 multiple_op: Optional[Callable[[tf.Tensor[T], tf.Tensor[int]], U]] = None, **kwargs):
+    def __init__(self, single_op: Optional[Callable[[tf.Tensor[T]], tf.Tensor[U]]] = None,
+                 multiple_op: Optional[Callable[[tf.Tensor[T], tf.Tensor[int]], tf.Tensor[U]]] = None, **kwargs):
         """
         A global pooling operation on node labels f: T* -> U. For single graph datasets, which use the
         SingleGraphLoader, only the single_op parameter is necessary. For multiple graph datasets, using the
         MultipleGraphLoader, only the multiple_op parameter is necessary. The multiple_op argument is a function which
         takes an additional parameter to distinguish which values in the first argument refer to which graph. For
-        more information, refer to the disjoint data mode in the Spektral library documentation.
+        more information, refer to the disjoint data mode in the Spektral library documentation. The Tensor output of
+        both ``single_op`` and ``multiple_op`` is broadcast automatically to label all nodes in the graph with the
+        pooled Tensor value for that graph
 
-        :param single_op: A function that transforms a Tensor of node labels of type T to a node label of type U.
+        :param single_op: A function that transforms a Tensor of node labels of type T to a Tensor of node labels of
+         type U.
         :param multiple_op: A function that transforms a Tensor of node labels of type T and a Tensor of their
-         respective graph indices of type int64 to a node label of type U.
+         respective graph indices of type int64 to Tensor of node labels of type U.
         """
         if single_op is not None:
             setattr(self, 'single_op', single_op)
