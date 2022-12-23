@@ -33,7 +33,7 @@ class PreImage(MessagePassing):
         self.phi = phi
 
     def message(self, x, e=None, **kwargs):
-        return self.phi(self.get_sources(x), e, self.get_targets(x))
+        return self.phi(self.get_targets(x), e, self.get_sources(x))
 
     def aggregate(self, messages, x=None, **kwargs):
         return self.sigma(messages, self.index_targets, self.n_nodes, x)
