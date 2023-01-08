@@ -60,6 +60,21 @@ class GrammarTests(tf.test.TestCase):
         self.assertEqual(tree.data, 'fun_app')
         self.assertEqual(tree.children[0].data, 'function_name')
 
+    def test_fun_def(self):
+        expr = """
+        def test(X:b){
+        (f || X);g
+        }
+        test(h)
+        """
+        tree = self.parser.parse(expr)
+        self.assertEqual(tree.data, 'fun_def')
+        self.assertEqual(len(tree.children), 5)
+        self.assertEqual(tree.children[0].data, 'function_name')
+        self.assertEqual(tree.children[1].data, 'variable_decl')
+        self.assertEqual(tree.children[2].data, 'type_decl')
+        self.assertEqual(tree.children[4].data, 'fun_call')
+
 
 if __name__ == '__main__':
     tf.test.main()

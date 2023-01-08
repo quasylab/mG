@@ -120,6 +120,30 @@ class BaseTest(tf.test.TestCase):
         # These give an error about wrong shapes in a loop, which is to be expected
         expr = ['mu X,b . (X || a)', 'mu X,b . (a || X)']
 
+    def test_functions(self):
+        loader = lambda: SingleGraphLoader(self.dataset, epochs=1)
+        compiler = self.compilers[0]
+
+        expr = """
+        def test(X:b){
+        (true || X);and;not
+        }
+        test(a)
+        """
+        model = compiler.compile(expr, verbose=True)
+        for inputs in loader().load():
+            print(model.call([inputs], training=False))
+
+        expr = """
+        def test(X:b){
+        (true || X);and;not
+        }
+        test(test(a))
+        """
+        model = compiler.compile(expr, verbose=True)
+        for inputs in loader().load():
+            print(model.call([inputs], training=False))
+
     def test_reuse(self):
         expr = 'a || ((a || b);or) || (b ; |> or) || mu X,b . ((a || X) ; or) || (a ; not)'
         loaders = [lambda: SingleGraphLoader(self.dataset, epochs=1),

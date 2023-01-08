@@ -10,13 +10,15 @@ mg_grammar = r"""
                          | UCASE_LETTER                                             -> variable
                          | "mu" variable_decl "," type_decl "."  gnn_formula        -> mu_formula
                          | "nu" variable_decl "," type_decl "."  gnn_formula        -> nu_formula
+                         | function_name "(" p_formula ")"                          -> fun_call
                          | "(" start ")"
 
-                ?s_formula:  gnn_formula
-                         | gnn_formula ";" start                                    -> composition
-
-                ?start:    s_formula
-                         | s_formula ( "||" s_formula )+                            -> parallel
+                ?p_formula: gnn_formula
+                         | gnn_formula ";" p_formula                                -> composition
+                         | gnn_formula ( "||" gnn_formula )+                        -> parallel
+                         
+                ?start: p_formula
+                        | "def" function_name "(" variable_decl ":" type_decl "){" p_formula "}" start -> fun_def
 
                 function_name: /[a-zA-Z_0-9\+\*\^\-\!\#\%\&\=\~\:\/]+/
                             |  FUNC_GEN
@@ -24,6 +26,7 @@ mg_grammar = r"""
                 FUNC_GEN: /[a-zA-Z_0-9\+\*\^\-\!\#\%\&\=\~\:\/]+/ "[" /[^\]\[]+/ "]"
 
                 variable_decl: UCASE_LETTER
+                
 
                 type_decl: /[a-zA-Z_0-9][a-z_0-9]*/
 

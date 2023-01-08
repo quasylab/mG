@@ -360,9 +360,9 @@ def make_function_ops(op_layer, layers, name):
 # asterisk in output: step whatever it returns. Used on base gnns, poolers, sequential
 # no asterisk in output: only step x. Used on kop, parallel, lhd, rhd, mu, nu
 
-
+# TODO: multivariate functions
 class TreeToTF(Interpreter):
-    def __init__(self, psi_functions, sigma_functions, phi_functions, bottoms, tops, inputs, parser):
+    def __init__(self, psi_functions, sigma_functions, phi_functions, bottoms, tops, inputs):
         super().__init__()
         self.psi_functions = psi_functions
         self.sigma_functions = sigma_functions
@@ -370,12 +370,13 @@ class TreeToTF(Interpreter):
         self.bottoms = bottoms
         self.tops = tops
         self.initial_inputs = inputs
-        self.parser = parser
         # Initialization
         self.var = []
         self.var_type = []
         self.context = []
         self.layers = {}
+        self.defined_functions = {}
+        self.var_input = None
         self.disable_saving_layers = False
         self.inputs = self.initial_inputs
 
@@ -406,6 +407,8 @@ class TreeToTF(Interpreter):
         self.var_type = []
         self.context = []
         self.layers = {}
+        self.var_input = None
+        self.defined_functions = {}
         self.disable_saving_layers = False
         self.inputs = self.initial_inputs
 
@@ -472,10 +475,13 @@ class TreeToTF(Interpreter):
 
     @v_args(inline=True)
     def variable(self, var):
-        if str(var) == self.head(self.var):
+        if len(self.var) == 0:  # we assume that the variable is being defined in an enclosing function def
+            return self.inputs.step('function_var', self.var_input)
+        elif str(var) == self.head(self.var):
             return FixPointExpression(str(var), self.head(self.var_type).signature)
         else:
             raise SyntaxError('Undeclared variable: ', str(var))
+
 
     @v_args(inline=True)
     def composition(self, phi, psi):
@@ -565,6 +571,33 @@ class TreeToTF(Interpreter):
             return layer
         return self.layers[ctx_name]
 
+    @v_args(inline=True)
+    def fun_def(self, fun_name, variable_decl, type_decl, body, tail):
+        function_name = self.visit(fun_name)
+        var_name = self.visit(variable_decl)  # TODO: use name
+        var_type = self.visit(type_decl)
+        self.var_input = self.tops[var_type].signature  # TODO: make its own dictionary
+        function = self.visit(body)
+        self.layers = {}  # delete saved layers (assumption: functions are defined at the top, so we dont lose useful layers by doing this)
+        model = tf.keras.Model(inputs=[self.var_input] + self.inputs.full_inputs, outputs=function.x)
+        self.defined_functions[function_name] = model
+        return self.visit(tail)
+
+    @v_args(inline=True)
+    def fun_call(self, fun_name, arg):
+        function_name = self.visit(fun_name)
+        argument = self.visit(arg)
+        ctx_name = self.get_contextualized_name(function_name + '(' + argument.name + ')')
+        f_layer = self.defined_functions[function_name]
+        if ctx_name not in self.layers:
+            # noinspection PyCallingNonCallable
+            layer = self.inputs.step(ctx_name, f_layer([argument.x] + self.inputs.full_inputs))
+            self.add_layer(layer, ctx_name)
+            return layer
+        else:
+            return self.layers[ctx_name]
+
+
 
 class GNNCompiler:
     def __init__(self, psi_functions: FunctionDict[str, Psi | Callable[[str], Psi] | Type[Psi]],
@@ -601,7 +634,7 @@ class GNNCompiler:
                                                 epochs=1) if \
             config.use_disjoint else SingleGraphLoader(dummy_dataset, epochs=1)
         self.interpreter = TreeToTF(psi_functions, sigma_functions, phi_functions, bottoms, tops,
-                                    IntermediateOutput("INPUT", *intermediate_output_args), self.parser)
+                                    IntermediateOutput("INPUT", *intermediate_output_args))
 
     @staticmethod
     def graph_mode_constructor(model, input_spec, method):
