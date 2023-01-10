@@ -80,14 +80,14 @@ class Normalizer(Transformer):
 
     @v_args(tree=True)
     def mu_formula(self, tree):
-        if not is_fixpoint(tree.children[2]):
+        if not is_fixpoint(tree.children[3]):
             return self.transform(fixpoint_no_vars(tree))
         else:
             return tree
 
     @v_args(tree=True)
     def nu_formula(self, tree):
-        if not is_fixpoint(tree.children[2]):
+        if not is_fixpoint(tree.children[3]):
             return self.transform(fixpoint_no_vars(tree))
         else:
             return tree
