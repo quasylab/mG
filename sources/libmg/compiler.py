@@ -56,7 +56,7 @@ class EdgeConfig:
 
 class CompilationConfig:
     def __init__(self, node_config: NodeConfig, edge_config: EdgeConfig | None, matrix_type: tf.DType,
-                 disjoint_loader: bool):
+                 precision: Optional[float], disjoint_loader: bool):
         """
         Configures how to compile a mG formula into a Model. The constructor isn't meant to be used very often, it
         is recommended to use the static constructor methods to build this object.
@@ -64,39 +64,43 @@ class CompilationConfig:
         :param node_config: A NodeConfig object specifying the initial type of the node labels in the graph
         :param edge_config: An EdgeConfig object specifying the initial type of the node edges in the graph, if any
         :param matrix_type: A Tensorflow type specifying the type of the adjacency matrix entries, usually tf.uint8
+        :param precision: Tolerance value for numeric fixpoint computations. Use `None` for exact computation.
         :param disjoint_loader: Set this to True if will be using a MultipleGraphLoader, False for a SingleGraphLoader
         """
         self.node_config = node_config
         self.edge_config = edge_config
         self._matrix_type = matrix_type
+        self._precision = precision
         self.disjoint_loader = disjoint_loader
 
     @staticmethod
-    def xa_config(node_config: NodeConfig, matrix_type: tf.DType) -> CompilationConfig:
+    def xa_config(node_config: NodeConfig, matrix_type: tf.DType, precision: Optional[float] = None) -> CompilationConfig:
         """
         Creates a CompilationConfig object that expects no edge labels in the graph and the use of the
         SingleGraphLoader
 
         :param node_config: A NodeConfig object specifying the initial type of the node labels in the graph
         :param matrix_type: A Tensorflow type specifying the type of the adjacency matrix entries, usually tf.uint8
+        :param precision: Tolerance value for numeric fixpoint computations. Use `None` for exact computation.
         :return: A CompilationConfig object
         """
-        return CompilationConfig(node_config, None, matrix_type, False)
+        return CompilationConfig(node_config, None, matrix_type, precision, False)
 
     @staticmethod
-    def xai_config(node_config: NodeConfig, matrix_type: tf.DType) -> CompilationConfig:
+    def xai_config(node_config: NodeConfig, matrix_type: tf.DType, precision: Optional[float] = None) -> CompilationConfig:
         """
         Creates a CompilationConfig object that expects no edge labels in the graph and the use of the
         MultipleGraphLoader
 
         :param node_config: A NodeConfig object specifying the initial type of the node labels in the graph
         :param matrix_type: A Tensorflow type specifying the type of the adjacency matrix entries, usually tf.uint8
+        :param precision: Tolerance value for numeric fixpoint computations. Use `None` for exact computation.
         :return: A CompilationConfig object
         """
-        return CompilationConfig(node_config, None, matrix_type, True)
+        return CompilationConfig(node_config, None, matrix_type, precision, True)
 
     @staticmethod
-    def xae_config(node_config: NodeConfig, edge_config: EdgeConfig, matrix_type: tf.DType) -> CompilationConfig:
+    def xae_config(node_config: NodeConfig, edge_config: EdgeConfig, matrix_type: tf.DType, precision: Optional[float] = None) -> CompilationConfig:
         """
         Creates a CompilationConfig object that expects edge labels in the graph and the use of the
         SingleGraphLoader
@@ -104,12 +108,13 @@ class CompilationConfig:
         :param node_config: A NodeConfig object specifying the initial type of the node labels in the graph
         :param edge_config: An EdgeConfig object specifying the initial type of the node edges in the graph, if any
         :param matrix_type: A Tensorflow type specifying the type of the adjacency matrix entries, usually tf.uint8
+        :param precision: Tolerance value for numeric fixpoint computations. Use `None` for exact computation.
         :return: A CompilationConfig object
         """
-        return CompilationConfig(node_config, edge_config, matrix_type, False)
+        return CompilationConfig(node_config, edge_config, matrix_type, precision, False)
 
     @staticmethod
-    def xaei_config(node_config: NodeConfig, edge_config: EdgeConfig, matrix_type: tf.DType) -> CompilationConfig:
+    def xaei_config(node_config: NodeConfig, edge_config: EdgeConfig, matrix_type: tf.DType, precision: Optional[float] = None) -> CompilationConfig:
         """
         Creates a CompilationConfig object that expects edge labels in the graph and the use of the
         MultipleGraphLoader
@@ -117,9 +122,10 @@ class CompilationConfig:
         :param node_config: A NodeConfig object specifying the initial type of the node labels in the graph
         :param edge_config: An EdgeConfig object specifying the initial type of the node edges in the graph, if any
         :param matrix_type: A Tensorflow type specifying the type of the adjacency matrix entries, usually tf.uint8
+        :param precision: Tolerance value for numeric fixpoint computations. Use `None` for exact computation.
         :return: A CompilationConfig object
         """
-        return CompilationConfig(node_config, edge_config, matrix_type, True)
+        return CompilationConfig(node_config, edge_config, matrix_type, precision, True)
 
     single_graph_no_edges_config = xa_config
     single_graph_with_edges_config = xae_config
@@ -149,6 +155,10 @@ class CompilationConfig:
     @property
     def use_edges(self):
         return self.edge_config is not None
+
+    @property
+    def precision(self):
+        return self._precision
 
     @property
     def use_disjoint(self):
@@ -272,34 +282,31 @@ class FixPointExpression:
         return self._signature
 
 
-class FixPointConfig:
-    def __init__(self, dimension: int, value: tf.Tensor | int | float, precision: Optional[float] = None):
-        """
-        Configure a fixpoint computation by specifying the value with which to initialize the variables and, if needed,
-        the precision with which to compute equality of two points.
-
-        :param dimension: The length of the feature vector associated to the variable
-        :param value: The value with which to fill the feature vector associated to the variable
-        :param precision: Floating-point value that specifies the precision of the fixpoint computation.
-         If two points differ in each component by less than this value, they are considered to be the same.
-        """
+class VarConfig:
+    def __init__(self, dimension: int, dtype: tf.DType):
         self._dimension = dimension
-        self._value = value if tf.is_tensor(value) else tf.constant(value)
-        self._precision = precision
-        self._constructor = lambda x: tf.fill(dims=(tf.shape(x)[0], dimension), value=value)
-        self._signature = tf.keras.Input(shape=self.dimension, dtype=self.value.dtype)
+        self._dtype = dtype
+        self._signature = lambda: tf.keras.Input(shape=self.dimension, dtype=self.dtype)
 
     @property
     def signature(self):
-        return self._signature
-
-    @property
-    def precision(self):
-        return self._precision
+        return self._signature()
 
     @property
     def dimension(self):
         return self._dimension
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+
+class FixPointConfig(VarConfig):
+    def __init__(self, dimension, dtype, value, precision=None):
+        super().__init__(dimension, dtype)
+        self._value = tf.constant(value, dtype=self.dtype)
+        self._precision = precision
+        self._constructor = lambda x: tf.fill(dims=(tf.shape(x)[0], self.dimension), value=self.value)
 
     @property
     def value(self):
@@ -308,6 +315,14 @@ class FixPointConfig:
     @property
     def constructor(self):
         return self._constructor
+
+    @property
+    def precision(self):
+        return self._precision
+
+    @property
+    def name(self):
+        return str(self.dtype.name) + '[' + str(self.dimension) + ']=' + str(self.value.numpy())
 
 
 # make function for parallel op, only interested in the x and ignores a, e, i
@@ -360,22 +375,28 @@ def make_function_ops(op_layer, layers, name):
 # asterisk in output: step whatever it returns. Used on base gnns, poolers, sequential
 # no asterisk in output: only step x. Used on kop, parallel, lhd, rhd, mu, nu
 
-
 class TreeToTF(Interpreter):
-    def __init__(self, psi_functions, sigma_functions, phi_functions, bottoms, tops, inputs, parser):
+
+    supported_types = {'bool': tf.bool, 'int': tf.int32, 'float': tf.float32, 'uint8': tf.uint8, 'uint16': tf.uint16,
+                       'uint32': tf.uint32, 'uint64': tf.uint64, 'int8': tf.int8, 'int16': tf.int16, 'int32': tf.int32,
+                       'int64': tf.int64, 'float16': tf.float16, 'float32': tf.float32, 'float64': tf.float64,
+                       'half': tf.float16, 'double': tf.float64}
+
+    def __init__(self, psi_functions, sigma_functions, phi_functions, inputs, precision):
         super().__init__()
         self.psi_functions = psi_functions
         self.sigma_functions = sigma_functions
         self.phi_functions = phi_functions
-        self.bottoms = bottoms
-        self.tops = tops
         self.initial_inputs = inputs
-        self.parser = parser
+        self.precision = precision
         # Initialization
         self.var = []
         self.var_type = []
         self.context = []
         self.layers = {}
+        self.defined_functions = {}
+        self.defined_variables = {}
+        self.var_input = {}
         self.disable_saving_layers = False
         self.inputs = self.initial_inputs
 
@@ -401,11 +422,27 @@ class TreeToTF(Interpreter):
     def head(stack):
         return stack[-1]
 
+    @staticmethod
+    def get_value(value_token, expected_type):
+        if value_token == 'false' and expected_type.is_bool:
+            return False
+        elif value_token == 'true' and expected_type.is_bool:
+            return True
+        elif expected_type.is_integer:
+            return int(value_token)
+        elif expected_type.is_floating:
+            return float(value_token)
+        else:
+            raise SyntaxError("Invalid value:", value_token)
+
     def initialize(self):
         self.var = []
         self.var_type = []
         self.context = []
         self.layers = {}
+        self.var_input = {}
+        self.defined_functions = {}
+        self.defined_variables = {}
         self.disable_saving_layers = False
         self.inputs = self.initial_inputs
 
@@ -418,17 +455,24 @@ class TreeToTF(Interpreter):
         return str(var)
 
     @v_args(inline=True)
-    def type_decl(self, type_decl):
-        return str(type_decl)
+    def type_decl(self, type_decl, dimension):
+        return VarConfig(int(dimension), self.supported_types[type_decl])
 
     @v_args(inline=True)
     def fun_app(self, function):
         f = self.visit(function)
         ctx_name = self.get_contextualized_name(f)
-        f_layer = FunctionApplication(self.psi_functions[f])
+        if f in self.defined_variables:
+            f_layer = self.defined_variables[f]
+        else:
+            f_layer = FunctionApplication(self.psi_functions[f])
         if ctx_name not in self.layers:
-            # noinspection PyCallingNonCallable
-            layer = self.inputs.step(ctx_name, f_layer(self.inputs.func_inputs))
+            if f in self.defined_variables:
+                # noinspection PyCallingNonCallable
+                layer = self.inputs.step(ctx_name, f_layer(self.inputs.full_inputs))
+            else:
+                # noinspection PyCallingNonCallable
+                layer = self.inputs.step(ctx_name, f_layer(self.inputs.func_inputs))
             self.add_layer(layer, ctx_name)
             return layer
         else:
@@ -472,10 +516,16 @@ class TreeToTF(Interpreter):
 
     @v_args(inline=True)
     def variable(self, var):
-        if str(var) == self.head(self.var):
+        var = str(var)
+        if len(self.var) == 0:  # we are not inside a fixpoint op, then we are defining a function
+            if var in self.var_input:
+                return self.inputs.step('var_'+var, self.var_input[var])
+            else:
+                raise SyntaxError('Undeclared variable: ', var)
+        elif var == self.head(self.var):
             return FixPointExpression(str(var), self.head(self.var_type).signature)
         else:
-            raise SyntaxError('Undeclared variable: ', str(var))
+            raise SyntaxError('Undeclared variable: ', var)
 
     @v_args(inline=True)
     def composition(self, phi, psi):
@@ -526,15 +576,18 @@ class TreeToTF(Interpreter):
             return self.layers[ctx_name]
 
     @v_args(inline=True)
-    def mu_formula(self, variable_decl, type_decl, nx):
+    def mu_formula(self, variable_decl, type_decl, value, nx):
         var_name = self.visit(variable_decl)
         self.push(var_name, self.var)
-        type_decl = self.visit(type_decl)
-        self.push(self.bottoms[type_decl], self.var_type)
+        type_decl = self.visit(type_decl)  # VarConfig object
+        value = self.get_value(value, type_decl.dtype)
+        precision = None if isinstance(value, bool) else self.precision
+        fixpoint_config = FixPointConfig(type_decl.dimension, type_decl.dtype, value, precision)
+        self.push(fixpoint_config, self.var_type)
         nx = self.visit(nx)
         if type(nx) is not FixPointExpression:
             raise SyntaxError('Invalid fixpoint expression')
-        name = 'mu ' + self.pop(self.var) + ',' + type_decl + ' . ' + nx.name
+        name = 'mu ' + self.pop(self.var) + ':' + fixpoint_config.name + ' . ' + nx.name
         type_config = self.pop(self.var_type)
         ctx_name = self.get_contextualized_name(name)
         lfp_layer = LeastFixPoint(nx.expr, type_config.constructor, type_config.precision)
@@ -546,15 +599,18 @@ class TreeToTF(Interpreter):
         return self.layers[ctx_name]
 
     @v_args(inline=True)
-    def nu_formula(self, variable_decl, type_decl, nx):
+    def nu_formula(self, variable_decl, type_decl, value, nx):
         var_name = self.visit(variable_decl)
         self.push(var_name, self.var)
-        type_decl = self.visit(type_decl)
-        self.push(self.tops[type_decl], self.var_type)
+        type_decl = self.visit(type_decl)  # VarConfig object
+        value = self.get_value(value, type_decl.dtype)
+        precision = None if isinstance(value, bool) else self.precision
+        fixpoint_config = FixPointConfig(type_decl.dimension, type_decl.dtype, value, precision)
+        self.push(fixpoint_config, self.var_type)
         nx = self.visit(nx)
         if type(nx) is not FixPointExpression:
             raise SyntaxError('Invalid fixpoint expression')
-        name = 'nu ' + self.pop(self.var) + ',' + type_decl + ' . ' + nx.name
+        name = 'nu ' + self.pop(self.var) + ':' + fixpoint_config.name + ' . ' + nx.name
         type_config = self.pop(self.var_type)
         ctx_name = self.get_contextualized_name(name)
         gfp_layer = GreatestFixPoint(nx.expr, type_config.constructor, type_config.precision)
@@ -565,20 +621,55 @@ class TreeToTF(Interpreter):
             return layer
         return self.layers[ctx_name]
 
+    def fun_def(self, tree):
+        args = tree.children
+        function_name = self.visit(args[0])
+        for i in range(len(args[1:-2])//2):
+            var_name = self.visit(args[1 + i*2])
+            var_type = self.visit(args[1 + i*2 + 1])
+            self.var_input[var_name] = var_type.signature
+        function = self.visit(args[-2])
+        ordered_keys = list(self.var_input)  # as of Python 3.6, this returns the keys in insertion order
+        model = tf.keras.Model(inputs=[self.var_input[key] for key in ordered_keys] + self.inputs.full_inputs, outputs=function.x)
+        self.defined_functions[function_name] = model
+        self.layers = {}  # delete saved layers (assumption: functions are defined at the top, so we dont lose useful layers by doing this)
+        self.var_input = {}
+        return self.visit(args[-1])
+
+    @v_args(inline=True)
+    def var_def(self, var_name, body, tail):
+        var_name = self.visit(var_name)
+        function = self.visit(body)
+        self.layers = {}  # delete saved layers (assumption: functions are defined at the top, so we dont lose useful layers by doing this)
+        model = tf.keras.Model(inputs=self.inputs.full_inputs, outputs=function.x)
+        self.defined_variables[var_name] = model
+        return self.visit(tail)
+
+    def fun_call(self, tree):
+        args = tree.children
+        function_name = self.visit(args[0])
+        arguments = [self.visit(arg) for arg in args[1:]]
+        ctx_name = self.get_contextualized_name(function_name + '(' + ','.join([argument.name for argument in arguments]) + ')')
+        f_layer = self.defined_functions[function_name]
+        if ctx_name not in self.layers:
+            # noinspection PyCallingNonCallable
+            layer = self.inputs.step(ctx_name, f_layer([argument.x for argument in arguments] + self.inputs.full_inputs))
+            self.add_layer(layer, ctx_name)
+            return layer
+        else:
+            return self.layers[ctx_name]
+
 
 class GNNCompiler:
     def __init__(self, psi_functions: FunctionDict[str, Psi | Callable[[str], Psi] | Type[Psi]],
                  sigma_functions: FunctionDict[str, Sigma | Callable[[str], Sigma] | Type[Sigma]],
-                 phi_functions: FunctionDict[str, Phi | Callable[[str], Phi] | Type[Phi]],
-                 bottoms: dict[str, FixPointConfig], tops: dict[str, FixPointConfig], config: CompilationConfig):
+                 phi_functions: FunctionDict[str, Phi | Callable[[str], Phi] | Type[Phi]], config: CompilationConfig):
         """
         A compiler for mG formulas. A formula is transformed into a Tensorflow model using the compile method.
 
         :param psi_functions: A dictionary of Psi functions, from any among the Psi, PsiLocal and PsiGlobal classes
         :param sigma_functions: A dictionary of Sigma functions
         :param phi_functions: A dictionary of Phi functions
-        :param bottoms: A dictionary of FixPointConfig objects to be used as bottom configurations
-        :param tops: A dictionary of FixPointConfig objects to be used as top configurations
         :param config: A CompilationConfig object to configure this GNNCompiler object
         """
         self.parser = Lark(mg_grammar, maybe_placeholders=False)
@@ -600,8 +691,8 @@ class GNNCompiler:
         self.dummy_loader = MultipleGraphLoader(dummy_dataset, node_level=True, batch_size=1, shuffle=False,
                                                 epochs=1) if \
             config.use_disjoint else SingleGraphLoader(dummy_dataset, epochs=1)
-        self.interpreter = TreeToTF(psi_functions, sigma_functions, phi_functions, bottoms, tops,
-                                    IntermediateOutput("INPUT", *intermediate_output_args), self.parser)
+        self.interpreter = TreeToTF(psi_functions, sigma_functions, phi_functions,
+                                    IntermediateOutput("INPUT", *intermediate_output_args), config.precision)
 
     @staticmethod
     def graph_mode_constructor(model, input_spec, method):

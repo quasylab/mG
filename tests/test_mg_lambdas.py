@@ -6,7 +6,7 @@ from scipy.sparse import coo_matrix
 from spektral.data import Graph
 from libmg import PsiLocal, PsiGlobal, Sigma, Phi, FunctionDict
 from libmg import SingleGraphLoader, MultipleGraphLoader
-from libmg import GNNCompiler, CompilationConfig, FixPointConfig, NodeConfig, EdgeConfig
+from libmg import GNNCompiler, CompilationConfig, NodeConfig, EdgeConfig
 from libmg import Dataset
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = "0"
@@ -64,15 +64,11 @@ class BaseTest(tf.test.TestCase):
             psi_functions=psi_dict,
             sigma_functions=sigma_dict,
             phi_functions=FunctionDict({}),
-            bottoms={'b': FixPointConfig(1, False)},
-            tops={'b': FixPointConfig(1, True)},
             config=CompilationConfig.xa_config(NodeConfig(tf.uint8, 1), tf.uint8)),
             GNNCompiler(
                 psi_functions=psi_dict,
                 sigma_functions=sigma_dict,
                 phi_functions=FunctionDict({}),
-                bottoms={'b': FixPointConfig(1, False)},
-                tops={'b': FixPointConfig(1, True)},
                 config=CompilationConfig.xai_config(NodeConfig(tf.uint8, 1), tf.uint8))]
 
     def test_simple_expr(self):
@@ -86,8 +82,10 @@ class BaseTest(tf.test.TestCase):
                     model.call([inputs], training=False)
 
     def test_fixpoint_expr(self):
-        expr = ['mu X,b . (X ; |> or)', 'mu X,b . ((X || a);and)', 'nu X,b .  (X ; |> or)', 'nu X,b . ((X || a);and)',
-                'mu Y,b . (Y ; |> or)', 'mu X,b . (X ; |> or) || nu X,b . ((X || a);and)']
+        expr = ['mu X:bool[1] = false . (X ; |> or)', 'mu X:bool[1] = false . ((X || a);and)',
+                'nu X:bool[1] = true .  (X ; |> or)', 'nu X:bool[1] = true . ((X || a);and)',
+                'mu Y:bool[1] = false . (Y ; |> or)',
+                'mu X:bool[1] = false . (X ; |> or) || nu X:bool[1] = true . ((X || a);and)']
         loaders = [lambda: SingleGraphLoader(self.dataset, epochs=1),
                    lambda: MultipleGraphLoader(self.dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
         for loader, compiler in zip(loaders, self.compilers):
@@ -97,8 +95,10 @@ class BaseTest(tf.test.TestCase):
                     model.call([inputs], training=False)
 
     def test_seq_expr(self):
-        expr = ['a;not', 'a;not;not', 'a;not;not;not', 'mu X,b . (a ; ((X || not);and))', 'mu X,b . (X ; not; not)',
-                'mu X,b . (X ; id)', 'mu X,b . ((X ; not) ; ((X || not);or))']
+        expr = ['a;not', 'a;not;not', 'a;not;not;not', 'mu X:bool[1] = false . (a ; ((X || not);and))',
+                'mu X:bool[1] = false . (X ; not; not)',
+                'mu X:bool[1] = false . (X ; id)',
+                'mu X:bool[1] = false . ((X ; not) ; ((X || not);or))']
         loaders = [lambda: SingleGraphLoader(self.dataset, epochs=1),
                    lambda: MultipleGraphLoader(self.dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
         for loader, compiler in zip(loaders, self.compilers):
@@ -118,10 +118,63 @@ class BaseTest(tf.test.TestCase):
                     model.call([inputs], training=False)
 
         # These give an error about wrong shapes in a loop, which is to be expected
-        expr = ['mu X,b . (X || a)', 'mu X,b . (a || X)']
+        expr = ['mu X:bool[1] = false . (X || a)', 'mu X:bool[1] = false . (a || X)']
+
+    def test_univariate_functions(self):
+        expr = ["""
+        def test(X:bool[1]){
+        (true || X);and;not
+        }
+        test(a)
+        """, """
+        def test(X:bool[1]){
+        (true || X);and;not
+        }
+        test(test(a))
+        """]
+        loaders = [lambda: SingleGraphLoader(self.dataset, epochs=1),
+                   lambda: MultipleGraphLoader(self.dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
+        for loader, compiler in zip(loaders, self.compilers):
+            for e in expr:
+                model = compiler.compile(e)
+                for inputs in loader().load():
+                    model.call([inputs], training=False)
+
+    def test_multivariate_functions(self):
+        expr = ["""
+        def test(X:bool[1], Y:bool[1]){
+        (Y || X);and;not
+        }
+        test(a, b)
+        """, """
+        def test(X:bool[1], Y:bool[1]){
+        (Y || X);and;not
+        }
+        test(test(a, b), b)
+        """]
+        loaders = [lambda: SingleGraphLoader(self.dataset, epochs=1),
+                   lambda: MultipleGraphLoader(self.dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
+        for loader, compiler in zip(loaders, self.compilers):
+            for e in expr:
+                model = compiler.compile(e)
+                for inputs in loader().load():
+                    model.call([inputs], training=False)
+
+    def test_variables(self):
+        expr = ["""
+        let test = b;not
+        test
+        """]
+        loaders = [lambda: SingleGraphLoader(self.dataset, epochs=1),
+                   lambda: MultipleGraphLoader(self.dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
+        for loader, compiler in zip(loaders, self.compilers):
+            for e in expr:
+                model = compiler.compile(e)
+                for inputs in loader().load():
+                    model.call([inputs], training=False)
 
     def test_reuse(self):
-        expr = 'a || ((a || b);or) || (b ; |> or) || mu X,b . ((a || X) ; or) || (a ; not)'
+        expr = 'a || ((a || b);or) || (b ; |> or) || mu X:bool[1] = false . ((a || X) ; or) || (a ; not)'
         loaders = [lambda: SingleGraphLoader(self.dataset, epochs=1),
                    lambda: MultipleGraphLoader(self.dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
         expected_n_layers = 10
@@ -159,20 +212,16 @@ class EdgeTest(tf.test.TestCase):
             psi_functions=psi_dict,
             sigma_functions=sigma_dict,
             phi_functions=phi_dict,
-            bottoms={'b': FixPointConfig(1, False)},
-            tops={'b': FixPointConfig(1, True)},
             config=CompilationConfig.xae_config(NodeConfig(tf.uint8, 1), EdgeConfig(tf.uint8, 1), tf.uint8)),
             GNNCompiler(
                 psi_functions=psi_dict,
                 sigma_functions=sigma_dict,
                 phi_functions=phi_dict,
-                bottoms={'b': FixPointConfig(1, False)},
-                tops={'b': FixPointConfig(1, True)},
                 config=CompilationConfig.xaei_config(NodeConfig(tf.uint8, 1), EdgeConfig(tf.uint8, 1), tf.uint8))]
 
     def test_edge_expr(self):
         expr = ['a ; |z> or', 'a ; <z| uor', '( (a ; |z> or) || (b ; |z> or) ); or', ' a ; |z> or ; |z> or',
-                '(b ; |z> or) || ( c ; |z> or)', 'nu X,b . (X ; |z> or)']
+                '(b ; |z> or) || ( c ; |z> or)', 'nu X:bool[1] = true . (X ; |z> or)']
         loaders = [SingleGraphLoader(self.dataset, epochs=1),
                    MultipleGraphLoader(self.dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
         for loader, compiler in zip(loaders, self.compilers):
@@ -182,7 +231,7 @@ class EdgeTest(tf.test.TestCase):
                     model.call([inputs], training=False)
 
     def test_reuse(self):
-        expr = 'a || ((a || b);or) || (b ; <z| uor) || mu X,b . (((b ; <z| uor) || X);or) || (a ; not)'
+        expr = 'a || ((a || b);or) || (b ; <z| uor) || mu X:bool[1] = false . (((b ; <z| uor) || X);or) || (a ; not)'
         loaders = [lambda: SingleGraphLoader(self.dataset, epochs=1),
                    lambda: MultipleGraphLoader(self.dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
         expected_n_layers = 11
@@ -223,8 +272,6 @@ class PoolTest(tf.test.TestCase):
             psi_functions=psi_dict,
             sigma_functions=sigma_dict,
             phi_functions=FunctionDict({}),
-            bottoms={'b': FixPointConfig(1, False)},
-            tops={'b': FixPointConfig(1, True)},
             config=CompilationConfig.xa_config(NodeConfig(tf.uint8, 1), tf.uint8)),
             GNNCompiler(
                 psi_functions=FunctionDict({'a': PsiLocal(
@@ -244,8 +291,6 @@ class PoolTest(tf.test.TestCase):
                     'gsum': PsiGlobal(multiple_op=tf.math.segment_sum)}),
                 sigma_functions=sigma_dict,
                 phi_functions=FunctionDict({}),
-                bottoms={'b': FixPointConfig(1, False)},
-                tops={'b': FixPointConfig(1, True)},
                 config=CompilationConfig.xai_config(NodeConfig(tf.uint8, 1), tf.uint8))]
 
     def test_global_pooling(self):
