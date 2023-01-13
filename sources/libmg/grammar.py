@@ -3,13 +3,12 @@ The notation (gnn_formula)? ";" gnn_formula forces the parser to evaluate the se
 """
 
 mg_grammar = r"""
-                ?gnn_formula: function_name                                         -> fun_app
-                         | "<" function_name? "|" function_name                     -> lhd
-                         | "|" function_name? ">" function_name                     -> rhd
-                         | UCASE_LETTER                                             -> variable
-                         | "mu" variable_decl ":" type_decl "=" VALUE "." gnn_formula        -> mu_formula
-                         | "nu" variable_decl ":" type_decl "=" VALUE "." gnn_formula        -> nu_formula
-                         | function_name "(" (p_formula ",")* p_formula ")"         -> fun_call
+                ?gnn_formula: label                                         -> atom_op
+                         | "<" label? "|" label                     -> lhd
+                         | "|" label? ">" label                     -> rhd
+                         | "mu" label_decl ":" type_decl "=" VALUE "." gnn_formula        -> mu_formula
+                         | "nu" label_decl ":" type_decl "=" VALUE "." gnn_formula        -> nu_formula
+                         | label "(" (p_formula ",")* p_formula ")"         -> fun_call
                          | "(" start ")"
 
                 ?p_formula: gnn_formula
@@ -17,15 +16,15 @@ mg_grammar = r"""
                          | gnn_formula ( "||" gnn_formula )+                        -> parallel
 
                 ?start: p_formula
-                        | "def" function_name "(" (variable_decl ":" type_decl ",")* variable_decl ":" type_decl "){" p_formula "}" start -> fun_def
-                        | "let" function_name "=" p_formula start -> var_def
+                        | "def" label_decl "(" (label_decl ":" type_decl ",")* label_decl ":" type_decl "){" p_formula "}" start -> fun_def
+                        | "let" label_decl "=" p_formula start -> var_def
 
-                function_name: /[a-zA-Z_0-9\+\*\^\-\!\#\%\&\=\~\:\/]+/
+                label: /[a-zA-Z_0-9\+\*\^\-\!\#\%\&\=\~\/]+/
                             |  FUNC_GEN
 
-                FUNC_GEN: /[a-zA-Z_0-9\+\*\^\-\!\#\%\&\=\~\:\/]+/ "[" /[^\]\[]+/ "]"
+                FUNC_GEN: /[a-zA-Z_0-9\+\*\^\-\!\#\%\&\=\~\/]+/ "[" /[^\]\[]+/ "]"
 
-                variable_decl: UCASE_LETTER
+                label_decl: /[a-zA-Z_0-9\+\*\^\-\!\#\%\&\=\~\/]+/
 
                 type_decl: TYPE "[" NUMBER "]"
 
@@ -39,5 +38,3 @@ mg_grammar = r"""
                 %import common.UCASE_LETTER
                 %ignore WS
                 """
-
-# type_decl: /[a-zA-Z_0-9][a-z_0-9]*/

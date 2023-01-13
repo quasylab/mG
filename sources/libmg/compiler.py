@@ -447,11 +447,11 @@ class TreeToTF(Interpreter):
         self.inputs = self.initial_inputs
 
     @v_args(inline=True)
-    def function_name(self, f):
+    def label(self, f):
         return str(f)
 
     @v_args(inline=True)
-    def variable_decl(self, var):
+    def label_decl(self, var):
         return str(var)
 
     @v_args(inline=True)
@@ -459,20 +459,27 @@ class TreeToTF(Interpreter):
         return VarConfig(int(dimension), self.supported_types[type_decl])
 
     @v_args(inline=True)
-    def fun_app(self, function):
-        f = self.visit(function)
-        ctx_name = self.get_contextualized_name(f)
-        if f in self.defined_variables:
-            f_layer = self.defined_variables[f]
+    def atom_op(self, label):
+        label = self.visit(label)
+        ctx_name = self.get_contextualized_name(label)
+        if len(self.var) == 0 and label in self.var_input:  # we are not inside a fixpoint op and we are defining a function
+            return self.inputs.step('var_' + label, self.var_input[label])
+        elif len(self.var) > 0 and label == self.head(self.var):  # we are inside a fixpoint op and the label matches the fixpoint var
+            return FixPointExpression(str(label), self.head(self.var_type).signature)
+        elif label in self.defined_variables:  # the label matches a global variable
+            op_layer = self.defined_variables[label]
+        elif label in self.psi_functions:  # the label matches a psi function
+            op_layer = FunctionApplication(self.psi_functions[label])
         else:
-            f_layer = FunctionApplication(self.psi_functions[f])
+            raise SyntaxError('Undeclared variable: ', label)
+        # execution continues here only in the third or fourth cases of the if-elif-else
         if ctx_name not in self.layers:
-            if f in self.defined_variables:
+            if label in self.defined_variables:
                 # noinspection PyCallingNonCallable
-                layer = self.inputs.step(ctx_name, f_layer(self.inputs.full_inputs))
+                layer = self.inputs.step(ctx_name, op_layer(self.inputs.full_inputs))
             else:
                 # noinspection PyCallingNonCallable
-                layer = self.inputs.step(ctx_name, f_layer(self.inputs.func_inputs))
+                layer = self.inputs.step(ctx_name, op_layer(self.inputs.func_inputs))
             self.add_layer(layer, ctx_name)
             return layer
         else:
@@ -513,19 +520,6 @@ class TreeToTF(Interpreter):
             self.add_layer(layer, ctx_name)
             return layer
         return self.layers[ctx_name]
-
-    @v_args(inline=True)
-    def variable(self, var):
-        var = str(var)
-        if len(self.var) == 0:  # we are not inside a fixpoint op, then we are defining a function
-            if var in self.var_input:
-                return self.inputs.step('var_'+var, self.var_input[var])
-            else:
-                raise SyntaxError('Undeclared variable: ', var)
-        elif var == self.head(self.var):
-            return FixPointExpression(str(var), self.head(self.var_type).signature)
-        else:
-            raise SyntaxError('Undeclared variable: ', var)
 
     @v_args(inline=True)
     def composition(self, phi, psi):
@@ -747,7 +741,9 @@ class GNNCompiler:
         :return: A Tensorflow Model that is the mG evaluation of 'expr'.
         """
         self.interpreter.initialize()
-        outputs = self.interpreter.visit(self.macros.transform(self.parser.parse(expr)))
+        # outputs = self.interpreter.visit(self.macros.transform(self.parser.parse(expr)))
+        # TODO: restore the normalizer
+        outputs = self.interpreter.visit(self.parser.parse(expr))
         model = tf.keras.Model(inputs=self.model_inputs, outputs=outputs.x)
         model.compile(loss=loss)  # this is for training
         if verbose is True:

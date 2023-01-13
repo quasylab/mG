@@ -11,54 +11,54 @@ class GrammarTests(tf.test.TestCase):
     def test_seq(self):
         expr = 'a;b;c;d;e'
         tree = self.parser.parse(expr)
-        self.assertEqual(len(tree.children), 2)
-        self.assertEqual(len(tree.children[1].children), 2)
-        self.assertEqual(len(tree.children[1].children[1].children), 2)
-        self.assertEqual(len(tree.children[1].children[1].children[1].children), 2)
+        self.assertEqual(2, len(tree.children),)
+        self.assertEqual(2, len(tree.children[1].children))
+        self.assertEqual(2, len(tree.children[1].children[1].children))
+        self.assertEqual(2, len(tree.children[1].children[1].children[1].children))
 
     def test_par(self):
         expr = 'a || b || c || d || e'
         tree = self.parser.parse(expr)
-        self.assertEqual(len(tree.children), 5)
+        self.assertEqual(5, len(tree.children))
 
     def test_nested_par(self):
         expr = '(a || b) ; c ; d ; ( e || f)'
         tree = self.parser.parse(expr)
-        self.assertEqual(len(tree.children), 2)
-        self.assertEqual(len(tree.children[0].children), 2)
-        self.assertEqual(len(tree.children[1].children), 2)
-        self.assertEqual(len(tree.children[1].children[1].children), 2)
-        self.assertEqual(len(tree.children[1].children[1].children[1].children), 2)
+        self.assertEqual(2, len(tree.children))
+        self.assertEqual(2, len(tree.children[0].children))
+        self.assertEqual(2, len(tree.children[1].children))
+        self.assertEqual(2, len(tree.children[1].children[1].children))
+        self.assertEqual(2, len(tree.children[1].children[1].children[1].children))
 
     def test_nested_seq(self):
         expr = 'a || (b;c) || c || (d;e) || e'
         tree = self.parser.parse(expr)
-        self.assertEqual(len(tree.children), 5)
+        self.assertEqual(5, len(tree.children))
 
     def test_special_characters(self):
         expr = '<+|*'
         tree = self.parser.parse(expr)
-        self.assertEqual(tree.children[0].data, 'function_name')
-        self.assertEqual(tree.children[1].data, 'function_name')
+        self.assertEqual('label', tree.children[0].data)
+        self.assertEqual('label', tree.children[1].data)
 
-        expr = '/;:;|%>&'
+        expr = '/;!;|%>&'
         tree = self.parser.parse(expr)
-        self.assertEqual(tree.children[0].data, 'fun_app')
-        self.assertEqual(tree.children[1].children[0].data, 'fun_app')
-        self.assertEqual(tree.children[1].children[1].data, 'rhd')
-        self.assertEqual(tree.children[1].children[1].children[0].data, 'function_name')
-        self.assertEqual(tree.children[1].children[1].children[1].data, 'function_name')
+        self.assertEqual('atom_op', tree.children[0].data)
+        self.assertEqual('atom_op', tree.children[1].children[0].data)
+        self.assertEqual('rhd', tree.children[1].children[1].data)
+        self.assertEqual('label', tree.children[1].children[1].children[0].data)
+        self.assertEqual('label', tree.children[1].children[1].children[1].data)
 
     def test_var_function_name(self):
         expr = 'add[1]'
         tree = self.parser.parse(expr)
-        self.assertEqual(tree.data, 'fun_app')
-        self.assertEqual(tree.children[0].data, 'function_name')
+        self.assertEqual('atom_op', tree.data)
+        self.assertEqual('label', tree.children[0].data)
 
         expr = 'add1'
         tree = self.parser.parse(expr)
-        self.assertEqual(tree.data, 'fun_app')
-        self.assertEqual(tree.children[0].data, 'function_name')
+        self.assertEqual('atom_op', tree.data)
+        self.assertEqual('label', tree.children[0].data)
 
     def test_uni_fun_def(self):
         expr = """
@@ -68,12 +68,12 @@ class GrammarTests(tf.test.TestCase):
         test(h)
         """
         tree = self.parser.parse(expr)
-        self.assertEqual(tree.data, 'fun_def')
-        self.assertEqual(len(tree.children), 5)
-        self.assertEqual(tree.children[0].data, 'function_name')
-        self.assertEqual(tree.children[1].data, 'variable_decl')
-        self.assertEqual(tree.children[2].data, 'type_decl')
-        self.assertEqual(tree.children[4].data, 'fun_call')
+        self.assertEqual('fun_def', tree.data)
+        self.assertEqual(5, len(tree.children),)
+        self.assertEqual('label_decl', tree.children[0].data)
+        self.assertEqual('label_decl', tree.children[1].data)
+        self.assertEqual('type_decl', tree.children[2].data)
+        self.assertEqual('fun_call', tree.children[4].data)
 
     def test_mul_fun_def(self):
         expr = """
@@ -83,14 +83,14 @@ class GrammarTests(tf.test.TestCase):
         test(h, f)
         """
         tree = self.parser.parse(expr)
-        self.assertEqual(tree.data, 'fun_def')
-        self.assertEqual(len(tree.children), 7)
-        self.assertEqual(tree.children[0].data, 'function_name')
-        self.assertEqual(tree.children[1].data, 'variable_decl')
-        self.assertEqual(tree.children[2].data, 'type_decl')
-        self.assertEqual(tree.children[3].data, 'variable_decl')
-        self.assertEqual(tree.children[4].data, 'type_decl')
-        self.assertEqual(tree.children[6].data, 'fun_call')
+        self.assertEqual('fun_def', tree.data)
+        self.assertEqual(7, len(tree.children))
+        self.assertEqual('label_decl', tree.children[0].data)
+        self.assertEqual('label_decl', tree.children[1].data,)
+        self.assertEqual('type_decl', tree.children[2].data)
+        self.assertEqual('label_decl', tree.children[3].data)
+        self.assertEqual('type_decl', tree.children[4].data)
+        self.assertEqual('fun_call', tree.children[6].data)
 
     def test_var_def(self):
         expr = """
@@ -98,10 +98,10 @@ class GrammarTests(tf.test.TestCase):
         test
         """
         tree = self.parser.parse(expr)
-        self.assertEqual(tree.data, 'var_def')
-        self.assertEqual(len(tree.children), 3)
-        self.assertEqual(tree.children[0].data, 'function_name')
-        self.assertEqual(tree.children[2].data, 'fun_app')
+        self.assertEqual('var_def', tree.data)
+        self.assertEqual(3, len(tree.children))
+        self.assertEqual('label_decl', tree.children[0].data)
+        self.assertEqual('atom_op', tree.children[2].data)
 
 
 if __name__ == '__main__':
