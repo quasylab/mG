@@ -57,11 +57,15 @@ class FunctionDict(UserDict, typing.Mapping[KT, VT]):
         arg = None if len(tokens) == 1 else tokens[1][: tokens[1].find(']')]
         return true_key, arg
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: KT):
         true_key, arg = self.parse_key(key)
         return self.data[true_key](arg)
 
-    def __setitem__(self, key, value):
+    def __contains__(self, key: KT):
+        true_key, _ = self.parse_key(key)
+        return true_key in self.data
+
+    def __setitem__(self, key: KT, value: VT):
         if isinstance(value, tf.keras.layers.Layer):
             self.data[key] = lambda _: value
         elif callable(value):
