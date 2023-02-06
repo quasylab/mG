@@ -12,6 +12,16 @@ from libmg import Dataset
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = "0"
 
 
+def base_tester(dataset, compilers, expressions):
+    loaders = [SingleGraphLoader(dataset, epochs=1),
+               MultipleGraphLoader(dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
+    for loader, compiler in zip(loaders, compilers):
+        for e in expressions:
+            model = compiler.compile(e)
+            for inputs in loader.load():
+                model.call([inputs], training=False)
+
+
 class A(PsiLocal):
     def f(self, x):
         return tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 0, dtype=tf.uint8)), tf.bool)
@@ -55,6 +65,21 @@ class Not(PsiLocal):
 class Id(PsiLocal):
     def f(self, x):
         return x
+
+
+class Add1(PsiLocal):
+    def f(self, x):
+        return x + 1
+
+
+class Sub1(PsiLocal):
+    def f(self, x):
+        return x - 1
+
+
+class Le2(PsiLocal):
+    def f(self, x):
+        return x < 2
 
 
 class Max(Sigma):
@@ -122,123 +147,154 @@ class BaseTest(tf.test.TestCase):
         super().setUp()
         self.dataset = TestDataset(n=1, edges=False)
         psi_dict = FunctionDict({'a': A, 'b': B, 'c': C, 'true': TTrue, 'false': FFalse, 'and': And,
-                                 'or': Or, 'not': Not, 'id': Id})
+                                 'or': Or, 'not': Not, 'id': Id, 'le': Le2, 'add1': Add1, 'sub1': Sub1})
         sigma_dict = FunctionDict({'or': Max, 'uor': UMax})
         self.compilers = [GNNCompiler(
             psi_functions=psi_dict,
             sigma_functions=sigma_dict,
             phi_functions=FunctionDict({}),
-            config=CompilationConfig.xa_config(NodeConfig(tf.uint8, 1), tf.uint8)),
+            config=CompilationConfig.xa_config(NodeConfig(tf.uint8, 1), tf.uint8, {})),
             GNNCompiler(
                 psi_functions=psi_dict,
                 sigma_functions=sigma_dict,
                 phi_functions=FunctionDict({}),
-                config=CompilationConfig.xai_config(NodeConfig(tf.uint8, 1), tf.uint8))]
+                config=CompilationConfig.xai_config(NodeConfig(tf.uint8, 1), tf.uint8, {}))]
 
     def test_simple_expr(self):
         expr = ['a', '<| uor', '|> or', 'a;not', '(a || b);and', '(a || b);or', 'a; false', 'a || b']
-        loaders = [SingleGraphLoader(self.dataset, epochs=1),
-                   MultipleGraphLoader(self.dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
-        for loader, compiler in zip(loaders, self.compilers):
-            for e in expr:
-                model = compiler.compile(e)
-                for inputs in loader.load():
-                    model.call([inputs], training=False)
+        base_tester(self.dataset, self.compilers, expr)
 
     def test_fixpoint_expr(self):
-        expr = ['mu X:bool[1] = false . (X ; |> or)', 'mu X:bool[1] = false . ((X || a);and)',
-                'nu X:bool[1] = true .  (X ; |> or)', 'nu X:bool[1] = true . ((X || a);and)',
-                'mu Y:bool[1] = false . (Y ; |> or)',
-                'mu X:bool[1] = false . (X ; |> or) || nu X:bool[1] = true . ((X || a);and)']
-        loaders = [lambda: SingleGraphLoader(self.dataset, epochs=1),
-                   lambda: MultipleGraphLoader(self.dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
-        for loader, compiler in zip(loaders, self.compilers):
-            for e in expr:
-                model = compiler.compile(e)
-                for inputs in loader().load():
-                    model.call([inputs], training=False)
+        expr = ['fix X:bool[1] = false in (X ; |> or)', 'fix X:bool[1] = false in ((X || a);and)',
+                'fix X:bool[1] = true in  (X ; |> or)', 'fix X:bool[1] = true in ((X || a);and)',
+                'fix Y:bool[1] = false in (Y ; |> or)',
+                '(fix X:bool[1] = false in (X ; |> or)) || (fix X:bool[1] = true in ((X || a);and))']
+        base_tester(self.dataset, self.compilers, expr)
 
     def test_seq_expr(self):
-        expr = ['a;not', 'a;not;not', 'a;not;not;not', 'mu X:bool[1] = false . (a ; ((X || not);and))',
-                'mu X:bool[1] = false . (X ; not; not)',
-                'mu X:bool[1] = false . (X ; id)',
-                'mu X:bool[1] = false . ((X ; not) ; ((X || not);or))']
-        loaders = [lambda: SingleGraphLoader(self.dataset, epochs=1),
-                   lambda: MultipleGraphLoader(self.dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
-        for loader, compiler in zip(loaders, self.compilers):
-            for e in expr:
-                model = compiler.compile(e)
-                for inputs in loader().load():
-                    model.call([inputs], training=False)
+        expr = ['a;not', 'a;not;not', 'a;not;not;not',
+                'fix X:bool[1] = false in (X ; not; not)',
+                'fix X:bool[1] = false in (X ; id)', 'fix X:bool[1] = true in (a ; ((X || not);and))',
+                'fix X:bool[1] = false in (((X || a);or) ; ((X || not);or))']
+        base_tester(self.dataset, self.compilers, expr)
 
     def test_par_expr(self):
-        expr = ['a || b || c', '(a || (b || c));or']
-        loaders = [lambda: SingleGraphLoader(self.dataset, epochs=1),
-                   lambda: MultipleGraphLoader(self.dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
-        for loader, compiler in zip(loaders, self.compilers):
-            for e in expr:
-                model = compiler.compile(e)
-                for inputs in loader().load():
-                    model.call([inputs], training=False)
-
-        # These give an error about wrong shapes in a loop, which is to be expected
-        expr = ['mu X:bool[1] = false . (X || a)', 'mu X:bool[1] = false . (a || X)']
+        expr = ['a || b || c', '(a || (b || c));or', 'fix X:bool[1] = false in ((X || a);or)',
+                'fix X:bool[1] = false in ((a || X);and)']
+        base_tester(self.dataset, self.compilers, expr)
 
     def test_univariate_functions(self):
         expr = ["""
-           def test(X:bool[1]){
-           (true || X);and;not
-           }
-           test(a)
-           """, """
-           def test(X:bool[1]){
-           (true || X);and;not
-           }
-           test(test(a))
-           """]
-        loaders = [lambda: SingleGraphLoader(self.dataset, epochs=1),
-                   lambda: MultipleGraphLoader(self.dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
-        for loader, compiler in zip(loaders, self.compilers):
-            for e in expr:
-                model = compiler.compile(e)
-                for inputs in loader().load():
-                    model.call([inputs], training=False)
+        def test(X:bool[1]){
+        (true || X);and;not
+        }
+        test(a)
+        """, """
+        def test(X:bool[1]){
+        (true || X);and;not
+        }
+        test(test(a))
+        """]
+        base_tester(self.dataset, self.compilers, expr)
 
     def test_multivariate_functions(self):
         expr = ["""
-           def test(X:bool[1], Y:bool[1]){
-           (Y || X);and;not
-           }
-           test(a, b)
-           """, """
-           def test(X:bool[1], Y:bool[1]){
-           (Y || X);and;not
-           }
-           test(test(a, b), b)
-           """]
-        loaders = [lambda: SingleGraphLoader(self.dataset, epochs=1),
-                   lambda: MultipleGraphLoader(self.dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
-        for loader, compiler in zip(loaders, self.compilers):
-            for e in expr:
-                model = compiler.compile(e)
-                for inputs in loader().load():
-                    model.call([inputs], training=False)
+        def test(X:bool[1], Y:bool[1]){
+        (Y || X);and;not
+        }
+        test(a, b)
+        """, """
+        def test(X:bool[1], Y:bool[1]){
+        (Y || X);and;not
+        }
+        test(test(a, b), b)
+        """]
+        base_tester(self.dataset, self.compilers, expr)
 
     def test_variables(self):
         expr = ["""
-           let test = b;not
-           test
-           """]
-        loaders = [lambda: SingleGraphLoader(self.dataset, epochs=1),
-                   lambda: MultipleGraphLoader(self.dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
-        for loader, compiler in zip(loaders, self.compilers):
-            for e in expr:
-                model = compiler.compile(e)
-                for inputs in loader().load():
-                    model.call([inputs], training=False)
+        let test = b;not, test2 = a;not
+        test || test2
+        """]
+        base_tester(self.dataset, self.compilers, expr)
+
+    def test_reuse_var_layers(self):
+        expr = ["""
+        let test = b;not, test2 = a;not
+        a
+        """]
+        base_tester(self.dataset, self.compilers, expr)
+
+    def test_local_variable_expr(self):
+        expr = ["""
+        let x = a;not, y = b in
+        (x || y);and
+        """]
+        base_tester(self.dataset, self.compilers, expr)
+
+    def test_ite(self):
+        expr = ['(if a then b else false) || b', 'add1; if le then add1 else add1']
+        base_tester(self.dataset, self.compilers, expr)
+
+    def test_ite_multiple(self):
+        dataset = TestDataset(n=2, edges=False)
+        dataset[0].x = np.array([[1], [1], [1], [1], [1]])
+        dataset[1].x = np.array([[2], [2], [2], [2], [2]])
+        expr = 'if le then add1 else sub1'
+        loader = MultipleGraphLoader(dataset, epochs=1, batch_size=2)
+        compiler = self.compilers[1]
+        model = compiler.compile(expr)
+        for inputs in loader.load():
+            self.assertAllEqual([[2], [2], [2], [2], [2], [1], [1], [1], [1], [1]], model.call(inputs, training=False))
+
+    def test_new_fixpoint(self):
+        expr = ['fix X:bool[1] = true in X', 'fix X:bool[1] = true in (X;false;|>or)',
+                'fix X:bool[1] = true in (X || a);and',
+                'fix X:bool[1] = true in (((a;not) || (X;|>or));and)',
+                'fix X:bool[1] = true in (let y = a;not in ((y || (X;|>or));and))',
+                'def test(y:bool[1]){ ((a;not) || (y;|>or));and } fix X:bool[1] = true in (test(X))',
+                'fix X:bool[1] = true in (if X then true else false)',
+                'fix X:bool[1] = true in (if true then X else false)',
+                'fix X:bool[1] = true in (if false then false else X)',
+                'fix X:bool[1] = false in (if true then X else X)', 'fix X:bool[1] = false in (if X then X else true)',
+                'fix X:bool[1] = true in (if X then false else X)', 'fix X:bool[1] = false in (if X then X else X)',
+                ]
+        base_tester(self.dataset, self.compilers, expr)
+
+        dataset = TestDataset(n=2, edges=False)
+        dataset[0].x = np.array([[1], [1], [1], [1], [1]])
+        dataset[1].x = np.array([[2], [2], [2], [2], [2]])
+
+        expr = 'fix X:bool[1] = true in (if X then true else false)'
+        loader = MultipleGraphLoader(dataset, epochs=1, batch_size=2)
+        compiler = self.compilers[1]
+        model = compiler.compile(expr)
+        for inputs in loader.load():
+            model.call(inputs, training=False)
+
+        expr = 'fix X:bool[1] = true in (if true then X else false)'
+        loader = MultipleGraphLoader(dataset, epochs=1, batch_size=2)
+        compiler = self.compilers[1]
+        model = compiler.compile(expr)
+        for inputs in loader.load():
+            model.call(inputs, training=False)
+
+        expr = 'fix X:bool[1] = false in (if X then X else true)'
+        loader = MultipleGraphLoader(dataset, epochs=1, batch_size=2)
+        compiler = self.compilers[1]
+        model = compiler.compile(expr)
+        for inputs in loader.load():
+            model.call(inputs, training=False)
+
+        expr = 'fix X:bool[1] = false in (if X then X else X)'
+        loader = MultipleGraphLoader(dataset, epochs=1, batch_size=2)
+        compiler = self.compilers[1]
+        model = compiler.compile(expr)
+        for inputs in loader.load():
+            model.call(inputs, training=False)
 
     def test_reuse(self):
-        expr = 'a || ((a || b);or) || (b ; |> or) || mu X:bool[1] = false . ((a || X) ; or) || (a ; not)'
+        expr = 'a || ((a || b);or) || (b ; |> or) || (fix X:bool[1] = false in ((a || X) ; or)) || (a ; not)'
         loaders = [lambda: SingleGraphLoader(self.dataset, epochs=1),
                    lambda: MultipleGraphLoader(self.dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
         expected_n_layers = 10
@@ -262,26 +318,20 @@ class EdgeTest(tf.test.TestCase):
             psi_functions=psi_dict,
             sigma_functions=sigma_dict,
             phi_functions=phi_dict,
-            config=CompilationConfig.xae_config(NodeConfig(tf.uint8, 1), EdgeConfig(tf.uint8, 1), tf.uint8)),
+            config=CompilationConfig.xae_config(NodeConfig(tf.uint8, 1), EdgeConfig(tf.uint8, 1), tf.uint8, {})),
             GNNCompiler(
                 psi_functions=psi_dict,
                 sigma_functions=sigma_dict,
                 phi_functions=phi_dict,
-                config=CompilationConfig.xaei_config(NodeConfig(tf.uint8, 1), EdgeConfig(tf.uint8, 1), tf.uint8))]
+                config=CompilationConfig.xaei_config(NodeConfig(tf.uint8, 1), EdgeConfig(tf.uint8, 1), tf.uint8, {}))]
 
     def test_edge_expr(self):
         expr = ['a ; |z> or', 'a ; <z| uor', '( (a ; |z> or) || (b ; |z> or) ); or', ' a ; |z> or ; |z> or',
-                '(b ; |z> or) || ( c ; |z> or)', 'nu X:bool[1] = true . (X ; |z> or)']
-        loaders = [SingleGraphLoader(self.dataset, epochs=1),
-                   MultipleGraphLoader(self.dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
-        for loader, compiler in zip(loaders, self.compilers):
-            for e in expr:
-                model = compiler.compile(e)
-                for inputs in loader.load():
-                    model.call([inputs], training=False)
+                '(b ; |z> or) || ( c ; |z> or)', 'fix X:bool[1] = true in (X ; |z> or)']
+        base_tester(self.dataset, self.compilers, expr)
 
     def test_reuse(self):
-        expr = 'a || ((a || b);or) || (b ; <z| uor) || mu X:bool[1] = false . (((b ; <z| uor) || X);or) || (a ; not)'
+        expr = 'a || ((a || b);or) || (b ; <z| uor) || (fix X:bool[1] = false in (((b ; <z| uor) || X);or)) || (a ; not)'
         loaders = [lambda: SingleGraphLoader(self.dataset, epochs=1),
                    lambda: MultipleGraphLoader(self.dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
         expected_n_layers = 11
@@ -305,12 +355,12 @@ class PoolTest(tf.test.TestCase):
             psi_functions=psi_dict,
             sigma_functions=sigma_dict,
             phi_functions=FunctionDict({}),
-            config=CompilationConfig.xa_config(NodeConfig(tf.uint8, 1), tf.uint8)),
+            config=CompilationConfig.xa_config(NodeConfig(tf.uint8, 1), tf.uint8, {})),
             GNNCompiler(
                 psi_functions=psi_dict,
                 sigma_functions=sigma_dict,
                 phi_functions=FunctionDict({}),
-                config=CompilationConfig.xai_config(NodeConfig(tf.uint8, 1), tf.uint8))]
+                config=CompilationConfig.xai_config(NodeConfig(tf.uint8, 1), tf.uint8, {}))]
 
     def test_global_pooling(self):
         expr = ['gsum', '(gsum || one);min']
