@@ -389,8 +389,10 @@ def make_function_ops2(op_layer, layers, name):
         # here inputs must be symbolic inputs!!
     assert old_expr is not None
     # here go symbolic inputs
-    new_expr = FixPointExpression('(' + name + ')', inputs=new_model_inputs + old_expr.args + old_expr.input_signature,
+    new_expr = FixPointExpression('(' + name + ')', inputs=new_model_inputs + old_expr.input_signature,
                                   outputs=op_layer(to_concatenate))
+    #new_expr = FixPointExpression('(' + name + ')', inputs=new_model_inputs + old_expr.args + old_expr.input_signature,
+    #                              outputs=op_layer(to_concatenate))
     new_expr.args = new_args + old_expr.args  # here go actual saved inputs
     return new_expr
 
