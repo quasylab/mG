@@ -113,11 +113,7 @@ class Ite(MessagePassing):
             return tf.cond(tf.reduce_all(test), lambda: self.iftrue(inputs_iftrue), lambda: self.iffalse(inputs_iffalse))
 
 
-def print_ret(x):
-    print(x)
-    return x
-
-
+'''
 class Loop(MessagePassing):
     def __init__(self, test, body, **kwargs):
         super().__init__(**kwargs)
@@ -152,6 +148,7 @@ class Loop(MessagePassing):
             body=lambda var: [self.body([print_ret(var)] + const_inputs)],
             loop_vars=[x]
         )[0]
+
 
 
 class LeastFixPoint(MessagePassing):
@@ -255,6 +252,7 @@ class GreatestFixPoint(MessagePassing):
             body=lambda curr, prev: [[self.gnn_x(x + [curr])] + additional_inputs, curr],
             loop_vars=[X, X_o],
         )[0][0]
+'''
 
 
 class FixPoint(MessagePassing):
