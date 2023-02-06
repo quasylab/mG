@@ -801,9 +801,9 @@ class TreeToTF(Interpreter):
 
 
 class GNNCompiler:
-    def __init__(self, psi_functions: FunctionDict[str, Psi | Callable[[str], Psi] | Type[Psi]],
-                 sigma_functions: FunctionDict[str, Sigma | Callable[[str], Sigma] | Type[Sigma]],
-                 phi_functions: FunctionDict[str, Phi | Callable[[str], Phi] | Type[Phi]], config: CompilationConfig):
+    def __init__(self, psi_functions: FunctionDict[Psi | Callable[[str], Psi] | Type[Psi]],
+                 sigma_functions: FunctionDict[Sigma | Callable[[str], Sigma] | Type[Sigma]],
+                 phi_functions: FunctionDict[Phi | Callable[[str], Phi] | Type[Phi]], config: CompilationConfig):
         """
         A compiler for mG formulas. A formula is transformed into a Tensorflow model using the compile method.
 
