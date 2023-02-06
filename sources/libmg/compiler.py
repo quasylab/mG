@@ -455,15 +455,16 @@ class TreeToTF(Interpreter):
 
     def get_precision(self, typ):
         match typ:
-            case 'float':
-                typ = 'float32'
-            case 'int':
-                typ = 'int32'
-            case 'half':
-                typ = 'float16'
-            case 'double':
-                typ = 'float64'
-        return self.precision.get(typ, None)
+            case 'float32':
+                return self.precision.get(typ, self.precision.get('float', None))
+            case 'int32':
+                return self.precision.get(typ, self.precision.get('int', None))
+            case 'float16':
+                return self.precision.get(typ, self.precision.get('half', None))
+            case 'float64':
+                return self.precision.get(typ, self.precision.get('double', None))
+            case _:
+                return self.precision.get(typ, None)
 
     @staticmethod
     def pop(stack):
