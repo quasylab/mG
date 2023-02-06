@@ -6,7 +6,7 @@ from lark import Lark
 class GrammarTests(tf.test.TestCase):
     def setUp(self):
         super().setUp()
-        self.parser = Lark(mg_grammar)
+        self.parser = Lark(mg_grammar, parser='lalr')
 
     def test_seq(self):
         expr = 'a;b;c;d;e'
@@ -102,6 +102,62 @@ class GrammarTests(tf.test.TestCase):
         self.assertEqual(3, len(tree.children))
         self.assertEqual('label_decl', tree.children[0].data)
         self.assertEqual('atom_op', tree.children[2].data)
+        expr = """
+        let t1 = b;not, t2 = f(x, y)
+        t1 || t2
+        """
+        tree = self.parser.parse(expr)
+        self.assertEqual('var_def', tree.data)
+        self.assertEqual(5, len(tree.children))
+        self.assertEqual('label_decl', tree.children[0].data)
+        self.assertEqual('label_decl', tree.children[2].data)
+        self.assertEqual('parallel', tree.children[4].data)
+
+    def test_local_var_expr(self):
+        expr = """
+        let x = a, y = b, z = true in
+        (x || y);z
+        """
+        tree = self.parser.parse(expr)
+        self.assertEqual('local_var_expr', tree.data)
+        self.assertEqual('label_decl', tree.children[0].data)
+        self.assertEqual('atom_op', tree.children[1].data)
+        self.assertEqual('label_decl', tree.children[2].data)
+        self.assertEqual('atom_op', tree.children[3].data)
+        self.assertEqual('label_decl', tree.children[4].data)
+        self.assertEqual('atom_op', tree.children[5].data)
+        self.assertEqual('composition', tree.children[6].data)
+
+    def test_ite(self):
+        expr = """
+        if a then
+            b
+        else
+            false
+        """
+        tree = self.parser.parse(expr)
+        self.assertEqual('ite', tree.data)
+        self.assertEqual('atom_op', tree.children[0].data)
+        self.assertEqual('atom_op', tree.children[1].data)
+        self.assertEqual('atom_op', tree.children[2].data)
+
+    def test_loop(self):
+        expr = """
+        while a do
+        b
+        """
+        tree = self.parser.parse(expr)
+        self.assertEqual('loop', tree.data)
+        self.assertEqual('atom_op', tree.children[0].data)
+        self.assertEqual('atom_op', tree.children[1].data)
+
+    def test_fix(self):
+        expr = 'fix x:bool[1] = true in (a || (x;|>or));and'
+        tree = self.parser.parse(expr)
+        self.assertEqual('fix', tree.data)
+        self.assertEqual('label_decl', tree.children[0].data)
+        self.assertEqual('type_decl', tree.children[1].data)
+        self.assertEqual('composition', tree.children[3].data)
 
 
 if __name__ == '__main__':
