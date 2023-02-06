@@ -121,7 +121,7 @@ class FixPoint(MessagePassing):
         self.top = top
         # in a GFP, current value should always be <= than the previous value therefore we can avoid using abs
         if precision is not None:
-            self.comparator = lambda curr, prev: prev - curr <= precision
+            self.comparator = lambda curr, prev: tf.experimental.numpy.allclose(curr, prev, rtol=precision, atol=precision)
         else:
             self.comparator = lambda curr, prev: curr == prev
 
