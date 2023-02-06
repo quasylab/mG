@@ -13,7 +13,7 @@ VT = TypeVar('VT')
 
 
 # Custom dictionary class
-class FunctionDict(UserDict, typing.Mapping[str, VT]):
+class FunctionDict(UserDict, typing.Mapping[KT, VT]):
     """
     This custom dictionary class has a few differences compared to a normal dict. It only accepts ``Callable`` items.
     In particular, a ``tf.keras.layers.Layer`` object is a ``Callable`` that is  processed differently than any other
@@ -57,15 +57,15 @@ class FunctionDict(UserDict, typing.Mapping[str, VT]):
         arg = None if len(tokens) == 1 else tokens[1][: tokens[1].find(']')]
         return true_key, arg
 
-    def __getitem__(self, key: str):
+    def __getitem__(self, key):
         true_key, arg = self.parse_key(key)
         return self.data[true_key](arg)
 
-    def __contains__(self, key: object):
+    def __contains__(self, key):
         true_key, _ = self.parse_key(str(key))
         return true_key in self.data
 
-    def __setitem__(self, key: str, value: VT):
+    def __setitem__(self, key, value):
         if isinstance(value, tf.keras.layers.Layer):
             self.data[key] = lambda _: value
         elif callable(value):
