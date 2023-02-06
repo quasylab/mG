@@ -454,6 +454,15 @@ class TreeToTF(Interpreter):
             return '(' + self.head(self.context) + ';' + name + ')'
 
     def get_precision(self, typ):
+        match typ:
+            case 'float':
+                typ = 'float32'
+            case 'int':
+                typ = 'int32'
+            case 'half':
+                typ = 'float16'
+            case 'double':
+                typ = 'float64'
         return self.precision.get(typ, None)
 
     @staticmethod
