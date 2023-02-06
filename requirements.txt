@@ -3,5 +3,4 @@ numpy
 lark
 scipy
 tensorflow
-tensorflow-gpu
 tensorflow_addons
