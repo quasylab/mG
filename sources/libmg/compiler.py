@@ -6,7 +6,7 @@ from lark.visitors import Interpreter
 import tensorflow as tf
 import time
 
-from .functions import FunctionDict, Psi, Sigma, Phi
+from .functions import FunctionDict, Psi, Sigma, Phi, Constant
 from .loaders import SingleGraphLoader, MultipleGraphLoader
 from .normalizer import Normalizer, is_fixpoint
 from .dummy_dataset import DummyDataset
@@ -313,24 +313,10 @@ class VarConfig:
 
 # TODO: we made the signature fixed here, check if it breaks something!
 class FixPointConfig(VarConfig):
-    def __init__(self, dimension, dtype, value, precision=None):
+    def __init__(self, dimension, dtype, name):
         super().__init__(dimension, dtype)
-        self._value = tf.constant(value, dtype=self.dtype)
-        self._precision = precision
-        self._constructor = lambda x: tf.fill(dims=(tf.shape(x)[0], self.dimension), value=self.value)
         self._signature = self._signature()
-
-    @property
-    def value(self):
-        return self._value
-
-    @property
-    def constructor(self):
-        return self._constructor
-
-    @property
-    def precision(self):
-        return self._precision
+        self._initial_var_name = name
 
     @property
     def signature(self):
@@ -338,10 +324,9 @@ class FixPointConfig(VarConfig):
 
     @property
     def name(self):
-        return str(self.dtype.name) + '[' + str(self.dimension) + ']=' + str(self.value.numpy())
+        return str(self.dtype.name) + '[' + str(self.dimension) + ']=' + self._initial_var_name
 
 
-# TODO: might have to be removed
 class ModelWrapper:
     def __init__(self, model, name):
         self._model = model
@@ -478,6 +463,7 @@ class TreeToTF(Interpreter):
     def head(stack):
         return stack[-1]
 
+    '''
     @staticmethod
     def get_value(value_token, expected_type):
         if value_token == 'false' and expected_type.is_bool:
@@ -490,6 +476,7 @@ class TreeToTF(Interpreter):
             return float(value_token)
         else:
             raise SyntaxError("Invalid value: " + value_token)
+    '''
 
     def initialize(self):
         self.var = []
@@ -787,21 +774,24 @@ class TreeToTF(Interpreter):
                 return self.get_layer(ctx_name)
 
     @v_args(inline=True)
-    def fix(self, variable_decl, type_decl, value, body):
+    def fix(self, variable_decl, type_decl, label, body):
         var_name = self.visit(variable_decl)
         self.push(var_name, self.var)
         type_decl = self.visit(type_decl)  # VarConfig object
-        value = self.get_value(value, type_decl.dtype)
+        initial_var_name = self.visit(label)
+        initial_gnn_var = self.psi_functions[initial_var_name]
+        if not isinstance(initial_gnn_var, Constant):
+            raise ValueError("Fixpoint variables must be Constants!")
         precision = self.get_precision(type_decl.dtype.name)
-        fixpoint_config = FixPointConfig(type_decl.dimension, type_decl.dtype, value, precision)
+        fixpoint_config = FixPointConfig(type_decl.dimension, type_decl.dtype, initial_var_name)
         self.push(fixpoint_config, self.var_type)
         nx = self.visit(body)
         if type(nx) is not FixPointExpression:
             raise SyntaxError('Invalid fixpoint expression')
-        name = 'mu ' + self.pop(self.var) + ':' + fixpoint_config.name + ' . ' + nx.name
-        type_config = self.pop(self.var_type)
+        name = 'fix ' + self.pop(self.var) + ':' + fixpoint_config.name + ' in ' + nx.name
+        self.pop(self.var_type)
         ctx_name = self.get_contextualized_name(name)
-        lfp_layer = FixPoint(nx.model, type_config.constructor, type_config.precision)
+        lfp_layer = FixPoint(nx.model, initial_gnn_var, precision)
         if self.undef_layer(ctx_name):
             # noinspection PyCallingNonCallable
             layer = self.inputs.step(ctx_name, lfp_layer(nx.args + self.inputs.fixpoint_inputs))
@@ -813,13 +803,15 @@ class TreeToTF(Interpreter):
 class GNNCompiler:
     def __init__(self, psi_functions: FunctionDict[str, Psi | Callable[[str], Psi] | Type[Psi]],
                  sigma_functions: FunctionDict[str, Sigma | Callable[[str], Sigma] | Type[Sigma]],
-                 phi_functions: FunctionDict[str, Phi | Callable[[str], Phi] | Type[Phi]], config: CompilationConfig):
+                 phi_functions: FunctionDict[str, Phi | Callable[[str], Phi] | Type[Phi]],
+                 config: CompilationConfig):
         """
         A compiler for mG formulas. A formula is transformed into a Tensorflow model using the compile method.
 
         :param psi_functions: A dictionary of Psi functions, from any among the Psi, PsiLocal and PsiGlobal classes
         :param sigma_functions: A dictionary of Sigma functions
         :param phi_functions: A dictionary of Phi functions
+        :param constant_functions: A dictionary of Constant functions
         :param config: A CompilationConfig object to configure this GNNCompiler object
         """
         self.parser = Lark(mg_grammar, maybe_placeholders=False)

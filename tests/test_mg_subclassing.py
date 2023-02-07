@@ -8,6 +8,7 @@ from libmg import PsiLocal, PsiGlobal, Sigma, Phi, FunctionDict
 from libmg import SingleGraphLoader, MultipleGraphLoader
 from libmg import GNNCompiler, CompilationConfig, NodeConfig, EdgeConfig
 from libmg import Dataset
+from libmg.functions import Constant
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = "0"
 
@@ -35,16 +36,6 @@ class B(PsiLocal):
 class C(PsiLocal):
     def f(self, x):
         return tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 2, dtype=tf.uint8)), tf.bool)
-
-
-class TTrue(PsiLocal):
-    def f(self, x):
-        return tf.ones((tf.shape(x)[0], 1), dtype=tf.bool)
-
-
-class FFalse(PsiLocal):
-    def f(self, x):
-        return tf.zeros((tf.shape(x)[0], 1), dtype=tf.bool)
 
 
 class And(PsiLocal):
@@ -113,6 +104,16 @@ class Sum(PsiGlobal):
 
     def single_op(self, x):
         return tf.reduce_sum(x, axis=0, keepdims=True)
+
+
+class FFalse(Constant):
+    def f(self, n_nodes):
+        return tf.zeros((n_nodes, 1), dtype=tf.bool)
+
+
+class TTrue(Constant):
+    def f(self, n_nodes):
+        return tf.ones((n_nodes, 1), dtype=tf.bool)
 
 
 class TestDataset(Dataset):
@@ -259,6 +260,7 @@ class BaseTest(tf.test.TestCase):
                 'fix X:bool[1] = false in (if true then X else X)', 'fix X:bool[1] = false in (if X then X else true)',
                 'fix X:bool[1] = true in (if X then false else X)', 'fix X:bool[1] = false in (if X then X else X)',
                 ]
+
         base_tester(self.dataset, self.compilers, expr)
 
         dataset = TestDataset(n=2, edges=False)

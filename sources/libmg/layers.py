@@ -27,7 +27,7 @@ class FunctionApplication(MessagePassing):
 
 
 class PreImage(MessagePassing):
-    def __init__(self, sigma, phi=lambda i, e, j: i, **kwargs):
+    def __init__(self, sigma, phi=lambda i, e, j: j, **kwargs):
         super().__init__(**kwargs)
         self.sigma = sigma
         self.phi = phi
@@ -115,11 +115,10 @@ class Ite(MessagePassing):
 
 class FixPoint(MessagePassing):
 
-    def __init__(self, gnn_x, top, precision=None, **kwargs):
+    def __init__(self, gnn_x, gnn_var, precision=None, **kwargs):
         super().__init__(**kwargs)
         self.gnn_x = gnn_x
-        self.top = top
-        # in a GFP, current value should always be <= than the previous value therefore we can avoid using abs
+        self.gnn_var = gnn_var
         if precision is not None:
             self.comparator = lambda curr, prev: tf.experimental.numpy.allclose(curr, prev, rtol=precision, atol=precision)
         else:
@@ -147,9 +146,9 @@ class FixPoint(MessagePassing):
 
     def propagate(self, x, a, e=None, i=None, **kwargs):
         if len(x) > 0:
-            X_o = [self.top(x[0])]
+            X_o = [self.gnn_var(x[0])]
         else:
-            X_o = [self.top(a)]
+            X_o = [self.gnn_var(a)]
         additional_inputs = [a]
         if e is not None:
             additional_inputs.append(e)

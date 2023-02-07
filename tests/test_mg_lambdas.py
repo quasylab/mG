@@ -8,6 +8,7 @@ from libmg import PsiLocal, PsiGlobal, Sigma, Phi, FunctionDict
 from libmg import SingleGraphLoader, MultipleGraphLoader
 from libmg import GNNCompiler, CompilationConfig, NodeConfig, EdgeConfig
 from libmg import Dataset
+from libmg.functions import Constant
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = "0"
 
@@ -59,8 +60,8 @@ class BaseTest(tf.test.TestCase):
                 lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 1, dtype=tf.uint8)), tf.bool)),
             'c': PsiLocal(
                 lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 2, dtype=tf.uint8)), tf.bool)),
-            'true': PsiLocal(lambda x: tf.ones((tf.shape(x)[0], 1), dtype=tf.bool)),
-            'false': PsiLocal(lambda x: tf.zeros((tf.shape(x)[0], 1), dtype=tf.bool)),
+            'true': Constant(lambda n: tf.ones((n, 1), dtype=tf.bool)),
+            'false': Constant(lambda n: tf.zeros((n, 1), dtype=tf.bool)),
             'and': PsiLocal(lambda x: tf.math.reduce_all(x, axis=1, keepdims=True)),
             'or': PsiLocal(lambda x: tf.math.reduce_any(x, axis=1, keepdims=True)),
             'not': PsiLocal(lambda x: tf.math.logical_not(x)),
@@ -96,7 +97,7 @@ class BaseTest(tf.test.TestCase):
                     model.call([inputs], training=False)
 
     def test_simple_expr(self):
-        expr = ['a', '<| uor', '|> or', 'a;not', '(a || b);and', '(a || b);or', 'a; false', 'a || b']
+        expr = ['a', 'true', 'false', '<| uor', '|> or', 'a;not', '(a || b);and', '(a || b);or', 'a; false', 'a || b']
         base_tester(self.dataset, self.compilers, expr)
 
     def test_fixpoint_expr(self):
@@ -265,8 +266,8 @@ class EdgeTest(tf.test.TestCase):
                 lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 1, dtype=tf.uint8)), tf.bool)),
             'c': PsiLocal(
                 lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 2, dtype=tf.uint8)), tf.bool)),
-            'true': PsiLocal(lambda x: tf.ones((tf.shape(x)[0], 1), dtype=tf.bool)),
-            'false': PsiLocal(lambda x: tf.zeros((tf.shape(x)[0], 1), dtype=tf.bool)),
+            'true': Constant(lambda n: tf.ones((n, 1), dtype=tf.bool)),
+            'false': Constant(lambda n: tf.zeros((n, 1), dtype=tf.bool)),
             'and': PsiLocal(lambda x: tf.math.reduce_all(x, axis=1, keepdims=True)),
             'or': PsiLocal(lambda x: tf.math.reduce_any(x, axis=1, keepdims=True)),
             'not': PsiLocal(lambda x: tf.math.logical_not(x)),
@@ -317,8 +318,8 @@ class PoolTest(tf.test.TestCase):
                 lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 1, dtype=tf.uint8)), tf.bool)),
             'c': PsiLocal(
                 lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 2, dtype=tf.uint8)), tf.bool)),
-            'true': PsiLocal(lambda x: tf.ones((tf.shape(x)[0], 1), dtype=tf.bool)),
-            'false': PsiLocal(lambda x: tf.zeros((tf.shape(x)[0], 1), dtype=tf.bool)),
+            'true': Constant(lambda n: tf.ones((n, 1), dtype=tf.bool)),
+            'false': Constant(lambda n: tf.zeros((n, 1), dtype=tf.bool)),
             'and': PsiLocal(lambda x: tf.math.reduce_all(x, axis=1, keepdims=True)),
             'or': PsiLocal(lambda x: tf.math.reduce_any(x, axis=1, keepdims=True)),
             'not': PsiLocal(lambda x: tf.math.logical_not(x)),
@@ -343,8 +344,8 @@ class PoolTest(tf.test.TestCase):
                         lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 1, dtype=tf.uint8)), tf.bool)),
                     'c': PsiLocal(
                         lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 2, dtype=tf.uint8)), tf.bool)),
-                    'true': PsiLocal(lambda x: tf.ones((tf.shape(x)[0], 1), dtype=tf.bool)),
-                    'false': PsiLocal(lambda x: tf.zeros((tf.shape(x)[0], 1), dtype=tf.bool)),
+                    'true': Constant(lambda n: tf.ones((n, 1), dtype=tf.bool)),
+                    'false': Constant(lambda n: tf.zeros((n, 1), dtype=tf.bool)),
                     'and': PsiLocal(lambda x: tf.math.reduce_all(x, axis=1, keepdims=True)),
                     'or': PsiLocal(lambda x: tf.math.reduce_any(x, axis=1, keepdims=True)),
                     'not': PsiLocal(lambda x: tf.math.logical_not(x)),

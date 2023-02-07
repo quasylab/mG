@@ -211,3 +211,23 @@ class Sigma(tf.keras.layers.Layer):
 
     def __call__(self, m, i, n, x):
         return self.f(m, i, n, x)
+
+
+class Constant(PsiLocal):
+    def __init__(self, f: Optional[Callable[[int], tf.Tensor[U]]] = None, **kwargs):
+        """
+        A constant function f: () -> U
+
+        :param f: A one argument function that returns Tensor of node labels of type U.
+        The function is provided as argument the number of nodes in the graph so that it is able to assign any value
+        to any node if need be.
+        """
+        if f is not None:
+            setattr(self, 'f', f)
+        super().__init__(self.f, **kwargs)
+
+    def f(self, n_nodes):
+        raise NotImplementedError
+
+    def __call__(self, x, i=None):
+        return self.single_op(tf.shape(x)[0])
