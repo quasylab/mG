@@ -115,10 +115,9 @@ class Ite(MessagePassing):
 
 class FixPoint(MessagePassing):
 
-    def __init__(self, gnn_x, gnn_var, precision=None, **kwargs):
+    def __init__(self, gnn_x, precision=None, **kwargs):
         super().__init__(**kwargs)
         self.gnn_x = gnn_x
-        self.gnn_var = gnn_var
         if precision is not None:
             self.comparator = lambda curr, prev: tf.experimental.numpy.allclose(curr, prev, rtol=precision, atol=precision)
         else:
@@ -145,20 +144,16 @@ class FixPoint(MessagePassing):
         return x, a, e, i
 
     def propagate(self, x, a, e=None, i=None, **kwargs):
-        if len(x) > 0:
-            X_o = [self.gnn_var(x[0])]
-        else:
-            X_o = [self.gnn_var(a)]
+        saved_args, X_o = x[:-1], x[-1:]
         additional_inputs = [a]
         if e is not None:
             additional_inputs.append(e)
         if i is not None:
             additional_inputs.append(i)
         # x is supposed to be a list of lists e.g. [[x1, a1, e1, i1], [], []]
-        # X_o.extend(additional_inputs)
-        X = [self.gnn_x(x + X_o + additional_inputs)]
+        X = [self.gnn_x(saved_args + [X_o] + additional_inputs)]
         return tf.while_loop(
             cond=lambda curr, prev: tf.math.logical_not(tf.math.reduce_all(self.comparator(curr[0], prev[0]))),
-            body=lambda curr, prev: [[self.gnn_x(x + [curr] + additional_inputs)], curr],
+            body=lambda curr, prev: [[self.gnn_x(saved_args + [curr] + additional_inputs)], curr],
             loop_vars=[X, X_o],
         )[0][0]

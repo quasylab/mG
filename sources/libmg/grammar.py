@@ -15,7 +15,7 @@ mg_grammar = r"""
                          | "let" (label_decl "=" p_formula ",")* label_decl "=" p_formula "in" p_formula -> local_var_expr
                          | "if" p_formula "then" p_formula "else" p_formula                 -> ite
                          | "while" p_formula "do" p_formula                                 -> loop
-                         | "fix" label_decl ":" type_decl "=" label "in" p_formula          -> fix
+                         | "fix" label_decl ":" type_decl "=" p_formula "in" p_formula          -> fix
                          | "(" start ")"
 
                 ?p_formula: gnn_formula

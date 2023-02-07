@@ -157,7 +157,7 @@ class GrammarTests(tf.test.TestCase):
         self.assertEqual('fix', tree.data)
         self.assertEqual('label_decl', tree.children[0].data)
         self.assertEqual('type_decl', tree.children[1].data)
-        self.assertEqual('label', tree.children[2].data)
+        self.assertEqual('atom_op', tree.children[2].data)
         self.assertEqual('composition', tree.children[3].data)
 
 

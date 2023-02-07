@@ -299,7 +299,7 @@ class BaseTest(tf.test.TestCase):
         expr = 'a || ((a || b);or) || (b ; |> or) || (fix X:bool[1] = false in ((a || X) ; or)) || (a ; not)'
         loaders = [lambda: SingleGraphLoader(self.dataset, epochs=1),
                    lambda: MultipleGraphLoader(self.dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
-        expected_n_layers = 10
+        expected_n_layers = 11
         for loader, compiler in zip(loaders, self.compilers):
             model = compiler.compile(expr)
             for inputs in loader().load():
@@ -336,7 +336,7 @@ class EdgeTest(tf.test.TestCase):
         expr = 'a || ((a || b);or) || (b ; <z| uor) || (fix X:bool[1] = false in (((b ; <z| uor) || X);or)) || (a ; not)'
         loaders = [lambda: SingleGraphLoader(self.dataset, epochs=1),
                    lambda: MultipleGraphLoader(self.dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
-        expected_n_layers = 11
+        expected_n_layers = 12
         for loader, compiler in zip(loaders, self.compilers):
             model = compiler.compile(expr)
             for inputs in loader().load():

@@ -6,7 +6,7 @@ from lark.visitors import Interpreter
 import tensorflow as tf
 import time
 
-from .functions import FunctionDict, Psi, Sigma, Phi, Constant
+from .functions import FunctionDict, Psi, Sigma, Phi
 from .loaders import SingleGraphLoader, MultipleGraphLoader
 from .normalizer import Normalizer, is_fixpoint
 from .dummy_dataset import DummyDataset
@@ -774,16 +774,13 @@ class TreeToTF(Interpreter):
                 return self.get_layer(ctx_name)
 
     @v_args(inline=True)
-    def fix(self, variable_decl, type_decl, label, body):
+    def fix(self, variable_decl, type_decl, initial_var_gnn, body):
         var_name = self.visit(variable_decl)
         self.push(var_name, self.var)
         type_decl = self.visit(type_decl)  # VarConfig object
-        initial_var_name = self.visit(label)
-        initial_gnn_var = self.psi_functions[initial_var_name]
-        if not isinstance(initial_gnn_var, Constant):
-            raise ValueError("Fixpoint variables must be Constants!")
+        initial_gnn_var = self.visit(initial_var_gnn)
         precision = self.get_precision(type_decl.dtype.name)
-        fixpoint_config = FixPointConfig(type_decl.dimension, type_decl.dtype, initial_var_name)
+        fixpoint_config = FixPointConfig(type_decl.dimension, type_decl.dtype, initial_gnn_var.name)
         self.push(fixpoint_config, self.var_type)
         nx = self.visit(body)
         if type(nx) is not FixPointExpression:
@@ -791,10 +788,10 @@ class TreeToTF(Interpreter):
         name = 'fix ' + self.pop(self.var) + ':' + fixpoint_config.name + ' in ' + nx.name
         self.pop(self.var_type)
         ctx_name = self.get_contextualized_name(name)
-        lfp_layer = FixPoint(nx.model, initial_gnn_var, precision)
+        lfp_layer = FixPoint(nx.model, precision)
         if self.undef_layer(ctx_name):
             # noinspection PyCallingNonCallable
-            layer = self.inputs.step(ctx_name, lfp_layer(nx.args + self.inputs.fixpoint_inputs))
+            layer = self.inputs.step(ctx_name, lfp_layer(nx.args + [initial_gnn_var.x] + self.inputs.fixpoint_inputs))
             self.add_layer(layer, ctx_name)
             return layer
         return self.get_layer(ctx_name)
