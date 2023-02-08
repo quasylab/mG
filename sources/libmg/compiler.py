@@ -778,7 +778,9 @@ class TreeToTF(Interpreter):
         var_name = self.visit(variable_decl)
         self.push(var_name, self.var)
         type_decl = self.visit(type_decl)  # VarConfig object
+        self.disable_saving_layers = True
         initial_gnn_var = self.visit(initial_var_gnn)
+        self.disable_saving_layers = False
         precision = self.get_precision(type_decl.dtype.name)
         fixpoint_config = FixPointConfig(type_decl.dimension, type_decl.dtype, initial_gnn_var.name)
         self.push(fixpoint_config, self.var_type)
