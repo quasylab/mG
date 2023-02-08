@@ -144,7 +144,6 @@ class FixPoint(MessagePassing):
         return x, a, e, i
 
     def propagate(self, x, a, e=None, i=None, **kwargs):
-        print(x)
         saved_args, X_o = x[:-1], x[-1:]
         additional_inputs = [a]
         if e is not None:

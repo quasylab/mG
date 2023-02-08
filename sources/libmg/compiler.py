@@ -855,7 +855,7 @@ class GNNCompiler:
         elapsed = 0.0
         if method == 'call':
             # TODO: suspicious bug here, dummy datasets dont't have ys therefore I had to remove y
-            for x in dummy_loader.load():
+            for x, y in dummy_loader.load():
                 start = time.perf_counter()
                 model(x)
                 end = time.perf_counter()
