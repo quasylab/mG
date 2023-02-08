@@ -152,8 +152,9 @@ class FixPoint(MessagePassing):
             additional_inputs.append(i)
         # x is supposed to be a list of lists e.g. [[x1, a1, e1, i1], [], []]
         X = [self.gnn_x(saved_args + [X_o] + additional_inputs)]
+        X1 = [self.gnn_x(saved_args + [X] + additional_inputs)]
         return tf.while_loop(
             cond=lambda curr, prev: tf.math.logical_not(tf.math.reduce_all(self.comparator(curr[0], prev[0]))),
             body=lambda curr, prev: [[self.gnn_x(saved_args + [curr] + additional_inputs)], curr],
-            loop_vars=[X, X_o],
+            loop_vars=[X1, X],
         )[0][0]
