@@ -9,4 +9,4 @@ __all__ = ['SingleGraphLoader', 'MultipleGraphLoader', 'PerformanceTest', 'Predi
            'save_output_to_csv', 'PsiLocal', 'PsiGlobal', 'Psi', 'Phi', 'Sigma', 'Constant', 'FunctionDict', 'GNNCompiler',
            'CompilationConfig', 'NodeConfig', 'EdgeConfig', 'Dataset']
 
-__version__ = '0.2.15'
+__version__ = '0.2.16'
