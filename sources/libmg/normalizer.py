@@ -52,8 +52,9 @@ def is_fixpoint(tree, fix_var=None):
         def ite(self, test, iftrue, iffalse):
             return test or iftrue or iffalse
 
-        def fix(self, _):
-            return False
+        @v_args(inline=True)
+        def fix(self, variable_decl, type_decl, initial_var_gnn, body):
+            return initial_var_gnn
 
     return IsFixpoint().transform(tree) if fix_var is not None else False
 
