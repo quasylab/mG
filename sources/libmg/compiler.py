@@ -811,7 +811,7 @@ class GNNCompiler:
         :param constant_functions: A dictionary of Constant functions
         :param config: A CompilationConfig object to configure this GNNCompiler object
         """
-        self.parser = Lark(mg_grammar, maybe_placeholders=False)
+        self.parser = Lark(mg_grammar, maybe_placeholders=False, parser='lalr')
         self.macros = Normalizer(self.parser)
         self.model_inputs = [
             tf.keras.Input(shape=config.node_feature_size, name="INPUT_X", dtype=config.node_feature_type),
