@@ -26,12 +26,12 @@ mg_grammar = r"""
                 | "def" label_decl "(" (label_decl ":" type_decl ",")* label_decl ":" type_decl "){" p_formula "}" start        -> fun_def
                 | "let" (label_decl "=" p_formula ",")* label_decl "=" p_formula start                                          -> var_def
 
-                label: /[a-zA-Z_0-9\+\*\^\-\!\#\%\&\=\~\/]+/
+                label: /[a-zA-Z_0-9\+\*\^\-\!\#\%\&\=\~\/\@]+/
                             |  FUNC_GEN
 
-                FUNC_GEN: /[a-zA-Z_0-9\+\*\^\-\!\#\%\&\=\~\/]+/ "[" /[^\]\[]+/ "]"
+                FUNC_GEN: /[a-zA-Z_0-9\+\*\^\-\!\#\%\&\=\~\/\@]+/ "[" /[^\]\[]+/ "]"
 
-                label_decl: /[a-zA-Z_0-9\+\*\^\-\!\#\%\&\=\~\/]+/
+                label_decl: /[a-zA-Z_0-9\+\*\^\-\!\#\%\&\=\~\/\@]+/
 
                 type_decl: TYPE "[" NUMBER "]"
 
