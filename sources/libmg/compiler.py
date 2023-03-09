@@ -854,20 +854,19 @@ class GNNCompiler:
     def dummy_run(model, dummy_loader, method):
         elapsed = 0.0
         if method == 'call':
-            # TODO: suspicious bug here, dummy datasets dont't have ys therefore I had to remove y
             for x, y in dummy_loader.load():
                 start = time.perf_counter()
                 model(x)
                 end = time.perf_counter()
                 elapsed = end - start
-                print("Dummy run completed in", elapsed, "s", sep=' ')
+                print("Tracing completed in", elapsed, "s", sep='')
                 break
         else:
             start = time.perf_counter()
             model.predict(dummy_loader.load(), steps=dummy_loader.steps_per_epoch)
             end = time.perf_counter()
             elapsed = end - start
-            print("Dummy run completed in", elapsed, "s", sep=' ')
+            print("Tracing completed in ", elapsed, "s", sep='')
         return elapsed
 
     def compile(self, expr: str, loss: tf.keras.losses.Loss = None, verbose: bool = False,

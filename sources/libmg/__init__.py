@@ -7,4 +7,4 @@ from .dataset import Dataset
 __all__ = ['SingleGraphLoader', 'MultipleGraphLoader', 'PsiLocal', 'PsiGlobal', 'Psi', 'Phi', 'Sigma', 'Constant',
            'FunctionDict', 'GNNCompiler', 'CompilationConfig', 'NodeConfig', 'EdgeConfig', 'Dataset']
 
-__version__ = '0.2.21'
+__version__ = '0.2.22'
