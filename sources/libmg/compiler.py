@@ -842,11 +842,17 @@ class GNNCompiler:
                 return model(x, training=False)
 
             return serve
-        else:
+        elif method =='predict':
             model.run_eagerly = True
             predict_func = model.make_predict_function()
             model.predict_function = tf.function(predict_func, input_signature=[
                 tf.data.IteratorSpec((input_spec,))])
+            model.run_eagerly = False
+            return model
+        else:
+            model.run_eagerly = True
+            predict_func = model.make_predict_function()
+            model.predict_function = tf.function(predict_func, input_signature=[input_spec])
             model.run_eagerly = False
             return model
 
@@ -861,12 +867,20 @@ class GNNCompiler:
                 elapsed = end - start
                 print("Tracing completed in", elapsed, "s", sep='')
                 break
-        else:
+        elif method == 'predict':
             start = time.perf_counter()
             model.predict(dummy_loader.load(), steps=dummy_loader.steps_per_epoch)
             end = time.perf_counter()
             elapsed = end - start
             print("Tracing completed in ", elapsed, "s", sep='')
+        else:
+            for x, y in dummy_loader.load():
+                start = time.perf_counter()
+                model.predict_on_batch(x)
+                end = time.perf_counter()
+                elapsed = end - start
+                print("Tracing completed in", elapsed, "s", sep='')
+                break
         return elapsed
 
     def compile(self, expr: str, loss: tf.keras.losses.Loss = None, verbose: bool = False,
