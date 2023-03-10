@@ -842,18 +842,11 @@ class GNNCompiler:
                 return model(x, training=False)
 
             return serve
-        elif method == 'predict':
-            model.run_eagerly = True
-            predict_func = model.make_predict_function()
-            model.predict_function = tf.function(predict_func, input_signature=[
-                tf.data.IteratorSpec((input_spec,))])
-            model.run_eagerly = False
-            return model
         else:
             model.run_eagerly = True
             predict_func = model.make_predict_function()
             model.predict_function = tf.function(predict_func, input_signature=[
-                tf.data.IteratorSpec(input_spec)])
+                tf.data.IteratorSpec((input_spec,))])
             model.run_eagerly = False
             return model
 
@@ -875,12 +868,12 @@ class GNNCompiler:
             elapsed = end - start
             print("Tracing completed in ", elapsed, "s", sep='')
         else:
-            for x in dummy_loader.load():
+            for x, in dummy_loader.load():
                 start = time.perf_counter()
                 model.predict_on_batch(x)
                 end = time.perf_counter()
                 elapsed = end - start
-                print("Tracing completed in", elapsed, "s", sep='')
+                print("Tracing completed in ", elapsed, "s", sep='')
                 break
         return elapsed
 
