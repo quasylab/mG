@@ -842,11 +842,18 @@ class GNNCompiler:
                 return model(x, training=False)
 
             return serve
-        else:
+        elif method == 'predict':
             model.run_eagerly = True
             predict_func = model.make_predict_function()
             model.predict_function = tf.function(predict_func, input_signature=[
                 tf.data.IteratorSpec((input_spec,))])
+            model.run_eagerly = False
+            return model
+        else:
+            model.run_eagerly = True
+            predict_func = model.make_predict_function()
+            model.predict_function = tf.function(predict_func, input_signature=[
+                tf.data.IteratorSpec(input_spec)])
             model.run_eagerly = False
             return model
 
