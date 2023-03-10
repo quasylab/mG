@@ -874,7 +874,7 @@ class GNNCompiler:
             elapsed = end - start
             print("Tracing completed in ", elapsed, "s", sep='')
         else:
-            for x, y in dummy_loader.load():
+            for x in dummy_loader.load():
                 start = time.perf_counter()
                 model.predict_on_batch(x)
                 end = time.perf_counter()
