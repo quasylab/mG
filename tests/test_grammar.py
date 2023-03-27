@@ -62,52 +62,45 @@ class GrammarTests(tf.test.TestCase):
 
     def test_uni_fun_def(self):
         expr = """
-        def test(X:bool[1]){
+        def test(X){
         (f || X);g
-        }
-        test(h)
+        } in test(h)
         """
         tree = self.parser.parse(expr)
         self.assertEqual('fun_def', tree.data)
-        self.assertEqual(5, len(tree.children),)
+        self.assertEqual(4, len(tree.children))
         self.assertEqual('label_decl', tree.children[0].data)
         self.assertEqual('label_decl', tree.children[1].data)
-        self.assertEqual('type_decl', tree.children[2].data)
-        self.assertEqual('fun_call', tree.children[4].data)
+        self.assertEqual('fun_call', tree.children[3].data)
 
     def test_mul_fun_def(self):
         expr = """
-        def test(X:bool[1], Y:bool[1]){
+        def test(X, Y){
         (Y || X);g
-        }
-        test(h, f)
+        } in test(h, f)
         """
         tree = self.parser.parse(expr)
         self.assertEqual('fun_def', tree.data)
-        self.assertEqual(7, len(tree.children))
+        self.assertEqual(5, len(tree.children))
         self.assertEqual('label_decl', tree.children[0].data)
         self.assertEqual('label_decl', tree.children[1].data,)
-        self.assertEqual('type_decl', tree.children[2].data)
-        self.assertEqual('label_decl', tree.children[3].data)
-        self.assertEqual('type_decl', tree.children[4].data)
-        self.assertEqual('fun_call', tree.children[6].data)
+        self.assertEqual('label_decl', tree.children[2].data)
+        self.assertEqual('fun_call', tree.children[4].data)
 
     def test_var_def(self):
         expr = """
-        let test = b;not
-        test
+        let test = b;not in test
         """
         tree = self.parser.parse(expr)
-        self.assertEqual('var_def', tree.data)
+        self.assertEqual('local_var_expr', tree.data)
         self.assertEqual(3, len(tree.children))
         self.assertEqual('label_decl', tree.children[0].data)
         self.assertEqual('atom_op', tree.children[2].data)
         expr = """
-        let t1 = b;not, t2 = f(x, y)
-        t1 || t2
+        let t1 = b;not, t2 = f(x, y) in t1 || t2
         """
         tree = self.parser.parse(expr)
-        self.assertEqual('var_def', tree.data)
+        self.assertEqual('local_var_expr', tree.data)
         self.assertEqual(5, len(tree.children))
         self.assertEqual('label_decl', tree.children[0].data)
         self.assertEqual('label_decl', tree.children[2].data)
@@ -141,24 +134,13 @@ class GrammarTests(tf.test.TestCase):
         self.assertEqual('atom_op', tree.children[1].data)
         self.assertEqual('atom_op', tree.children[2].data)
 
-    def test_loop(self):
-        expr = """
-        while a do
-        b
-        """
-        tree = self.parser.parse(expr)
-        self.assertEqual('loop', tree.data)
-        self.assertEqual('atom_op', tree.children[0].data)
-        self.assertEqual('atom_op', tree.children[1].data)
-
     def test_fix(self):
-        expr = 'fix x:bool[1] = true in (a || (x;|>or));and'
+        expr = 'fix x = true in (a || (x;|>or));and'
         tree = self.parser.parse(expr)
         self.assertEqual('fix', tree.data)
         self.assertEqual('label_decl', tree.children[0].data)
-        self.assertEqual('type_decl', tree.children[1].data)
-        self.assertEqual('atom_op', tree.children[2].data)
-        self.assertEqual('composition', tree.children[3].data)
+        self.assertEqual('atom_op', tree.children[1].data)
+        self.assertEqual('composition', tree.children[2].data)
 
 
 if __name__ == '__main__':

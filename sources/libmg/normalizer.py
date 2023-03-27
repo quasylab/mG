@@ -53,8 +53,8 @@ def is_fixpoint(tree, fix_var=None):
             return test or iftrue or iffalse
 
         @v_args(inline=True)
-        def fix(self, variable_decl, type_decl, initial_var_gnn, body):
-            return initial_var_gnn
+        def fix(self, variable_decl, initial_var_gnn, body):
+            return initial_var_gnn or body
 
     return IsFixpoint().transform(tree) if fix_var is not None else False
 
@@ -78,20 +78,23 @@ class Normalizer(Interpreter):
     @v_args(tree=True)
     def fix(self, tree):
         if not is_fixpoint(tree.children[-1], self.visit(tree.children[0])):
-            self.visit(fixpoint_no_vars(tree))
+            # self.visit(fixpoint_no_vars(tree))
             return self.visit(fixpoint_no_vars(tree))
         else:
+            tree.children[-1] = self.visit(tree.children[-1])
             return tree
 
+    '''
     @v_args(tree=True)
     def fun_def(self, tree):
         tree.children[-1] = self.visit(tree.children[-1])
         return tree
 
     @v_args(tree=True)
-    def var_def(self, tree):
+    def local_var_expr(self, tree):
         tree.children[-1] = self.visit(tree.children[-1])
         return tree
+    '''
 
     def __default__(self, tree):
         return tree
