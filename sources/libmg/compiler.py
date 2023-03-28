@@ -947,6 +947,7 @@ class GNNCompiler:
         self.interpreter.initialize()
         outputs = self.interpreter.visit(self.macros.visit(self.parser.parse(expr)))
         model = tf.keras.Model(inputs=self.model_inputs, outputs=outputs.x)
+        model.saved_layers = self.interpreter.layers
         model.compile(loss=loss)  # this is for training
         if verbose is True:
             model.summary()
