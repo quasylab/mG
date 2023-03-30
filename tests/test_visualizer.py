@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+import os
 
 from scipy.sparse import coo_matrix
 from spektral.data import Graph
@@ -75,13 +76,21 @@ class BaseTest(tf.test.TestCase):
                 phi_functions=FunctionDict({}),
                 config=CompilationConfig.xai_config(NodeConfig(tf.uint8, 1), tf.uint8, {}))]
 
+    def tearDown(self):
+        for file in os.listdir("."):
+            if file.endswith(".html"):
+                os.remove(file)
+
+
     def test_visualizer_only_nodes(self):
         expr = 'a || b'
         compiler = self.compilers[0]
         loader = SingleGraphLoader(self.dataset_only_nodes, epochs=1)
         model = compiler.compile(expr)
         for inputs in loader.load():
-            print_layer(model, inputs, layer_name='(a)', layer_idx=-1)
+            print_layer(model, inputs, layer_idx=-1, open_browser=False)
+            print_layer(model, inputs, layer_name='a', open_browser=False)
+            print_layer(model, inputs, layer_name='(a)', open_browser=False)
 
     def test_visualizer_nodes_and_edges(self):
         expr = 'a || b'
@@ -89,7 +98,9 @@ class BaseTest(tf.test.TestCase):
         loader = SingleGraphLoader(self.dataset_nodes_and_edges, epochs=1)
         model = compiler.compile(expr)
         for inputs in loader.load():
-            print_layer(model, inputs, layer_name='(a)', layer_idx=-1)
+            print_layer(model, inputs, layer_idx=-1, open_browser=False)
+            print_layer(model, inputs, layer_name='a', open_browser=False)
+            print_layer(model, inputs, layer_name='(a)', open_browser=False)
 
     def test_visualizer_multiple_graphs(self):
         expr = 'a || b'
@@ -97,4 +108,6 @@ class BaseTest(tf.test.TestCase):
         loader = MultipleGraphLoader(self.dataset_multiple_graphs, epochs=1, node_level=True, batch_size=2)
         model = compiler.compile(expr)
         for inputs in loader.load():
-            print_layer(model, inputs, layer_name='(a)', layer_idx=-1)
+            print_layer(model, inputs, layer_idx=-1, open_browser=False)
+            print_layer(model, inputs, layer_name='a', open_browser=False)
+            print_layer(model, inputs, layer_name='(a)', open_browser=False)

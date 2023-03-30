@@ -294,7 +294,7 @@ class FixPointExpression:
         return self._input_signature
 
 
-class VarConfig:
+class VarConfig: # TODO: check again
     def __init__(self, dimension: int, dtype: tf.DType):
         self._dimension = dimension
         self._dtype = dtype
@@ -326,7 +326,7 @@ class FixPointConfig(VarConfig):
 
     @property
     def name(self):
-        return str(self.dtype.name) + '[' + str(self.dimension) + ']=' + self._initial_var_name
+        return self._initial_var_name
 
 
 class ModelWrapper:
@@ -406,13 +406,14 @@ class TreeToTF(Interpreter):
                        'int64': tf.int64, 'float16': tf.float16, 'float32': tf.float32, 'float64': tf.float64,
                        'half': tf.float16, 'double': tf.float64}
 
-    def __init__(self, psi_functions, sigma_functions, phi_functions, inputs, precision):
+    def __init__(self, psi_functions, sigma_functions, phi_functions, inputs, precision, parser):
         super().__init__()
         self.psi_functions = psi_functions
         self.sigma_functions = sigma_functions
         self.phi_functions = phi_functions
         self.initial_inputs = inputs
         self.precision = precision
+        self.parser = parser
         # Initialization
         self.fix_var = {}
         self.free_fix_var = {}
@@ -426,29 +427,18 @@ class TreeToTF(Interpreter):
         self.eval_if_clause = False
         self.inputs = self.initial_inputs
 
-    '''
-    def clone(self, inputs):
-        new_interpreter = TreeToTF(self.psi_functions, self.sigma_functions, self.phi_functions, inputs, self.precision)
-        new_interpreter.fix_var = self.fix_var
-        new_interpreter.defined_functions = self.defined_functions
-        new_interpreter.defined_variables = self.defined_variables
-        new_interpreter.defined_local_variables = self.defined_local_variables
-        new_interpreter.var_input = self.var_input
-        return new_interpreter
-    '''
-
     def add_layer(self, layer, ctx_name):
         if not self.disable_saving_layers:
-            self.layers[hash(ctx_name)] = layer
+            self.layers[hash(self.parser.parse(ctx_name))] = layer
 
     def get_layer(self, ctx_name):
-        if hash(ctx_name) in self.layers:
-            return self.layers[hash(ctx_name)]
+        if hash(self.parser.parse(ctx_name)) in self.layers:
+            return self.layers[hash(self.parser.parse(ctx_name))]
         else:
             raise ValueError("No layer with name:", ctx_name)
 
     def undef_layer(self, ctx_name):
-        return not (hash(ctx_name) in self.layers)
+        return not (hash(self.parser.parse(ctx_name)) in self.layers)
 
     def get_contextualized_name(self, name):
         if len(self.context) == 0:
@@ -468,21 +458,6 @@ class TreeToTF(Interpreter):
                 return self.precision.get(typ, self.precision.get('double', None))
             case _:
                 return self.precision.get(typ, None)
-
-    '''
-    @staticmethod
-    def pop(stack):
-        return stack.pop()
-
-    @staticmethod
-    def push(value, stack):
-        stack.append(value)
-
-
-    @staticmethod
-    def head(stack):
-        return stack[-1]
-        '''
 
     def current_fix_var(self):
         return next(reversed(self.fix_var))
@@ -667,17 +642,6 @@ class TreeToTF(Interpreter):
         self.defined_functions[function_name] = deferred_function
         return self.visit(args[-1])
 
-    '''
-    def var_def(self, tree):
-        args = tree.children
-        for i in range(len(args[0:-1]) // 2):
-            var_name = self.visit(args[i * 2])
-            function_tree = args[i * 2 + 1]
-            deferred_function = MGFunction(var_name, [], function_tree)
-            self.defined_variables[var_name] = deferred_function
-        return self.visit(args[-1])
-    '''
-
     def fun_call(self, tree):
         args = tree.children
         function_name = self.visit(args[0])
@@ -750,11 +714,11 @@ class TreeToTF(Interpreter):
             iffalse_model = ModelWrapper(tf.keras.Model(inputs=self.initial_inputs.full_inputs, outputs=iffalse.x),
                                          name=iffalse.name)
 
-        ctx_name = self.get_contextualized_name('if(' + test.name + ',' + iftrue.name + ',' + iffalse.name + ')')
+        ctx_name = self.get_contextualized_name('if ' + test.name + ' then ' + iftrue.name + ' else ' + iffalse.name)
         if (fixpoint_idx[0] and fixpoint_idx[1]) or (fixpoint_idx[0] and fixpoint_idx[2]) or all(fixpoint_idx):
             ite_layer = Ite(iftrue_model.model, iffalse_model.model)
             # noinspection PyCallingNonCallable
-            new_expr = FixPointExpression('(' + 'if(' + test.name + ',' + iftrue.name + ',' + iffalse.name + ')' + ')',
+            new_expr = FixPointExpression('if ' + test.name + ' then ' + iftrue.name + ' else ' + iffalse.name,
                                           inputs=self.initial_inputs.full_inputs[:1] + test.args + test.input_signature,
                                           outputs=ite_layer([test.signature] + self.initial_inputs.full_inputs[:1] + [
                                               self.current_fix_var_config().signature] + test.input_signature[1:]))
@@ -763,7 +727,7 @@ class TreeToTF(Interpreter):
         elif fixpoint_idx[1] or fixpoint_idx[2]:
             ite_layer = Ite(iftrue_model.model, iffalse_model.model)
             # noinspection PyCallingNonCallable
-            new_expr = FixPointExpression('(' + 'if(' + test.name + ',' + iftrue.name + ',' + iffalse.name + ')' + ')',
+            new_expr = FixPointExpression('if ' + test.name + ' then ' + iftrue.name + ' else ' + iffalse.name,
                                           inputs=[test.x] + self.initial_inputs.full_inputs[:1] + [
                                               self.current_fix_var_config().signature] + self.initial_inputs.full_inputs[1:],
                                           outputs=ite_layer([test.x] + self.initial_inputs.full_inputs[:1] + [
@@ -774,7 +738,7 @@ class TreeToTF(Interpreter):
         elif fixpoint_idx[0]:
             ite_layer = Ite(iftrue_model.model, iffalse_model.model)
             # noinspection PyCallingNonCallable
-            new_expr = FixPointExpression('(' + 'if(' + test.name + ',' + iftrue.name + ',' + iffalse.name + ')' + ')',
+            new_expr = FixPointExpression('if ' + test.name + ' then ' + iftrue.name + ' else ' + iffalse.name,
                                           inputs=self.initial_inputs.full_inputs[:1] + test.args + test.input_signature,
                                           outputs=ite_layer([test.signature] + self.initial_inputs.full_inputs[
                                                                                :1] + test.input_signature[1:]))
@@ -802,7 +766,7 @@ class TreeToTF(Interpreter):
         nx = self.visit(body)
         if type(nx) is not FixPointExpression:
             raise ValueError('Invalid fixpoint expression')
-        name = 'fix ' + var_name + ':' + fixpoint_config.name + ' in ' + nx.name
+        name = 'fix ' + var_name + ' = ' + fixpoint_config.name + ' in ' + nx.name
         self.fix_var.pop(var_name)
         lfp_layer = FixPoint(nx.model, precision)
         if len(self.fix_var) == 0:
@@ -882,7 +846,7 @@ class GNNCompiler:
                                                 epochs=1) if \
             config.use_disjoint else SingleGraphLoader(dummy_dataset, epochs=1)
         self.interpreter = TreeToTF(psi_functions, sigma_functions, phi_functions,
-                                    IntermediateOutput("INPUT", *intermediate_output_args), config.precision)
+                                    IntermediateOutput("INPUT", *intermediate_output_args), config.precision, self.parser)
 
     @staticmethod
     def graph_mode_constructor(model, input_spec, method):
