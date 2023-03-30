@@ -81,7 +81,6 @@ class BaseTest(tf.test.TestCase):
             if file.endswith(".html"):
                 os.remove(file)
 
-
     def test_visualizer_only_nodes(self):
         expr = 'a || b'
         compiler = self.compilers[0]

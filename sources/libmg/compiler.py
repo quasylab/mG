@@ -294,7 +294,7 @@ class FixPointExpression:
         return self._input_signature
 
 
-class VarConfig: # TODO: check again
+class VarConfig:  # TODO: check again
     def __init__(self, dimension: int, dtype: tf.DType):
         self._dimension = dimension
         self._dtype = dtype
