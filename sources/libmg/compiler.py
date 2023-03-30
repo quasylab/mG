@@ -600,8 +600,8 @@ class TreeToTF(Interpreter):
             return make_function_ops2(tf.keras.layers.Concatenate(), args, name)
         else:
             ctx_name = self.get_contextualized_name(name)
-            if self.undef_layer(ctx_name):  # TODO: maybe self.inputs is the same here?
-                layer = args[0].step(ctx_name, tf.keras.layers.Concatenate()([arg.x for arg in args]), self.free_fix_var)
+            if self.undef_layer(ctx_name):
+                layer = self.inputs.step(ctx_name, tf.keras.layers.Concatenate()([arg.x for arg in args]), self.free_fix_var)
                 self.add_layer(layer, ctx_name)
                 return layer
             return self.get_layer(ctx_name)
