@@ -294,30 +294,9 @@ class FixPointExpression:
         return self._input_signature
 
 
-class VarConfig:  # TODO: check again
-    def __init__(self, dimension: int, dtype: tf.DType):
-        self._dimension = dimension
-        self._dtype = dtype
-        self._signature = lambda: tf.keras.Input(shape=self.dimension, dtype=self.dtype)
-
-    @property
-    def signature(self):
-        return self._signature()
-
-    @property
-    def dimension(self):
-        return self._dimension
-
-    @property
-    def dtype(self):
-        return self._dtype
-
-
-# TODO: we made the signature fixed here, check if it breaks something!
-class FixPointConfig(VarConfig):
+class FixPointConfig:
     def __init__(self, dimension, dtype, name):
-        super().__init__(dimension, dtype)
-        self._signature = self._signature()
+        self._signature = tf.keras.Input(shape=dimension, dtype=dtype)
         self._initial_var_name = name
 
     @property
@@ -486,9 +465,6 @@ class TreeToTF(Interpreter):
     def label_decl(self, var):
         return str(var)
 
-    @v_args(inline=True)
-    def type_decl(self, type_decl, dimension):
-        return VarConfig(int(dimension), self.supported_types[type_decl])
 
     @v_args(inline=True)
     def atom_op(self, label):
