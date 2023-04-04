@@ -465,7 +465,6 @@ class TreeToTF(Interpreter):
     def label_decl(self, var):
         return str(var)
 
-
     @v_args(inline=True)
     def atom_op(self, label):
         label = self.visit(label)
@@ -799,7 +798,6 @@ class GNNCompiler:
         :param psi_functions: A dictionary of Psi functions, from any among the Psi, PsiLocal and PsiGlobal classes
         :param sigma_functions: A dictionary of Sigma functions
         :param phi_functions: A dictionary of Phi functions
-        :param constant_functions: A dictionary of Constant functions
         :param config: A CompilationConfig object to configure this GNNCompiler object
         """
         self.parser = Lark(mg_grammar, maybe_placeholders=False, parser='lalr')
@@ -868,19 +866,12 @@ class GNNCompiler:
                 break
         return elapsed
 
-    def compile(self, expr: str, verbose: bool = False,
-                optimize: Optional[str] = None, return_compilation_time: bool = False) \
-            -> tf.keras.Model | Callable | Tuple[tf.keras.Model, float] | Tuple[Callable, float]:
+    def compile(self, expr: str, verbose: bool = False) -> tf.keras.Model:
         """
         Compiles a mG formula `expr` into a Tensorflow Model.
 
         :param expr: A mG formula to evaluate
         :param verbose: Set this to True to print some debug information.
-        :param optimize: Set this to "call" to optimize the model for being used with the "call" API, set this to
-         "predict" to optimize the model for being used with the "predict" API, set this to None to leave the model as
-         is. When set to "call" the model is transformed into a function.
-        :param return_compilation_time: Set this to True to also return the time spent to compile the model. If optimize
-        was set to None, compilation time is always 0.
         :return: A Tensorflow Model that is the mG evaluation of 'expr'.
         """
         self.interpreter.initialize()
@@ -889,13 +880,18 @@ class GNNCompiler:
         model.saved_layers = self.interpreter.layers
         if verbose is True:
             model.summary()
-            print('Optimized: ' + str(optimize))
         self.interpreter.initialize()
-        compile_time = 0
-        if optimize:
-            model = GNNCompiler.graph_mode_constructor(model, self.model_input_spec, optimize)
-            compile_time = GNNCompiler.dummy_run(model, self.dummy_loader, optimize)
-        if return_compilation_time:
-            return model, compile_time
-        else:
-            return model
+        return model
+
+    def optimize(self, model: tf.keras.Model, optimize: str)\
+            -> Tuple[tf.keras.Model, float] | Tuple[Callable, float]:
+        """
+        Performs tracing on the input model, and returns it, together with the time took for tracing.
+
+        :param model: A TensorFlow model
+        :param optimize: Set this to "call" to optimize the model for being used with the "call" API, set this to
+        "predict" to optimize the model for being used with the "predict" API. When set to "call" the model is transformed into a function.
+        """
+        model = GNNCompiler.graph_mode_constructor(model, self.model_input_spec, optimize)
+        compile_time = GNNCompiler.dummy_run(model, self.dummy_loader, optimize)
+        return model, compile_time
