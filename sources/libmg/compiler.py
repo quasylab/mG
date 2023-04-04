@@ -743,9 +743,9 @@ class TreeToTF(Interpreter):
             raise ValueError('Invalid fixpoint expression')
         name = 'fix ' + var_name + ' = ' + fixpoint_config.name + ' in ' + nx.name
         self.fix_var.pop(var_name)
+        self.free_fix_var = {key:val for key, val in self.free_fix_var.items() if val != var_name} # TODO: improve this implementation
         lfp_layer = FixPoint(nx.model, precision)
-        if len(self.fix_var) == 0:
-            self.free_fix_var.clear()
+        if len(self.free_fix_var) == 0 and type(initial_gnn_var) is not FixPointExpression:
             ctx_name = self.get_contextualized_name(name)
             if self.undef_layer(ctx_name):
                 # noinspection PyCallingNonCallable

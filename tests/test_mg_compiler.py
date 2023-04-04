@@ -110,6 +110,7 @@ def base_tester(dataset, compilers, expressions):
                MultipleGraphLoader(dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)]
     for loader, compiler in zip(loaders, compilers):
         for e in expressions:
+            print(e)
             model = compiler.compile(e)
             for inputs in loader.load():
                 model.call([inputs], training=False)
