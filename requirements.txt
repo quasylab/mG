@@ -3,6 +3,5 @@ numpy
 lark
 scipy
 tensorflow
-tensorflow_addons
 pyvis
 bidict
