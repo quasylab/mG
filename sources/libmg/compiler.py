@@ -883,8 +883,7 @@ class GNNCompiler:
         self.interpreter.initialize()
         return model
 
-    def optimize(self, model: tf.keras.Model, optimize: str)\
-            -> Tuple[tf.keras.Model, float] | Tuple[Callable, float]:
+    def optimize(self, model: tf.keras.Model, optimize: str) -> Tuple[tf.keras.Model, float] | Tuple[Callable, float]:
         """
         Performs tracing on the input model, and returns it, together with the time took for tracing.
 
