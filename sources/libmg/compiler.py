@@ -868,14 +868,13 @@ class GNNCompiler:
                 break
         return elapsed
 
-    def compile(self, expr: str, loss: tf.keras.losses.Loss = None, verbose: bool = False,
+    def compile(self, expr: str, verbose: bool = False,
                 optimize: Optional[str] = None, return_compilation_time: bool = False) \
             -> tf.keras.Model | Callable | Tuple[tf.keras.Model, float] | Tuple[Callable, float]:
         """
         Compiles a mG formula `expr` into a Tensorflow Model.
 
         :param expr: A mG formula to evaluate
-        :param loss: A Tensorflow loss function to be used if the model has to be trained. [Not yet implemented]
         :param verbose: Set this to True to print some debug information.
         :param optimize: Set this to "call" to optimize the model for being used with the "call" API, set this to
          "predict" to optimize the model for being used with the "predict" API, set this to None to leave the model as
