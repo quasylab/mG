@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from typing import Callable, Type, Optional, Tuple
+
+from bidict import bidict
 from lark import Lark, v_args
 from lark.visitors import Interpreter
 import tensorflow as tf
@@ -395,7 +397,7 @@ class TreeToTF(Interpreter):
         self.parser = parser
         # Initialization
         self.fix_var = {}
-        self.free_fix_var = {}
+        self.free_fix_var = bidict({})
         self.context = []
         self.layers = {}
         self.defined_functions = {}
@@ -446,7 +448,7 @@ class TreeToTF(Interpreter):
 
     def initialize(self):
         self.fix_var = {}
-        self.free_fix_var = {}
+        self.free_fix_var = bidict({})
         self.context = []
         self.layers = {}
         self.var_input = {}
@@ -743,7 +745,7 @@ class TreeToTF(Interpreter):
             raise ValueError('Invalid fixpoint expression')
         name = 'fix ' + var_name + ' = ' + fixpoint_config.name + ' in ' + nx.name
         self.fix_var.pop(var_name)
-        self.free_fix_var = {key: val for key, val in self.free_fix_var.items() if val != var_name}  # TODO: improve this implementation
+        self.free_fix_var.inverse.pop(var_name, None)
         lfp_layer = FixPoint(nx.model, precision)
         if len(self.free_fix_var) == 0 and type(initial_gnn_var) is not FixPointExpression:
             ctx_name = self.get_contextualized_name(name)
