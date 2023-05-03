@@ -802,6 +802,10 @@ class GNNCompiler:
         :param phi_functions: A dictionary of Phi functions
         :param config: A CompilationConfig object to configure this GNNCompiler object
         """
+        if isinstance(config.node_feature_type, tf.float64) or isinstance(config.edge_feature_type, tf.float64):
+            tf.keras.backend.set_floatx('float64')
+        elif isinstance(config.node_feature_type, tf.float16) or isinstance(config.edge_feature_type, tf.float16):
+            tf.keras.backend.set_floatx('float16')
         self.parser = Lark(mg_grammar, maybe_placeholders=False, parser='lalr')
         self.macros = Normalizer(self.parser)
         self.model_inputs = [
@@ -823,6 +827,7 @@ class GNNCompiler:
             config.use_disjoint else SingleGraphLoader(dummy_dataset, epochs=1)
         self.interpreter = TreeToTF(psi_functions, sigma_functions, phi_functions,
                                     IntermediateOutput("INPUT", *intermediate_output_args), config.precision, self.parser)
+
 
     @staticmethod
     def graph_mode_constructor(model, input_spec, method):
