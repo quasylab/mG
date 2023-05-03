@@ -3,7 +3,7 @@ The notation (gnn_formula)? ";" gnn_formula forces the parser to evaluate the se
 """
 
 # reserved words: || mu nu let if then else while do def {all data types}
-# reserved symbols: . , : | < > = ( ) ; [ ]
+# reserved symbols: , | < > = ( ) ; [ ]
 
 mg_grammar = r"""
                 ?gnn_formula: label                                                                               -> atom_op
