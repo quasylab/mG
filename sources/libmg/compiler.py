@@ -746,12 +746,12 @@ class TreeToTF(Interpreter):
         name = 'fix ' + var_name + ' = ' + fixpoint_config.name + ' in ' + nx.name
         self.fix_var.pop(var_name)
         self.free_fix_var.inverse.pop(var_name, None)
-        lfp_layer = FixPoint(nx.model, precision)
+        fix_layer = FixPoint(nx.model, precision)
         if len(self.free_fix_var) == 0 and type(initial_gnn_var) is not FixPointExpression:
             ctx_name = self.get_contextualized_name(name)
             if self.undef_layer(ctx_name):
                 # noinspection PyCallingNonCallable
-                layer = self.inputs.step(ctx_name, lfp_layer(nx.args + [initial_gnn_var.x] + self.inputs.fixpoint_inputs), self.free_fix_var)
+                layer = self.inputs.step(ctx_name, fix_layer(nx.args + [initial_gnn_var.x] + self.inputs.fixpoint_inputs), self.free_fix_var)
                 self.add_layer(layer, ctx_name)
                 return layer
             return self.get_layer(ctx_name)
@@ -772,7 +772,7 @@ class TreeToTF(Interpreter):
                 new_expr = FixPointExpression('(' + name + ')',
                                               nx.args + initial_gnn_var.args + [freevar.signature for freevar in
                                                                                 freevars] + initial_gnn_var.input_signature,
-                                              lfp_layer(nx.args + initial_gnn_var.args + [model(
+                                              fix_layer(nx.args + initial_gnn_var.args + [model(
                                                   [freevar.signature for freevar in
                                                    freevars] + self.inputs.fixpoint_inputs)] + [
                                                             initial_gnn_var.signature] + self.inputs.fixpoint_inputs))
@@ -782,7 +782,7 @@ class TreeToTF(Interpreter):
                 new_expr = FixPointExpression('(' + name + ')',
                                               nx.args + [initial_gnn_var.x] + [freevar.signature for freevar in
                                                                                freevars] + self.inputs.fixpoint_inputs,
-                                              lfp_layer(nx.args + [model([freevar.signature for freevar in
+                                              fix_layer(nx.args + [model([freevar.signature for freevar in
                                                                           freevars] + self.inputs.fixpoint_inputs)] + [
                                                             initial_gnn_var.x] + self.inputs.fixpoint_inputs))
                 new_expr.args = nx.args + [initial_gnn_var.x]
