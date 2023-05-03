@@ -802,9 +802,9 @@ class GNNCompiler:
         :param phi_functions: A dictionary of Phi functions
         :param config: A CompilationConfig object to configure this GNNCompiler object
         """
-        if isinstance(config.node_feature_type, tf.float64) or isinstance(config.edge_feature_type, tf.float64):
+        if config.node_feature_type == tf.float64 or config.edge_feature_type == tf.float64:
             tf.keras.backend.set_floatx('float64')
-        elif isinstance(config.node_feature_type, tf.float16) or isinstance(config.edge_feature_type, tf.float16):
+        elif config.node_feature_type == tf.float16 or config.edge_feature_type == tf.float16:
             tf.keras.backend.set_floatx('float16')
         self.parser = Lark(mg_grammar, maybe_placeholders=False, parser='lalr')
         self.macros = Normalizer(self.parser)
