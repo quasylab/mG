@@ -119,12 +119,7 @@ class FixPoint(MessagePassing):
         super().__init__(**kwargs)
         self.gnn_x = gnn_x
         if precision is not None:
-            if isinstance(precision, tuple):
-                rtol, atol = precision
-            else:
-                rtol = 0
-                atol = precision
-            self.comparator = lambda curr, prev: tf.experimental.numpy.allclose(prev, curr, rtol=rtol, atol=atol)
+            self.comparator = lambda curr, prev: tf.experimental.numpy.allclose(prev, curr, rtol=0, atol=precision)
         else:
             self.comparator = lambda curr, prev: curr == prev
 
