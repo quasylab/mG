@@ -124,7 +124,7 @@ class FixPoint(MessagePassing):
             else:
                 rtol = 0
                 atol = precision
-            self.comparator = lambda curr, prev: tf.experimental.numpy.allclose(curr, prev, rtol=rtol, atol=atol)
+            self.comparator = lambda curr, prev: tf.experimental.numpy.allclose(prev, curr, rtol=rtol, atol=atol)
         else:
             self.comparator = lambda curr, prev: curr == prev
 
