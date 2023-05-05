@@ -119,7 +119,7 @@ class FixPoint(MessagePassing):
         super().__init__(**kwargs)
         self.gnn_x = gnn_x
         if precision is not None:
-            self.comparator = lambda curr, prev: tf.experimental.numpy.allclose(prev, curr, rtol=0, atol=precision)
+            self.comparator = lambda curr, prev: tf.math.less_equal(tf.math.abs(tf.math.subtract(curr, prev)), precision) # tf.experimental.numpy.allclose(prev, curr, rtol=0, atol=precision)
         else:
             self.comparator = lambda curr, prev: curr == prev
 
