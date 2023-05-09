@@ -214,20 +214,34 @@ class Sigma(tf.keras.layers.Layer):
 
 
 class Constant(PsiLocal):
-    def __init__(self, f: Optional[Callable[[int], tf.Tensor[U]]] = None, **kwargs):
+    def __init__(self, v: tf.Tensor[U], **kwargs):
         """
         A constant function f: () -> U
 
-        :param f: A one argument function that returns Tensor of node labels of type U.
-        The function is provided as argument the number of nodes in the graph so that it is able to assign any value
-        to any node if need be.
+        :param v: A value of type U.
         """
-        if f is not None:
-            setattr(self, 'f', f)
-        super().__init__(self.f, **kwargs)
+        if tf.reduce_all(tf.equal(tf.cast(v, dtype=tf.float32), 1.0)):
+            f = lambda x: tf.ones((tf.shape(x)[0], tf.size(v)), dtype=v.dtype)
+        elif tf.reduce_all(tf.equal(tf.cast(v, dtype=tf.float32), 0.0)):
+            f = lambda x: tf.zeros((tf.shape(x)[0], tf.size(v)), dtype=v.dtype)
+        elif tf.size(v) == 1:
+            f = lambda x: tf.fill((tf.shape(x)[0], tf.size(v)), value=v)
+        else:
+            f = lambda x: tf.tile([v], [tf.shape(x)[0], 1])
+        super().__init__(f, **kwargs)
 
-    def f(self, n_nodes):
-        raise NotImplementedError
 
-    def __call__(self, x, i=None):
-        return self.single_op(tf.shape(x)[0])
+
+class Pi(PsiLocal):
+    def __init__(self, i, j=None, **kwargs):
+        """
+        A projection function f: T* -> T*
+
+        :param i: 0-based index, first element of the sequence to return
+        :param j: 0-based index, last element (exclusive) of the sequence to return. Defaults to i + 1
+        """
+        j = i + 1 if j is None else j
+        assert j > i
+        f = lambda x: x[:, i:j]
+
+        super().__init__(f, **kwargs)
