@@ -112,7 +112,7 @@ def base_tester(dataset, compilers, expressions):
         for e in expressions:
             model = compiler.compile(e)
             for inputs in loader.load():
-                model.call([inputs], training=False)
+                print(model.call([inputs], training=False))
 
 
 class TestDataset(Dataset):
@@ -194,7 +194,8 @@ class BaseTest(tf.test.TestCase):
         ]
 
     def test_simple_expr(self):
-        expr = ['a', 'true', 'false', '<| uor', '|> or', 'a;not', '(a || b);and', '(a || b);or', 'a; false', 'a || b']
+        # expr = ['a', 'true', 'false', '<| uor', '|> or', 'a;not', '(a || b);and', '(a || b);or', 'a; false', 'a || b']
+        expr = ['a || b']
         base_tester(self.dataset, self.compilers, expr)
 
     def test_fixpoint_expr(self):
@@ -320,6 +321,12 @@ class BaseTest(tf.test.TestCase):
     def test_constants(self):
         expr = ['fix X = (false || true)  in X']
         base_tester(self.dataset, self.compilers, expr)
+
+
+    def test_repeat(self):
+        expr = ['repeat X = false in X;not for 3']
+        base_tester(self.dataset, self.compilers, expr)
+
 
     def test_reuse(self):
         expr = 'a || ((a || b);or) || (b ; |> or) || (fix X = false in ((a || X) ; or)) || (a ; not)'

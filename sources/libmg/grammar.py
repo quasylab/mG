@@ -1,8 +1,4 @@
-"""
-The notation (gnn_formula)? ";" gnn_formula forces the parser to evaluate the sequential op left to right
-"""
-
-# reserved words: || mu nu let if then else while do def {all data types}
+# reserved words: || fix let if then else def in
 # reserved symbols: , | < > = ( ) ; [ ]
 
 mg_grammar = r"""
@@ -14,6 +10,7 @@ mg_grammar = r"""
                          | "def" label_decl "(" (label_decl ",")* label_decl "){" p_formula "} in " p_formula     -> fun_def
                          | "if" p_formula "then" p_formula "else" p_formula                                       -> ite
                          | "fix" label_decl "=" p_formula "in" p_formula                                          -> fix
+                         | "repeat" label_decl "=" p_formula "in" p_formula "for" NUMBER                          -> repeat
                          | "(" start ")"
 
                 ?p_formula: gnn_formula

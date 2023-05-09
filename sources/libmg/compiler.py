@@ -13,7 +13,7 @@ from .loaders import SingleGraphLoader, MultipleGraphLoader
 from .normalizer import Normalizer, is_fixpoint
 from .dummy_dataset import DummyDataset
 from .grammar import mg_grammar
-from .layers import PreImage, PostImage, FunctionApplication, Ite, FixPoint
+from .layers import PreImage, PostImage, FunctionApplication, Ite, FixPoint, Repeat
 
 
 class NodeConfig:
@@ -788,6 +788,61 @@ class TreeToTF(Interpreter):
                 new_expr.args = nx.args + [initial_gnn_var.x]
                 return new_expr
 
+    @v_args(inline=True)
+    def repeat(self, variable_decl, initial_var_gnn, body, n):
+        var_name = self.visit(variable_decl)
+        initial_gnn_var = self.visit(initial_var_gnn)
+        initial_gnn_var_dimension, initial_gnn_var_type = analyze_fix_var(initial_gnn_var)
+        # precision = self.get_precision(initial_gnn_var_type.name)
+        fixpoint_config = FixPointConfig(initial_gnn_var_dimension, initial_gnn_var_type, initial_gnn_var.name)
+        self.fix_var[var_name] = fixpoint_config
+        nx = self.visit(body)
+        if type(nx) is not FixPointExpression:
+            raise ValueError('Invalid fixpoint expression')
+        name = 'fix ' + var_name + ' = ' + fixpoint_config.name + ' in ' + nx.name
+        self.fix_var.pop(var_name)
+        self.free_fix_var.inverse.pop(var_name, None)
+        fix_layer = Repeat(nx.model, int(n))
+        if len(self.free_fix_var) == 0 and type(initial_gnn_var) is not FixPointExpression:
+            ctx_name = self.get_contextualized_name(name)
+            if self.undef_layer(ctx_name):
+                # noinspection PyCallingNonCallable
+                layer = self.inputs.step(ctx_name, fix_layer(nx.args + [initial_gnn_var.x] + self.inputs.fixpoint_inputs), self.free_fix_var)
+                self.add_layer(layer, ctx_name)
+                return layer
+            return self.get_layer(ctx_name)
+        else:  # we have free fixpoint variables
+            # take all the free vars and remove them from nx.args
+            freevars = []
+            outputs = []
+            for i, t in enumerate(nx.args):
+                if self.free_fix_var[t.ref()] == self.current_fix_var():
+                    freevars.append(self.current_fix_var_config())
+                    outputs.append(t)
+                    nx.args.pop(i)
+                    break
+
+            model = tf.keras.Model(inputs=[freevar.signature for freevar in freevars] + self.inputs.fixpoint_inputs, outputs=outputs)
+
+            if type(initial_gnn_var) is FixPointExpression:
+                new_expr = FixPointExpression('(' + name + ')',
+                                              nx.args + initial_gnn_var.args + [freevar.signature for freevar in
+                                                                                freevars] + initial_gnn_var.input_signature,
+                                              fix_layer(nx.args + initial_gnn_var.args + [model(
+                                                  [freevar.signature for freevar in
+                                                   freevars] + self.inputs.fixpoint_inputs)] + [
+                                                            initial_gnn_var.signature] + self.inputs.fixpoint_inputs))
+                new_expr.args = nx.args + initial_gnn_var.args
+                return new_expr
+            else:
+                new_expr = FixPointExpression('(' + name + ')',
+                                              nx.args + [initial_gnn_var.x] + [freevar.signature for freevar in
+                                                                               freevars] + self.inputs.fixpoint_inputs,
+                                              fix_layer(nx.args + [model([freevar.signature for freevar in
+                                                                          freevars] + self.inputs.fixpoint_inputs)] + [
+                                                            initial_gnn_var.x] + self.inputs.fixpoint_inputs))
+                new_expr.args = nx.args + [initial_gnn_var.x]
+                return new_expr
 
 class GNNCompiler:
     def __init__(self, psi_functions: FunctionDict[str, Psi | Callable[[str], Psi] | Type[Psi]],
