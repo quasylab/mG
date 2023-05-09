@@ -1,5 +1,5 @@
 # reserved words: || fix let if then else def in
-# reserved symbols: , | < > = ( ) ; [ ]
+# reserved symbols: , | < > = ( ) ; [ ] #
 
 mg_grammar = r"""
                 ?gnn_formula: label                                                                               -> atom_op
@@ -19,13 +19,16 @@ mg_grammar = r"""
 
                 ?start: p_formula
 
-                label: /[a-zA-Z_0-9\+\*\^\-\!\#\%\&\=\~\/\@]+/
+                label: /[a-zA-Z_0-9\+\*\^\-\!\%\&\=\~\/\@]+/
                             |  FUNC_GEN
 
-                FUNC_GEN: /[a-zA-Z_0-9\+\*\^\-\!\#\%\&\=\~\/\@]+/ "[" /[^\]\[]+/ "]"
+                FUNC_GEN: /[a-zA-Z_0-9\+\*\^\-\!\%\&\=\~\/\@]+/ "[" /[^\]\[]+/ "]"
 
-                label_decl: /[a-zA-Z_0-9\+\*\^\-\!\#\%\&\=\~\/\@]+/
+                label_decl: /[a-zA-Z_0-9\+\*\^\-\!\%\&\=\~\/\@]+/
+                
+                COMMENT: "#" /[^\n]/*
 
+                %ignore COMMENT
                 %import common.WS
                 %import common.NUMBER
                 %import common.UCASE_LETTER

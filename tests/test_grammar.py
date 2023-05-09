@@ -142,6 +142,10 @@ class GrammarTests(tf.test.TestCase):
         self.assertEqual('atom_op', tree.children[1].data)
         self.assertEqual('composition', tree.children[2].data)
 
+    def test_comment(self):
+        expr = '# this is a comment\n a'
+        tree = self.parser.parse(expr)
+        self.assertEqual('atom_op', tree.data)
 
 if __name__ == '__main__':
     tf.test.main()

@@ -193,6 +193,7 @@ class BaseTest(tf.test.TestCase):
                 '(fix X = false in (X ; |> or)) || (fix X = true in ((X || a);and))']
         base_tester(self.dataset, self.compilers, expr)
 
+
     def test_seq_expr(self):
         expr = ['a;not', 'a;not;not', 'a;not;not;not',
                 'fix X = false in (X ; not; not)',
