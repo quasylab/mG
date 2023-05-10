@@ -844,6 +844,7 @@ class TreeToTF(Interpreter):
                 new_expr.args = nx.args + [initial_gnn_var.x]
                 return new_expr
 
+
 class GNNCompiler:
     def __init__(self, psi_functions: FunctionDict[str, Psi | Callable[[str], Psi] | Type[Psi]],
                  sigma_functions: FunctionDict[str, Sigma | Callable[[str], Sigma] | Type[Sigma]],
@@ -882,7 +883,6 @@ class GNNCompiler:
             config.use_disjoint else SingleGraphLoader(dummy_dataset, epochs=1)
         self.interpreter = TreeToTF(psi_functions, sigma_functions, phi_functions,
                                     IntermediateOutput("INPUT", *intermediate_output_args), config.precision, self.parser)
-
 
     @staticmethod
     def graph_mode_constructor(model, input_spec, method):

@@ -11,7 +11,7 @@ mg_grammar = r"""
                          | "if" p_formula "then" p_formula "else" p_formula                                       -> ite
                          | "fix" label_decl "=" p_formula "in" p_formula                                          -> fix
                          | "repeat" label_decl "=" p_formula "in" p_formula "for" NUMBER                          -> repeat
-                         | "(" start ")"
+                         | "(" p_formula ")"
 
                 ?p_formula: gnn_formula
                          | gnn_formula ";" p_formula                                                              -> composition
