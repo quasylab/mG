@@ -70,4 +70,6 @@ def visualize(node_values, adj, edge_values, file_name, open_browser):
 
 def print_layer(model, inputs, layer_name=None, layer_idx=None, open_browser=True):
     debug_model = tf.keras.Model(inputs=model.inputs, outputs=fetch_layer(model, layer_name, layer_idx))
-    visualize(debug_model(inputs), find_adj(inputs), find_edges(inputs), get_name(layer_idx or layer_name), open_browser)
+    idx_or_name = layer_idx if layer_idx is not None else layer_name
+    assert idx_or_name is not None
+    visualize(debug_model(inputs), find_adj(inputs), find_edges(inputs), get_name(idx_or_name), open_browser)
