@@ -11,85 +11,85 @@ from libmg.functions import Constant
 
 
 class A(PsiLocal):
-    def f(self, x):
+    def func(self, x):
         return tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 0, dtype=tf.uint8)), tf.bool)
 
 
 class B(PsiLocal):
-    def f(self, x):
+    def func(self, x):
         return tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 1, dtype=tf.uint8)), tf.bool)
 
 
 class C(PsiLocal):
-    def f(self, x):
+    def func(self, x):
         return tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 2, dtype=tf.uint8)), tf.bool)
 
 
 class And(PsiLocal):
-    def f(self, x):
+    def func(self, x):
         return tf.math.reduce_all(x, axis=1, keepdims=True)
 
 
 class Or(PsiLocal):
-    def f(self, x):
+    def func(self, x):
         return tf.math.reduce_any(x, axis=1, keepdims=True)
 
 
 class Not(PsiLocal):
-    def f(self, x):
+    def func(self, x):
         return tf.math.logical_not(x)
 
 
 class Id(PsiLocal):
-    def f(self, x):
+    def func(self, x):
         return x
 
 
 class Add1(PsiLocal):
-    def f(self, x):
+    def func(self, x):
         return x + 1
 
 
 class Sub1(PsiLocal):
-    def f(self, x):
+    def func(self, x):
         return x - 1
 
 
 class Le2(PsiLocal):
-    def f(self, x):
+    def func(self, x):
         return x < 2
 
 
 class Max(Sigma):
-    def f(self, m, i, n, x):
+    def func(self, m, i, n, x):
         return tf.cast(tf.math.segment_max(tf.cast(m, tf.uint8), i), tf.bool)
 
 
 class UMax(Sigma):
-    def f(self, m, i, n, x):
+    def func(self, m, i, n, x):
         return tf.cast(tf.math.unsorted_segment_max(tf.cast(m, tf.uint8), i, n), tf.bool)
 
 
 class IsZero(Phi):
-    def f(self, src, e, tgt):
+    def func(self, src, e, tgt):
         return tf.math.logical_and(tgt, tf.equal(e, 0))
 
 
 class One(PsiLocal):
-    def f(self, x):
+    def func(self, x):
         return tf.ones_like(x)
 
 
 class Min(PsiLocal):
-    def f(self, x):
+    def func(self, x):
         return x[:, :1] - x[:, 1:]
 
 
 class Sum(PsiGlobal):
-    def multiple_op(self, x, i):
+    def multiple_graph_op(self, x, i):
         return tf.math.segment_sum(x, i)
 
-    def single_op(self, x):
+    def single_graph_op(self, x):
         return tf.reduce_sum(x, axis=0, keepdims=True)
 
 def base_tester(dataset, compilers, expressions):

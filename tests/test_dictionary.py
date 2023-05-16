@@ -18,11 +18,11 @@ class LambdasDictionaryTest(tf.test.TestCase):
 class SubclassingDictionaryTest(tf.test.TestCase):
 
     class Add(PsiLocal):
-        def f(self, x):
+        def func(self, x):
             return tf.math.add(x)
 
     class Sub(PsiLocal):
-        def f(self, x):
+        def func(self, x):
             return tf.math.subtract(x)
 
     class ParamAdd(PsiLocal):
@@ -30,7 +30,7 @@ class SubclassingDictionaryTest(tf.test.TestCase):
             self.y = int(y)
             super().__init__(**kwargs)
 
-        def f(self, x):
+        def func(self, x):
             return tf.math.add(x, self.y)
 
     def test_simple_function(self):

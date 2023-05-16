@@ -93,22 +93,29 @@ class Psi(tf.keras.layers.Layer):
          definition of f.
         """
         super().__init__(**kwargs)
-        if single_op is not None:
-            setattr(self, 'single_op', single_op)
-        if multiple_op is not None:
-            setattr(self, 'multiple_op', multiple_op)
+        if single_op is None:
+            self.single_op = self.single_graph_op
+        else:
+            self.single_op = single_op
+        if multiple_op is None:
+            self.multiple_op = self.multiple_graph_op
+        else:
+            self.multiple_op = multiple_op
 
-    def single_op(self, x):
+
+    def single_graph_op(self, x):
         raise NotImplementedError
 
-    def multiple_op(self, x, i):
+    def multiple_graph_op(self, x, i):
         raise NotImplementedError
+
 
     def __call__(self, x, i=None):
         if i is not None:
             return self.multiple_op(x, i)
         else:
             return self.single_op(x)
+
 
 
 class PsiLocal(Psi):
@@ -119,18 +126,17 @@ class PsiLocal(Psi):
         :param f: A function that transforms a Tensor of node labels of type T to a Tensor of node labels of type U.
          The function must be compatible with Tensorflow's broadcasting rules.
         """
-        if f is not None:
-            setattr(self, 'f', f)
-        super().__init__(single_op=self.f, **kwargs)
+        if f is None:
+            super().__init__(single_op=self.func, **kwargs)
+        else:
+            super().__init__(single_op=f, **kwargs)
 
-    def f(self, x):
+    def func(self, x):
         raise NotImplementedError
-
-    single_op = f
-    multiple_op = None
 
     def __call__(self, x, i=None):
         return self.single_op(x)
+
 
 
 class PsiGlobal(Psi):
@@ -150,16 +156,12 @@ class PsiGlobal(Psi):
         :param multiple_op: A function that transforms a Tensor of node labels of type T and a Tensor of their
          respective graph indices of type int64 to Tensor of node labels of type U.
         """
-        if single_op is not None:
-            setattr(self, 'single_op', single_op)
-        if multiple_op is not None:
-            setattr(self, 'multiple_op', multiple_op)
-        super().__init__(single_op=self.single_op, multiple_op=self.multiple_op, **kwargs)
+        super().__init__(single_op=single_op, multiple_op=multiple_op, **kwargs)
 
-    def single_op(self, x):
+    def single_graph_op(self, x):
         raise NotImplementedError
 
-    def multiple_op(self, x, i):
+    def multiple_graph_op(self, x, i):
         raise NotImplementedError
 
     def __call__(self, x, i=None):
@@ -182,10 +184,12 @@ class Phi(tf.keras.layers.Layer):
          labels of type U, and a Tensor of target node labels of type T that returns a Tensor of node labels of type V.
         """
         super().__init__(**kwargs)
-        if f is not None:
-            setattr(self, 'f', f)
+        if f is None:
+            self.f = self.func
+        else:
+            self.f = f
 
-    def f(self, src, e, tgt):
+    def func(self, src, e, tgt):
         raise NotImplementedError
 
     def __call__(self, src, e, tgt):
@@ -203,10 +207,12 @@ class Sigma(tf.keras.layers.Layer):
         graph and finally a Tensor of node labels of type U. The function must return a Tensor of node labels of type V.
         """
         super().__init__(**kwargs)
-        if f is not None:
-            setattr(self, 'f', f)
+        if f is None:
+            self.f = self.func
+        else:
+            self.f = f
 
-    def f(self, m, i, n, x):
+    def func(self, m, i, n, x):
         raise NotImplementedError
 
     def __call__(self, m, i, n, x):
