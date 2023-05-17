@@ -1,6 +1,6 @@
 from lark import Transformer, v_args
 from lark.reconstruct import Reconstructor
-from lark.visitors import Interpreter
+from lark.visitors import Interpreter, Visitor
 
 
 def is_fixpoint(tree, fix_var=None):
@@ -63,7 +63,7 @@ def fixpoint_no_vars(tree):
     return tree.children[-1]
 
 
-class Normalizer(Interpreter):
+class Normalizer(Visitor):
 
     def __init__(self, parser):
         super().__init__()
@@ -71,30 +71,12 @@ class Normalizer(Interpreter):
         self.reconstructor = Reconstructor(parser)
         self.fixpoint_vars = []
 
-    @v_args(inline=True)
-    def label_decl(self, var):
-        return str(var)
-
     @v_args(tree=True)
     def fix(self, tree):
-        if not is_fixpoint(tree.children[-1], self.visit(tree.children[0])):
-            # self.visit(fixpoint_no_vars(tree))
-            return self.visit(fixpoint_no_vars(tree))
-        else:
-            tree.children[-1] = self.visit(tree.children[-1])
-            return tree
-
-    '''
-    @v_args(tree=True)
-    def fun_def(self, tree):
-        tree.children[-1] = self.visit(tree.children[-1])
-        return tree
-
-    @v_args(tree=True)
-    def local_var_expr(self, tree):
-        tree.children[-1] = self.visit(tree.children[-1])
-        return tree
-    '''
+        if not is_fixpoint(tree.children[-1], str(tree.children[0].children[0])):
+            new_expr = fixpoint_no_vars(tree)
+            tree.data = new_expr.data
+            tree.children = new_expr.children
 
     def __default__(self, tree):
         return tree
