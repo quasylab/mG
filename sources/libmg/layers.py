@@ -2,6 +2,61 @@ import tensorflow as tf
 from tensorflow.python.keras import backend as K
 from spektral.layers import MessagePassing
 
+def loop_body(X, F, H, k, m, beta, lam, x0, bsz, f, y):
+    k = k + 1
+    n = min(k, m)
+    G = tf.Variable(F[:, :n] - X[:, :n])
+
+    H = H[:, 1:n + 1, 1:n + 1].assign(
+        tf.matmul(G, tf.transpose(G, [0, 2, 1])) + tf.expand_dims(lam * tf.eye(n, dtype=x0.dtype), 0))
+    alpha = tf.linalg.solve(H[:, :n + 1, :n + 1], y[:, :n + 1])[:, 1:n + 1, 0]
+
+    X = X[:, k % m].assign(
+        beta * tf.matmul(alpha[:, None], F[:, :n])[:, 0] + (1 - beta) * tf.matmul(alpha[:, None], X[:, :n])[:, 0])
+    F = F[:, k % m].assign(tf.reshape(f(tf.reshape(X[:, k % m], tf.shape(x0))), (bsz, -1)))
+
+    return [X, F, H, k]
+
+
+def anderson_mixing(f, x0, m=5, lam=1e-4, tol=1e-10, beta=1.0):
+    n_nodes, n_node_features = tf.shape(x0)
+    bsz = 1
+
+    X = tf.Variable(tf.zeros((bsz, m, n_nodes * n_node_features), dtype=x0.dtype))
+    F = tf.Variable(tf.zeros((bsz, m, n_nodes * n_node_features), dtype=x0.dtype))
+
+    X = X[:, 0].assign(tf.reshape(x0, (bsz, -1)))
+    F = F[:, 0].assign(tf.reshape(f(x0), (bsz, -1)))
+    X = X[:, 1].assign(F[:, 0])
+    F = F[:, 1].assign(tf.reshape(f(tf.reshape(F[:, 0],(tf.shape(x0)))),(bsz, -1)))
+
+    H = tf.Variable(tf.zeros((bsz, m + 1, m + 1), dtype=x0.dtype))
+    H = H[:, 0, 1:].assign(1)
+    H = H[:, 1:, 0].assign(1)
+
+
+    y = tf.Variable(tf.zeros((bsz, m + 1, 1), dtype=x0.dtype))
+    y = y[:, 0].assign(1)
+
+    output = tf.while_loop(
+        cond=lambda XX, FF, HH, k: tf.math.logical_not(tf.math.reduce_all(tf.math.less_equal(tf.math.abs(tf.math.subtract(FF[:, k % m], XX[:, k % m])), tol))),
+        body=lambda XX, FF, HH, k: loop_body(XX, FF, HH, k, m, beta, lam, x0, bsz, f, y),
+        loop_vars=[X, F, H, 1]
+    )
+
+    X_f = output[0]
+    k = output[-1]
+    return tf.reshape(X_f[:, k % m], tf.shape(x0)), k
+
+def standard_fixpoint(f, x0, tol=1e-10):
+    return tf.while_loop(
+        cond=lambda curr, prev, k: tf.math.logical_not(tf.math.reduce_all(tf.math.less_equal(tf.math.abs(tf.math.subtract(curr, prev)), tol))),
+        body=lambda curr, prev, k: [f(curr), curr, k+1],
+        loop_vars=[f(x0), x0, 1],
+    )
+
+# print(anderson_mixing(lambda x: x/2, tf.constant([[1.], [1.], [1.]])))
+# print(standard_fixpoint(lambda x: x/2, tf.constant([[1.], [1.], [1.]])))
 
 class FunctionApplication(MessagePassing):
 
