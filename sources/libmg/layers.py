@@ -2,61 +2,70 @@ import tensorflow as tf
 from tensorflow.python.keras import backend as K
 from spektral.layers import MessagePassing
 
-def loop_body(X, F, H, k, m, beta, lam, x0, bsz, f, y):
+def loop_body(X, F, H, k, m, beta, lam, x0, f, y):
     k = k + 1
-    n = min(k, m)
-    G = tf.Variable(F[:, :n] - X[:, :n])
+    n = tf.math.minimum(k, m)
+    G = tf.reshape(F.stack()[:n] - X.stack()[:n], shape=[n, -1])
 
-    H = H[:, 1:n + 1, 1:n + 1].assign(
-        tf.matmul(G, tf.transpose(G, [0, 2, 1])) + tf.expand_dims(lam * tf.eye(n, dtype=x0.dtype), 0))
-    alpha = tf.linalg.solve(H[:, :n + 1, :n + 1], y[:, :n + 1])[:, 1:n + 1, 0]
+    updates_H = tf.matmul(G, tf.transpose(G)) + lam * tf.eye(n, dtype=x0.dtype)
+    updates_H = tf.concat([tf.ones((n, 1), dtype=x0.dtype), updates_H], axis=1)
+    updates_H = tf.concat([updates_H, tf.zeros((n, m-n), dtype=x0.dtype)], axis=1)
+    H = tf.tensor_scatter_nd_update(H, tf.expand_dims(tf.range(start=1, limit=n+1), axis=1), updates_H)
 
-    X = X[:, k % m].assign(
-        beta * tf.matmul(alpha[:, None], F[:, :n])[:, 0] + (1 - beta) * tf.matmul(alpha[:, None], X[:, :n])[:, 0])
-    F = F[:, k % m].assign(tf.reshape(f(tf.reshape(X[:, k % m], tf.shape(x0))), (bsz, -1)))
+    alpha = tf.linalg.solve(H[:n + 1, :n + 1], y[:n + 1])[1:n + 1, 0]
+
+    updates_X = beta * tf.matmul(alpha[None], tf.reshape(F.stack()[:n], shape=[n, -1]))[0] + (1 - beta) * tf.matmul(alpha[None], tf.reshape(X.stack()[:n], shape=[n, -1]))[0]
+    X = X.write(k % m, tf.expand_dims(updates_X, axis=1))
+    updates_F = f(X.read(k % m))
+    F = F.write(k % m, updates_F)
 
     return [X, F, H, k]
 
+# @tf.function
+def anderson_mixing(f, x0, comparator, m=5, lam=1e-4, beta=1.0):
+    # nodes * node feats = size
+    X = tf.TensorArray(dtype=x0.dtype, size=m, clear_after_read=False)
+    F = tf.TensorArray(dtype=x0.dtype, size=m, clear_after_read=False)
 
-def anderson_mixing(f, x0, m=5, lam=1e-4, tol=1e-10, beta=1.0):
-    n_nodes, n_node_features = tf.shape(x0)
-    bsz = 1
+    X = X.write(0, x0)
+    F = F.write(0, f(x0))
+    X = X.write(1, F.read(0))
+    F = F.write(1, f(F.read(0)))
 
-    X = tf.Variable(tf.zeros((bsz, m, n_nodes * n_node_features), dtype=x0.dtype))
-    F = tf.Variable(tf.zeros((bsz, m, n_nodes * n_node_features), dtype=x0.dtype))
+    H = tf.sequence_mask(tf.ones((m + 1,)), m + 1, dtype=x0.dtype)
+    H = tf.tensor_scatter_nd_update(H, [[0]], tf.expand_dims(
+        tf.cast(tf.math.logical_not(tf.sequence_mask(1, m + 1)), dtype=x0.dtype), axis=0))
 
-    X = X[:, 0].assign(tf.reshape(x0, (bsz, -1)))
-    F = F[:, 0].assign(tf.reshape(f(x0), (bsz, -1)))
-    X = X[:, 1].assign(F[:, 0])
-    F = F[:, 1].assign(tf.reshape(f(tf.reshape(F[:, 0],(tf.shape(x0)))),(bsz, -1)))
-
-    H = tf.Variable(tf.zeros((bsz, m + 1, m + 1), dtype=x0.dtype))
-    H = H[:, 0, 1:].assign(1)
-    H = H[:, 1:, 0].assign(1)
-
-
-    y = tf.Variable(tf.zeros((bsz, m + 1, 1), dtype=x0.dtype))
-    y = y[:, 0].assign(1)
+    y = tf.ones((m + 1, 1), dtype=x0.dtype)
 
     output = tf.while_loop(
-        cond=lambda XX, FF, HH, k: tf.math.logical_not(tf.math.reduce_all(tf.math.less_equal(tf.math.abs(tf.math.subtract(FF[:, k % m], XX[:, k % m])), tol))),
-        body=lambda XX, FF, HH, k: loop_body(XX, FF, HH, k, m, beta, lam, x0, bsz, f, y),
+        cond=lambda XX, FF, HH, k: tf.math.logical_not(tf.math.reduce_all(comparator(FF.read(k % m), XX.read(k % m)))),
+        body=lambda XX, FF, HH, k: loop_body(XX, FF, HH, k, m, beta, lam, x0, f, y),
         loop_vars=[X, F, H, 1]
     )
 
     X_f = output[0]
     k = output[-1]
-    return tf.reshape(X_f[:, k % m], tf.shape(x0)), k
+    return [X_f.read(k % m), X_f.read((k - 1) % m), k]
 
-def standard_fixpoint(f, x0, tol=1e-10):
+@tf.function
+def standard_fixpoint(f, x0, comparator):
+    iter = tf.constant(1)
     return tf.while_loop(
-        cond=lambda curr, prev, k: tf.math.logical_not(tf.math.reduce_all(tf.math.less_equal(tf.math.abs(tf.math.subtract(curr, prev)), tol))),
+        cond=lambda curr, prev, k: tf.math.logical_not(tf.math.reduce_all(comparator(curr[0], prev[0]))),
         body=lambda curr, prev, k: [f(curr), curr, k+1],
-        loop_vars=[f(x0), x0, 1],
+        loop_vars=[f(x0), x0, iter],
+        shape_invariants=[[x0[0].get_shape()], [x0[0].get_shape()], iter.get_shape()]
     )
+
+@tf.function
+def anderson_fixpoint(f, x0, comparator):
+    return anderson_mixing(lambda x: f([x])[0], x0[0], comparator)
 
 # print(anderson_mixing(lambda x: x/2, tf.constant([[1.], [1.], [1.]])))
 # print(standard_fixpoint(lambda x: x/2, tf.constant([[1.], [1.], [1.]])))
+
+
 
 class FunctionApplication(MessagePassing):
 
@@ -167,16 +176,18 @@ class Ite(MessagePassing):
             inputs_iffalse = values[:self.iffalse_input_len - 1] + inputs
             return tf.cond(tf.reduce_all(test), lambda: self.iftrue(inputs_iftrue), lambda: self.iffalse(inputs_iffalse))
 
-
+# modes: iter, anderson
 class FixPoint(MessagePassing):
 
-    def __init__(self, gnn_x, precision=None, **kwargs):
+    def __init__(self, gnn_x, precision=None, mode='anderson', **kwargs):
         super().__init__(**kwargs)
         self.gnn_x = gnn_x
         if precision is not None:
             self.comparator = lambda curr, prev: tf.math.less_equal(tf.math.abs(tf.math.subtract(curr, prev)), precision)
+            self.solver = standard_fixpoint if mode == 'iter' else anderson_fixpoint
         else:
             self.comparator = lambda curr, prev: curr == prev
+            self.solver = standard_fixpoint
 
     def call(self, inputs, **kwargs):
         x, a, e, i = self.get_inputs(inputs)
@@ -205,14 +216,10 @@ class FixPoint(MessagePassing):
             additional_inputs.append(e)
         if i is not None:
             additional_inputs.append(i)
-        X = [self.gnn_x(saved_args + X_o + additional_inputs)]
-        # alternative: use set_shape in body of while
-        return tf.while_loop(
-            cond=lambda curr, prev: tf.math.logical_not(tf.math.reduce_all(self.comparator(curr[0], prev[0]))),
-            body=lambda curr, prev: [[self.gnn_x(saved_args + curr + additional_inputs)], curr],
-            loop_vars=[X, X_o],
-            shape_invariants=[[X[0].get_shape()], [X[0].get_shape()]]
-        )[0][0]
+        # X = [self.gnn_x(saved_args + X_o + additional_inputs)]
+
+        opt = self.solver(lambda x: [self.gnn_x(saved_args + x + additional_inputs)], X_o, lambda curr, prev: self.comparator(curr, prev))[0]
+        return opt
 
 
 class Repeat(MessagePassing):

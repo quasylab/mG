@@ -141,6 +141,7 @@ class BaseTest(tf.test.TestCase):
                 lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 1, dtype=tf.uint8)), tf.bool)),
             'c': PsiLocal(
                 lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 2, dtype=tf.uint8)), tf.bool)),
+            '100': Constant(tf.constant(100.0, dtype=tf.float32)),
             'true': Constant(tf.constant(True)),
             'false': Constant(tf.constant(False)),
             'and': PsiLocal(lambda x: tf.math.reduce_all(x, axis=1, keepdims=True)),
@@ -150,13 +151,17 @@ class BaseTest(tf.test.TestCase):
             'eq': PsiLocal(lambda x: tf.equal(x[:, :1], x[:, 1:])),
             'pr1': PsiLocal(lambda x: x[:, 1:]),
             'le': PsiLocal(lambda x: x < 2),
+            'div': PsiLocal(lambda x: x / 2),
             'add1': PsiLocal(lambda x: x + 1),
             'sub1': PsiLocal(lambda x: x - 1)})
+        self.psi_dict_lambdas = psi_dict_lambdas
         sigma_dict_lambdas = FunctionDict({
+            '*': Sigma(lambda m, i, n, x: tf.math.segment_prod(m, i)),
             'or': Sigma(lambda m, i, n, x: tf.cast(tf.math.segment_max(tf.cast(m, tf.uint8), i), tf.bool)),
             'uor': Sigma(
                 lambda m, i, n, x: tf.cast(tf.math.unsorted_segment_max(tf.cast(m, tf.uint8), i, n),
                                            tf.bool))})
+        self.sigma_dict_lambdas = sigma_dict_lambdas
         psi_dict_subclassing = FunctionDict({'a': A, 'b': B, 'c': C, 'true': Constant(tf.constant(True)), 'false': Constant(tf.constant(False)), 'and': And,
                                              'or': Or, 'not': Not, 'id': Id, 'le': Le2, 'add1': Add1, 'sub1': Sub1})
         sigma_dict_subclassing = FunctionDict({'or': Max, 'uor': UMax})
@@ -193,6 +198,17 @@ class BaseTest(tf.test.TestCase):
                 '(fix X = false in (X ; |> or)) || (fix X = true in ((X || a);and))']
         base_tester(self.dataset, self.compilers, expr)
 
+    def test_numeric_fixpoint_expr(self):
+        expr = ['fix X = 100 in (X ; div)']
+        compiler = GNNCompiler(
+            psi_functions=self.psi_dict_lambdas,
+            sigma_functions=self.sigma_dict_lambdas,
+            phi_functions=FunctionDict({}),
+            config=CompilationConfig.xa_config(NodeConfig(tf.uint8, 1), tf.uint8, {'float32': 0.001}))
+        model = compiler.compile(expr[0])
+        loader = SingleGraphLoader(self.dataset, epochs=1)
+        for inputs in loader.load():
+            print(model.call([inputs], training=False))
 
     def test_seq_expr(self):
         expr = ['a;not', 'a;not;not', 'a;not;not;not',
