@@ -21,7 +21,7 @@ def loop_body(X, F, H, k, m, beta, lam, x0, f, y):
 
     return [X, F, H, k]
 
-def anderson_mixing(f, x0, comparator, m=5, lam=1e-4, beta=0):
+def anderson_mixing(f, x0, comparator, m=5, lam=1e-4, beta=1.0):
     # nodes * node feats = size
     X = tf.TensorArray(dtype=x0.dtype, size=m, clear_after_read=False)
     F = tf.TensorArray(dtype=x0.dtype, size=m, clear_after_read=False)
