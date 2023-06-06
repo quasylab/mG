@@ -7,7 +7,7 @@ def loop_body(X, F, H, k, m, beta, lam, x0, f, y):
     n = tf.math.minimum(k, m)
     G = tf.reshape(F.stack()[:n] - X.stack()[:n], shape=[n, -1])
 
-    updates_H = tf.matmul(G, tf.transpose(G)) + lam * tf.eye(n, dtype=x0.dtype)
+    updates_H = tf.matmul(G, tf.transpose(G)) # + lam * tf.eye(n, dtype=x0.dtype)
     updates_H = tf.concat([tf.ones((n, 1), dtype=x0.dtype), updates_H], axis=1)
     updates_H = tf.concat([updates_H, tf.zeros((n, m-n), dtype=x0.dtype)], axis=1)
     H = tf.tensor_scatter_nd_update(H, tf.expand_dims(tf.range(start=1, limit=n+1), axis=1), updates_H)
