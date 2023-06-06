@@ -58,7 +58,7 @@ class EdgeConfig:
 
 class CompilationConfig:
     def __init__(self, node_config: NodeConfig, edge_config: EdgeConfig | None, matrix_type: tf.DType,
-                 precision: dict[str, Optional[float]], disjoint_loader: bool):
+                 precision: dict[str, Optional[tuple[float, str]]], disjoint_loader: bool):
         """
         Configures how to compile a mG formula into a Model. The constructor isn't meant to be used very often, it
         is recommended to use the static constructor methods to build this object.
@@ -77,7 +77,7 @@ class CompilationConfig:
 
     @staticmethod
     def xa_config(node_config: NodeConfig, matrix_type: tf.DType,
-                  precision: dict[str, Optional[float]]) -> CompilationConfig:
+                  precision: dict[str, Optional[tuple[float, str]]]) -> CompilationConfig:
         """
         Creates a CompilationConfig object that expects no edge labels in the graph and the use of the
         SingleGraphLoader
@@ -91,7 +91,7 @@ class CompilationConfig:
 
     @staticmethod
     def xai_config(node_config: NodeConfig, matrix_type: tf.DType,
-                   precision: dict[str, Optional[float]]) -> CompilationConfig:
+                   precision: dict[str, Optional[tuple[float, str]]]) -> CompilationConfig:
         """
         Creates a CompilationConfig object that expects no edge labels in the graph and the use of the
         MultipleGraphLoader
@@ -105,7 +105,7 @@ class CompilationConfig:
 
     @staticmethod
     def xae_config(node_config: NodeConfig, edge_config: EdgeConfig, matrix_type: tf.DType,
-                   precision: dict[str, Optional[float]]) -> CompilationConfig:
+                   precision: dict[str, Optional[tuple[float, str]]]) -> CompilationConfig:
         """
         Creates a CompilationConfig object that expects edge labels in the graph and the use of the
         SingleGraphLoader
@@ -120,7 +120,7 @@ class CompilationConfig:
 
     @staticmethod
     def xaei_config(node_config: NodeConfig, edge_config: EdgeConfig, matrix_type: tf.DType,
-                    precision: dict[str, Optional[float]]) -> CompilationConfig:
+                    precision: dict[str, Optional[tuple[float, str]]]) -> CompilationConfig:
         """
         Creates a CompilationConfig object that expects edge labels in the graph and the use of the
         MultipleGraphLoader
@@ -430,15 +430,15 @@ class TreeToTF(Interpreter):
     def get_precision(self, typ):
         match typ:
             case 'float32':
-                return self.precision.get(typ, self.precision.get('float', None))
+                return self.precision.get(typ, self.precision.get('float', (None, 'iter')))
             case 'int32':
-                return self.precision.get(typ, self.precision.get('int', None))
+                return self.precision.get(typ, self.precision.get('int', (None, 'iter')))
             case 'float16':
-                return self.precision.get(typ, self.precision.get('half', None))
+                return self.precision.get(typ, self.precision.get('half', (None, 'iter')))
             case 'float64':
-                return self.precision.get(typ, self.precision.get('double', None))
+                return self.precision.get(typ, self.precision.get('double', (None, 'iter')))
             case _:
-                return self.precision.get(typ, None)
+                return self.precision.get(typ, (None, 'iter'))
 
     def current_fix_var(self):
         return next(reversed(self.fix_var))

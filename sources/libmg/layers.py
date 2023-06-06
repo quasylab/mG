@@ -21,7 +21,6 @@ def loop_body(X, F, H, k, m, beta, lam, x0, f, y):
 
     return [X, F, H, k]
 
-# @tf.function
 def anderson_mixing(f, x0, comparator, m=5, lam=1e-4, beta=1.0):
     # nodes * node feats = size
     X = tf.TensorArray(dtype=x0.dtype, size=m, clear_after_read=False)
@@ -46,24 +45,20 @@ def anderson_mixing(f, x0, comparator, m=5, lam=1e-4, beta=1.0):
 
     X_f = output[0]
     k = output[-1]
-    return [X_f.read(k % m), X_f.read((k - 1) % m), k]
+    return [[X_f.read(k % m)], [X_f.read((k - 1) % m)], k]
 
-@tf.function
-def standard_fixpoint(f, x0, comparator):
-    iter = tf.constant(1)
-    return tf.while_loop(
-        cond=lambda curr, prev, k: tf.math.logical_not(tf.math.reduce_all(comparator(curr[0], prev[0]))),
-        body=lambda curr, prev, k: [f(curr), curr, k+1],
-        loop_vars=[f(x0), x0, iter],
-        shape_invariants=[[x0[0].get_shape()], [x0[0].get_shape()], iter.get_shape()]
-    )
-
-@tf.function
 def anderson_fixpoint(f, x0, comparator):
     return anderson_mixing(lambda x: f([x])[0], x0[0], comparator)
 
-# print(anderson_mixing(lambda x: x/2, tf.constant([[1.], [1.], [1.]])))
-# print(standard_fixpoint(lambda x: x/2, tf.constant([[1.], [1.], [1.]])))
+def standard_fixpoint(f, x0, comparator):
+    iter = tf.constant(1)
+    x = f(x0)
+    return tf.while_loop(
+        cond=lambda curr, prev, k: tf.math.logical_not(tf.math.reduce_all(comparator(curr[0], prev[0]))),
+        body=lambda curr, prev, k: [f(curr), curr, k+1],
+        loop_vars=[x, x0, iter],
+        shape_invariants=[[x[0].get_shape()], [x[0].get_shape()], iter.get_shape()]
+    )
 
 
 
@@ -176,15 +171,16 @@ class Ite(MessagePassing):
             inputs_iffalse = values[:self.iffalse_input_len - 1] + inputs
             return tf.cond(tf.reduce_all(test), lambda: self.iftrue(inputs_iftrue), lambda: self.iffalse(inputs_iffalse))
 
-# modes: iter, anderson
+
 class FixPoint(MessagePassing):
 
-    def __init__(self, gnn_x, precision=None, mode='anderson', **kwargs):
+    def __init__(self, gnn_x, precision, **kwargs):
         super().__init__(**kwargs)
         self.gnn_x = gnn_x
-        if precision is not None:
-            self.comparator = lambda curr, prev: tf.math.less_equal(tf.math.abs(tf.math.subtract(curr, prev)), precision)
-            self.solver = standard_fixpoint if mode == 'iter' else anderson_fixpoint
+        tolerance, solver = precision
+        if tolerance is not None:
+            self.comparator = lambda curr, prev: tf.math.less_equal(tf.math.abs(tf.math.subtract(curr, prev)), tolerance)
+            self.solver = standard_fixpoint if solver == 'iter' else anderson_fixpoint
         else:
             self.comparator = lambda curr, prev: curr == prev
             self.solver = standard_fixpoint
@@ -216,10 +212,10 @@ class FixPoint(MessagePassing):
             additional_inputs.append(e)
         if i is not None:
             additional_inputs.append(i)
-        # X = [self.gnn_x(saved_args + X_o + additional_inputs)]
+        output = self.solver(lambda x: [self.gnn_x(saved_args + x + additional_inputs)], X_o, lambda curr, prev: self.comparator(curr, prev))
+        tf.print('fixpoint (solver = {0}) iters: '.format(self.solver.__name__), output[-1])
+        return output[0][0]
 
-        opt = self.solver(lambda x: [self.gnn_x(saved_args + x + additional_inputs)], X_o, lambda curr, prev: self.comparator(curr, prev))[0]
-        return opt
 
 
 class Repeat(MessagePassing):

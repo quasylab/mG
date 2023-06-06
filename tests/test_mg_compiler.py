@@ -1,3 +1,5 @@
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
 import numpy as np
 
@@ -204,11 +206,11 @@ class BaseTest(tf.test.TestCase):
             psi_functions=self.psi_dict_lambdas,
             sigma_functions=self.sigma_dict_lambdas,
             phi_functions=FunctionDict({}),
-            config=CompilationConfig.xa_config(NodeConfig(tf.uint8, 1), tf.uint8, {'float32': 0.001}))
+            config=CompilationConfig.xa_config(NodeConfig(tf.uint8, 1), tf.uint8, {'float32': (0.001, 'anderson')}))
         model = compiler.compile(expr[0])
         loader = SingleGraphLoader(self.dataset, epochs=1)
         for inputs in loader.load():
-            print(model.call([inputs], training=False))
+            model.call([inputs], training=False)
 
     def test_seq_expr(self):
         expr = ['a;not', 'a;not;not', 'a;not;not;not',
