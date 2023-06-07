@@ -1,4 +1,5 @@
-from libmg import PsiLocal, FunctionDict
+from libmg import PsiLocal
+from libmg.functions import FunctionDict
 import tensorflow as tf
 
 

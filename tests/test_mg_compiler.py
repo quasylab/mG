@@ -5,7 +5,7 @@ import numpy as np
 
 from scipy.sparse import coo_matrix
 from spektral.data import Graph
-from libmg import PsiLocal, PsiGlobal, Sigma, Phi, FunctionDict
+from libmg import PsiLocal, PsiGlobal, Sigma, Phi
 from libmg import SingleGraphLoader, MultipleGraphLoader
 from libmg import GNNCompiler, CompilationConfig, NodeConfig, EdgeConfig
 from libmg import Dataset
@@ -137,7 +137,7 @@ class BaseTest(tf.test.TestCase):
     def setUp(self):
         super().setUp()
         self.dataset = TestDataset(n=1, edges=False)
-        psi_dict_lambdas = FunctionDict({'a': PsiLocal(
+        psi_dict_lambdas = {'a': PsiLocal(
             lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 0, dtype=tf.uint8)), tf.bool)),
             'b': PsiLocal(
                 lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 1, dtype=tf.uint8)), tf.bool)),
@@ -155,37 +155,37 @@ class BaseTest(tf.test.TestCase):
             'le': PsiLocal(lambda x: x < 2),
             'div': PsiLocal(lambda x: x / 2),
             'add1': PsiLocal(lambda x: x + 1),
-            'sub1': PsiLocal(lambda x: x - 1)})
+            'sub1': PsiLocal(lambda x: x - 1)}
         self.psi_dict_lambdas = psi_dict_lambdas
-        sigma_dict_lambdas = FunctionDict({
+        sigma_dict_lambdas = {
             '*': Sigma(lambda m, i, n, x: tf.math.segment_prod(m, i)),
             'or': Sigma(lambda m, i, n, x: tf.cast(tf.math.segment_max(tf.cast(m, tf.uint8), i), tf.bool)),
             'uor': Sigma(
                 lambda m, i, n, x: tf.cast(tf.math.unsorted_segment_max(tf.cast(m, tf.uint8), i, n),
-                                           tf.bool))})
+                                           tf.bool))}
         self.sigma_dict_lambdas = sigma_dict_lambdas
-        psi_dict_subclassing = FunctionDict({'a': A, 'b': B, 'c': C, 'true': Constant(tf.constant(True)), 'false': Constant(tf.constant(False)), 'and': And,
-                                             'or': Or, 'not': Not, 'id': Id, 'le': Le2, 'add1': Add1, 'sub1': Sub1})
-        sigma_dict_subclassing = FunctionDict({'or': Max, 'uor': UMax})
+        psi_dict_subclassing = {'a': A, 'b': B, 'c': C, 'true': Constant(tf.constant(True)), 'false': Constant(tf.constant(False)), 'and': And,
+                                             'or': Or, 'not': Not, 'id': Id, 'le': Le2, 'add1': Add1, 'sub1': Sub1}
+        sigma_dict_subclassing = {'or': Max, 'uor': UMax}
         self.compilers = [GNNCompiler(
             psi_functions=psi_dict_lambdas,
             sigma_functions=sigma_dict_lambdas,
-            phi_functions=FunctionDict({}),
+            phi_functions={},
             config=CompilationConfig.xa_config(NodeConfig(tf.uint8, 1), tf.uint8, {})),
             GNNCompiler(
                 psi_functions=psi_dict_lambdas,
                 sigma_functions=sigma_dict_lambdas,
-                phi_functions=FunctionDict({}),
+                phi_functions={},
                 config=CompilationConfig.xai_config(NodeConfig(tf.uint8, 1), tf.uint8, {})),
             GNNCompiler(
                 psi_functions=psi_dict_subclassing,
                 sigma_functions=sigma_dict_subclassing,
-                phi_functions=FunctionDict({}),
+                phi_functions={},
                 config=CompilationConfig.xa_config(NodeConfig(tf.uint8, 1), tf.uint8, {})),
             GNNCompiler(
                 psi_functions=psi_dict_subclassing,
                 sigma_functions=sigma_dict_subclassing,
-                phi_functions=FunctionDict({}),
+                phi_functions={},
                 config=CompilationConfig.xai_config(NodeConfig(tf.uint8, 1), tf.uint8, {}))
         ]
 
@@ -205,7 +205,7 @@ class BaseTest(tf.test.TestCase):
         compiler = GNNCompiler(
             psi_functions=self.psi_dict_lambdas,
             sigma_functions=self.sigma_dict_lambdas,
-            phi_functions=FunctionDict({}),
+            phi_functions={},
             config=CompilationConfig.xa_config(NodeConfig(tf.uint8, 1), tf.uint8, {'float32': (0.001, 'anderson')}))
         model = compiler.compile(expr[0])
         loader = SingleGraphLoader(self.dataset, epochs=1)
@@ -357,7 +357,7 @@ class EdgeTest(tf.test.TestCase):
     def setUp(self):
         super().setUp()
         self.dataset = TestDataset(n=1, edges=True)
-        psi_dict_lambdas = FunctionDict({'a': PsiLocal(
+        psi_dict_lambdas = {'a': PsiLocal(
             lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 0, dtype=tf.uint8)), tf.bool)),
             'b': PsiLocal(
                 lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 1, dtype=tf.uint8)), tf.bool)),
@@ -368,18 +368,18 @@ class EdgeTest(tf.test.TestCase):
             'and': PsiLocal(lambda x: tf.math.reduce_all(x, axis=1, keepdims=True)),
             'or': PsiLocal(lambda x: tf.math.reduce_any(x, axis=1, keepdims=True)),
             'not': PsiLocal(lambda x: tf.math.logical_not(x)),
-            'id': PsiLocal(lambda x: x)})
-        sigma_dict_lambdas = FunctionDict({
+            'id': PsiLocal(lambda x: x)}
+        sigma_dict_lambdas = {
             'or': Sigma(lambda m, i, n, x: tf.cast(tf.math.segment_max(tf.cast(m, tf.uint8), i), tf.bool)),
             'uor': Sigma(
                 lambda m, i, n, x: tf.cast(tf.math.unsorted_segment_max(tf.cast(m, tf.uint8), i, n),
-                                           tf.bool))})
-        phi_dict_lambdas = FunctionDict({'z': Phi(lambda i, e, j: tf.math.logical_and(j, tf.equal(e, 0)))})
+                                           tf.bool))}
+        phi_dict_lambdas = {'z': Phi(lambda i, e, j: tf.math.logical_and(j, tf.equal(e, 0)))}
 
-        psi_dict_subclassing = FunctionDict({'a': A, 'b': B, 'c': C, 'true': Constant(tf.constant(True)), 'false': Constant(tf.constant(False)), 'and': And,
-                                             'or': Or, 'not': Not, 'id': Id})
-        sigma_dict_subclassing = FunctionDict({'or': Max, 'uor': UMax})
-        phi_dict_subclassing = FunctionDict({'z': IsZero})
+        psi_dict_subclassing = {'a': A, 'b': B, 'c': C, 'true': Constant(tf.constant(True)), 'false': Constant(tf.constant(False)), 'and': And,
+                                             'or': Or, 'not': Not, 'id': Id}
+        sigma_dict_subclassing = {'or': Max, 'uor': UMax}
+        phi_dict_subclassing = {'z': IsZero}
 
         self.compilers = [GNNCompiler(
             psi_functions=psi_dict_lambdas,
@@ -430,7 +430,7 @@ class PoolTest(tf.test.TestCase):
         super().setUp()
         self.single_dataset = TestDataset(n=1, edges=False)
         self.multiple_dataset = TestDataset(n=10, edges=False)
-        psi_dict_lambdas = FunctionDict({'a': PsiLocal(
+        psi_dict_lambdas = {'a': PsiLocal(
             lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 0, dtype=tf.uint8)), tf.bool)),
             'b': PsiLocal(
                 lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 1, dtype=tf.uint8)), tf.bool)),
@@ -444,34 +444,34 @@ class PoolTest(tf.test.TestCase):
             'id': PsiLocal(lambda x: x),
             'one': PsiLocal(tf.ones_like),
             'min': PsiLocal(lambda x: x[:, :1] - x[:, 1:]),
-            'gsum': PsiGlobal(single_op=lambda x: tf.reduce_sum(x, axis=0, keepdims=True), multiple_op=lambda x, i: tf.math.segment_sum(x, i))})
-        sigma_dict_lambdas = FunctionDict({
+            'gsum': PsiGlobal(single_op=lambda x: tf.reduce_sum(x, axis=0, keepdims=True), multiple_op=lambda x, i: tf.math.segment_sum(x, i))}
+        sigma_dict_lambdas = {
             'or': Sigma(lambda m, i, n, x: tf.cast(tf.math.segment_max(tf.cast(m, tf.uint8), i), tf.bool)),
             'uor': Sigma(
                 lambda m, i, n, x: tf.cast(tf.math.unsorted_segment_max(tf.cast(m, tf.uint8), i, n),
-                                           tf.bool))})
-        psi_dict_subclassing = FunctionDict({'a': A, 'b': B, 'c': C, 'true': Constant(tf.constant(True)), 'false': Constant(tf.constant(False)), 'and': And,
-                                             'or': Or, 'not': Not, 'id': Id, 'one': One, 'min': Min, 'gsum': Sum})
-        sigma_dict_subclassing = FunctionDict({'or': Max, 'uor': UMax})
+                                           tf.bool))}
+        psi_dict_subclassing = {'a': A, 'b': B, 'c': C, 'true': Constant(tf.constant(True)), 'false': Constant(tf.constant(False)), 'and': And,
+                                             'or': Or, 'not': Not, 'id': Id, 'one': One, 'min': Min, 'gsum': Sum}
+        sigma_dict_subclassing = {'or': Max, 'uor': UMax}
         self.compilers = [GNNCompiler(
             psi_functions=psi_dict_lambdas,
             sigma_functions=sigma_dict_lambdas,
-            phi_functions=FunctionDict({}),
+            phi_functions={},
             config=CompilationConfig.xa_config(NodeConfig(tf.uint8, 1), tf.uint8, {})),
             GNNCompiler(
                 psi_functions=psi_dict_lambdas,
                 sigma_functions=sigma_dict_lambdas,
-                phi_functions=FunctionDict({}),
+                phi_functions={},
                 config=CompilationConfig.xai_config(NodeConfig(tf.uint8, 1), tf.uint8, {})),
             GNNCompiler(
                 psi_functions=psi_dict_subclassing,
                 sigma_functions=sigma_dict_subclassing,
-                phi_functions=FunctionDict({}),
+                phi_functions={},
                 config=CompilationConfig.xa_config(NodeConfig(tf.uint8, 1), tf.uint8, {})),
             GNNCompiler(
                 psi_functions=psi_dict_subclassing,
                 sigma_functions=sigma_dict_subclassing,
-                phi_functions=FunctionDict({}),
+                phi_functions={},
                 config=CompilationConfig.xai_config(NodeConfig(tf.uint8, 1), tf.uint8, {}))]
 
     def test_global_pooling(self):

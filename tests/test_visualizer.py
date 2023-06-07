@@ -4,7 +4,7 @@ import os
 
 from scipy.sparse import coo_matrix
 from spektral.data import Graph
-from libmg import PsiLocal, Sigma, FunctionDict, EdgeConfig
+from libmg import PsiLocal, Sigma, EdgeConfig
 from libmg import SingleGraphLoader, MultipleGraphLoader
 from libmg import GNNCompiler, CompilationConfig, NodeConfig
 from libmg import Dataset
@@ -37,7 +37,7 @@ class BaseTest(tf.test.TestCase):
         self.dataset_only_nodes = TestDataset(n=1, edges=False)
         self.dataset_nodes_and_edges = TestDataset(n=1, edges=True)
         self.dataset_multiple_graphs = TestDataset(n=2, edges=False)
-        psi_dict_lambdas = FunctionDict({'a': PsiLocal(
+        psi_dict_lambdas = {'a': PsiLocal(
             lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 0, dtype=tf.uint8)), tf.bool)),
             'b': PsiLocal(
                 lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 1, dtype=tf.uint8)), tf.bool)),
@@ -53,27 +53,27 @@ class BaseTest(tf.test.TestCase):
             'pr1': PsiLocal(lambda x: x[:, 1:]),
             'le': PsiLocal(lambda x: x < 2),
             'add1': PsiLocal(lambda x: x + 1),
-            'sub1': PsiLocal(lambda x: x - 1)})
-        sigma_dict_lambdas = FunctionDict({
+            'sub1': PsiLocal(lambda x: x - 1)}
+        sigma_dict_lambdas = {
             'or': Sigma(lambda m, i, n, x: tf.cast(tf.math.segment_max(tf.cast(m, tf.uint8), i), tf.bool)),
             'uor': Sigma(
                 lambda m, i, n, x: tf.cast(tf.math.unsorted_segment_max(tf.cast(m, tf.uint8), i, n),
-                                           tf.bool))})
+                                           tf.bool))}
 
         self.compilers = [GNNCompiler(
             psi_functions=psi_dict_lambdas,
             sigma_functions=sigma_dict_lambdas,
-            phi_functions=FunctionDict({}),
+            phi_functions={},
             config=CompilationConfig.xa_config(NodeConfig(tf.uint8, 1), tf.uint8, {})),
             GNNCompiler(
                 psi_functions=psi_dict_lambdas,
                 sigma_functions=sigma_dict_lambdas,
-                phi_functions=FunctionDict({}),
+                phi_functions={},
                 config=CompilationConfig.xae_config(NodeConfig(tf.uint8, 1), EdgeConfig(tf.uint8, 1), tf.uint8, {})),
             GNNCompiler(
                 psi_functions=psi_dict_lambdas,
                 sigma_functions=sigma_dict_lambdas,
-                phi_functions=FunctionDict({}),
+                phi_functions={},
                 config=CompilationConfig.xai_config(NodeConfig(tf.uint8, 1), tf.uint8, {}))]
 
     def tearDown(self):
@@ -110,3 +110,7 @@ class BaseTest(tf.test.TestCase):
             print_layer(model, inputs, layer_idx=-1, open_browser=False)
             print_layer(model, inputs, layer_name='a', open_browser=False)
             print_layer(model, inputs, layer_name='(a)', open_browser=False)
+
+
+if __name__ == '__main__':
+    tf.test.main()

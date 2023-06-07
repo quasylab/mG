@@ -814,9 +814,9 @@ class TreeToTF(Interpreter):
 
 
 class GNNCompiler:
-    def __init__(self, psi_functions: FunctionDict[str, Psi | Callable[[str], Psi] | Type[Psi]],
-                 sigma_functions: FunctionDict[str, Sigma | Callable[[str], Sigma] | Type[Sigma]],
-                 phi_functions: FunctionDict[str, Phi | Callable[[str], Phi] | Type[Phi]],
+    def __init__(self, psi_functions: dict[str, Psi | Callable[[str], Psi] | Type[Psi]],
+                 sigma_functions: dict[str, Sigma | Callable[[str], Sigma] | Type[Sigma]],
+                 phi_functions: dict[str, Phi | Callable[[str], Phi] | Type[Phi]],
                  config: CompilationConfig):
         """
         A compiler for mG formulas. A formula is transformed into a Tensorflow model using the compile method.
@@ -849,7 +849,7 @@ class GNNCompiler:
         self.dummy_loader = MultipleGraphLoader(dummy_dataset, node_level=True, batch_size=1, shuffle=False,
                                                 epochs=1) if \
             config.use_disjoint else SingleGraphLoader(dummy_dataset, epochs=1)
-        self.interpreter = TreeToTF(psi_functions, sigma_functions, phi_functions,
+        self.interpreter = TreeToTF(FunctionDict(psi_functions), FunctionDict(sigma_functions), FunctionDict(phi_functions),
                                     IntermediateOutput("INPUT", *intermediate_output_args), config.precision, self.parser)
 
     @staticmethod
