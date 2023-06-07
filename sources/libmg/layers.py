@@ -15,7 +15,7 @@ def loop_body(X, F, H, k, m, beta, lam, x0, f, y):
     alpha = tf.linalg.solve(H[:n + 1, :n + 1], y[:n + 1])[1:n + 1, 0]
 
     updates_X = beta * tf.matmul(alpha[None], tf.reshape(F.stack()[:n], shape=[n, -1]))[0] + (1 - beta) * tf.matmul(alpha[None], tf.reshape(X.stack()[:n], shape=[n, -1]))[0]
-    X = X.write(k % m, tf.expand_dims(updates_X, axis=1))
+    X = X.write(k % m, tf.reshape(updates_X, shape=tf.shape(x0)))
     updates_F = f(X.read(k % m))
     F = F.write(k % m, updates_F)
 
@@ -213,7 +213,7 @@ class FixPoint(MessagePassing):
         if i is not None:
             additional_inputs.append(i)
         output = self.solver(lambda x: [self.gnn_x(saved_args + x + additional_inputs)], X_o, lambda curr, prev: self.comparator(curr, prev))
-        tf.print('fixpoint (solver = {0}) iters: '.format(self.solver.__name__), output[-1])
+        tf.print('fixpoint (solver = {0}) iters: '.format(self.solver.__name__), output[-1], output_stream=tf.compat.v1.logging.info)
         return output[0][0]
 
 

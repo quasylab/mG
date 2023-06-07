@@ -143,7 +143,7 @@ class BaseTest(tf.test.TestCase):
                 lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 1, dtype=tf.uint8)), tf.bool)),
             'c': PsiLocal(
                 lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 2, dtype=tf.uint8)), tf.bool)),
-            '100': Constant(tf.constant(100.0, dtype=tf.float32)),
+            '100': Constant(tf.constant([100.0, 100.0], dtype=tf.float32)),
             'true': Constant(tf.constant(True)),
             'false': Constant(tf.constant(False)),
             'and': PsiLocal(lambda x: tf.math.reduce_all(x, axis=1, keepdims=True)),
