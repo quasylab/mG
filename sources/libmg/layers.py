@@ -213,7 +213,7 @@ class FixPoint(MessagePassing):
         if i is not None:
             additional_inputs.append(i)
         output = self.solver(lambda x: [self.gnn_x(saved_args + x + additional_inputs)], X_o, lambda curr, prev: self.comparator(curr, prev))
-        tf.print('fixpoint (solver = {0}) iters: '.format(self.solver.__name__), output[-1], output_stream=tf.compat.v1.logging.info)
+        # tf.print('fixpoint (solver = {0}) iters: '.format(self.solver.__name__), output[-1], output_stream=tf.compat.v1.logging.info)
         return output[0][0]
 
 
