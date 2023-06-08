@@ -246,8 +246,8 @@ class Pi(PsiLocal):
         :param i: 0-based index, first element of the sequence to return
         :param j: 0-based index, last element (exclusive) of the sequence to return. Defaults to i + 1
         """
-        j = i + 1 if j is None else j
-        assert j > i
+        if j is not None:
+            assert j > i
         f = lambda x: x[:, i:j]
 
         super().__init__(f, **kwargs)
