@@ -428,17 +428,16 @@ class TreeToTF(Interpreter):
             return '(' + self.context[-1] + ';' + name + ')'
 
     def get_precision(self, typ):
-        match typ:
-            case 'float32':
-                return self.precision.get(typ, self.precision.get('float', (None, 'iter')))
-            case 'int32':
-                return self.precision.get(typ, self.precision.get('int', (None, 'iter')))
-            case 'float16':
-                return self.precision.get(typ, self.precision.get('half', (None, 'iter')))
-            case 'float64':
-                return self.precision.get(typ, self.precision.get('double', (None, 'iter')))
-            case _:
-                return self.precision.get(typ, (None, 'iter'))
+        if typ == 'float32':
+            return self.precision.get(typ, self.precision.get('float', (None, 'iter')))
+        elif typ == 'int32':
+            return self.precision.get(typ, self.precision.get('int', (None, 'iter')))
+        elif typ == 'float16':
+            return self.precision.get(typ, self.precision.get('half', (None, 'iter')))
+        elif typ == 'float64':
+            return self.precision.get(typ, self.precision.get('double', (None, 'iter')))
+        else:
+            return self.precision.get(typ, (None, 'iter'))
 
     def current_fix_var(self):
         return next(reversed(self.fix_var))
