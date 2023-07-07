@@ -237,7 +237,6 @@ class Constant(PsiLocal):
         super().__init__(f, **kwargs)
 
 
-
 class Pi(PsiLocal):
     def __init__(self, i, j=None, **kwargs):
         """
@@ -248,6 +247,8 @@ class Pi(PsiLocal):
         """
         if j is not None:
             assert j > i
+        else:
+            j = i + 1
         f = lambda x: x[:, i:j]
 
         super().__init__(f, **kwargs)
