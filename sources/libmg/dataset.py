@@ -1,5 +1,5 @@
+from __future__ import annotations
 from typing import Callable, Optional
-
 from spektral.data import Dataset as _Dataset
 
 
