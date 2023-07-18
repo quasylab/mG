@@ -791,7 +791,7 @@ class TreeToTF(Interpreter):
         if type(nx) is not FixPointExpression:
             raise ValueError('Invalid fixpoint expression')
         name = 'fix ' + var_name + ' = ' + fixpoint_config.name + ' in ' + nx.name
-        fix_layer = FixPoint(nx.model, precision)
+        fix_layer = FixPoint(nx.model, precision, debug=False)
         return self._interpret_fix_expr(var_name, initial_var_gnn, nx, fix_layer, name)
 
     @v_args(inline=True)

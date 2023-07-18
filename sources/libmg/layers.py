@@ -3,7 +3,7 @@ from tensorflow.python.keras import backend as K
 from spektral.layers import MessagePassing
 
 
-def loop_body(X, F, H, k, m, beta, lam, x0, f, y):
+def loop_body(X, F, H, k, m, beta, lam, x0, f, y, fixpoint_printer):
     k = k + 1
     n = tf.math.minimum(k, m)
     G = tf.reshape(F.stack()[:n] - X.stack()[:n], shape=[n, -1])
@@ -23,7 +23,7 @@ def loop_body(X, F, H, k, m, beta, lam, x0, f, y):
     return [X, F, H, k]
 
 
-def anderson_mixing(f, x0, comparator, m=5, lam=1e-4, beta=1.0):
+def anderson_mixing(f, x0, comparator, fixpoint_printer, m=5, lam=1e-4, beta=1.0):
     # nodes * node feats = size
     X = tf.TensorArray(dtype=x0.dtype, size=m, clear_after_read=False)
     F = tf.TensorArray(dtype=x0.dtype, size=m, clear_after_read=False)
@@ -41,7 +41,7 @@ def anderson_mixing(f, x0, comparator, m=5, lam=1e-4, beta=1.0):
 
     output = tf.while_loop(
         cond=lambda XX, FF, HH, k: tf.math.logical_not(tf.math.reduce_all(comparator(FF.read(k % m), XX.read(k % m)))),
-        body=lambda XX, FF, HH, k: loop_body(XX, FF, HH, k, m, beta, lam, x0, f, y),
+        body=lambda XX, FF, HH, k: loop_body(XX, FF, HH, k, m, beta, lam, x0, f, y, fixpoint_printer),
         loop_vars=[X, F, H, 1]
     )
 
@@ -50,16 +50,11 @@ def anderson_mixing(f, x0, comparator, m=5, lam=1e-4, beta=1.0):
     return [[X_f.read(k % m)], [X_f.read((k - 1) % m)], k]
 
 
-def fixpoint_printer(x):
-    tf.print(x, output_stream=tf.compat.v1.logging.info)
-    return x
+def anderson_fixpoint(f, x0, comparator, fixpoint_printer):
+    return anderson_mixing(lambda x: f([x])[0], x0[0], comparator, fixpoint_printer)
 
 
-def anderson_fixpoint(f, x0, comparator):
-    return anderson_mixing(lambda x: f([x])[0], x0[0], comparator)
-
-
-def standard_fixpoint(f, x0, comparator):
+def standard_fixpoint(f, x0, comparator, fixpoint_printer):
     iter = tf.constant(1)
     x = f(x0)
     return tf.while_loop(
@@ -182,8 +177,14 @@ class Ite(MessagePassing):
 
 class FixPoint(MessagePassing):
 
-    def __init__(self, gnn_x, precision, **kwargs):
+    @staticmethod
+    def fixpoint_print_and_return(x):
+        tf.print(x, output_stream=tf.compat.v1.logging.info)
+        return x
+
+    def __init__(self, gnn_x, precision, debug=False, **kwargs):
         super().__init__(**kwargs)
+        self.fixpoint_print = self.fixpoint_print_and_return if debug else lambda x: x
         self.gnn_x = gnn_x
         tolerance, solver = precision
         if tolerance is not None:
@@ -222,7 +223,7 @@ class FixPoint(MessagePassing):
             additional_inputs.append(i)
 
         # compute forward pass without tracking the gradient
-        output = tf.nest.map_structure(tf.stop_gradient, self.solver(lambda x: [self.gnn_x(saved_args + x + additional_inputs)], X_o, lambda curr, prev: self.comparator(curr, prev)))
+        output = tf.nest.map_structure(tf.stop_gradient, self.solver(lambda x: [self.gnn_x(saved_args + x + additional_inputs)], X_o, lambda curr, prev: self.comparator(curr, prev), self.fixpoint_print))
         tf.print('fixpoint (solver = {0}) iters: '.format(self.solver.__name__), output[-1], output_stream=tf.compat.v1.logging.info)
 
         # compute forward pass with the gradient being tracked
