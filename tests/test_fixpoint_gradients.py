@@ -1,5 +1,5 @@
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'
 import tensorflow as tf
 import numpy as np
 from keras import Sequential, Input, Model
@@ -84,7 +84,7 @@ class BaseTest(tf.test.TestCase):
             psi_functions=psi_dict_lambdas,
             sigma_functions=sigma_dict_lambdas,
             phi_functions={},
-            config=CompilationConfig.xa_config(NodeConfig(tf.uint8, 1), tf.uint8, {'float': (0.001, 'anderson')})),
+            config=CompilationConfig.xa_config(NodeConfig(tf.uint8, 1), tf.uint8, {'float': (0.001, 'iter')})),
             GNNCompiler(
                 psi_functions=psi_dict_lambdas,
                 sigma_functions=sigma_dict_lambdas,

@@ -8,4 +8,4 @@ from .visualizer import print_layer
 __all__ = ['SingleGraphLoader', 'MultipleGraphLoader', 'PsiLocal', 'PsiGlobal', 'Psi', 'Phi', 'Sigma', 'Constant', 'Pi',
            'GNNCompiler', 'CompilationConfig', 'NodeConfig', 'EdgeConfig', 'Dataset', 'print_layer']
 
-__version__ = '0.3.33'
+__version__ = '0.3.34'
