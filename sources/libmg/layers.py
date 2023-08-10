@@ -228,12 +228,14 @@ class FixPoint(MessagePassing):
 
         # compute forward pass with the gradient being tracked
         otp = output[0]
-        output = self.gnn_x(saved_args + otp + additional_inputs)
+        with tf.GradientTape(persistent=True, watch_accessed_variables=False) as tape:
+            tape.watch(otp)
+            output = self.gnn_x(saved_args + otp + additional_inputs)
 
         @tf.custom_gradient
         def fixgrad(x):
             def custom_grad(dy):
-                f = lambda y: tf.gradients(output, otp, y)[0] + dy
+                f = lambda y: tape.gradient(output, otp, y)[0] + dy
                 x0 = dy
                 x = f(x0)
                 grad = tf.while_loop(
