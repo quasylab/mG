@@ -232,7 +232,6 @@ class FixPoint(MessagePassing):
 
         @tf.custom_gradient
         def fixgrad(x):
-            @tf.function
             def custom_grad(dy):
                 f = lambda y: tf.gradients(output, otp, y)[0] + dy
                 x0 = dy
