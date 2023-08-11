@@ -45,8 +45,12 @@ def find_edges(inputs):
         return None
 
 
-def show(nodes, node_labels, edges, edge_labels, titles, filename, open_browser):
+def show(nodes, node_labels, edges, edge_labels, titles, true_labels, filename, open_browser):
     net = Network(directed=True, neighborhood_highlight=True, select_menu=True, filter_menu=True)
+    if true_labels is not None:
+        node_labels = ['[' + feat + '] → [' + target + ']' for feat, target in zip(node_labels, true_labels)]
+    else:
+        node_labels = ['[' + feat + ']' for feat in node_labels]
     net.add_nodes(nodes, title=titles, label=node_labels, shape=['circle']*len(nodes))
     if edge_labels is None:
         net.add_edges(edges)
@@ -61,7 +65,7 @@ def show(nodes, node_labels, edges, edge_labels, titles, filename, open_browser)
         net.save_graph('graph_' + filename + '.html')
 
 
-def visualize_tf(node_values, adj, edge_values, filename, open_browser):
+def visualize_tf(node_values, adj, edge_values, labels, filename, open_browser):
     if K.is_sparse(node_values) or not K.ndim(node_values) == 2:
         raise ValueError("Not a valid node labeling function!")
     nodes = list(range(node_values.shape[0]))
@@ -71,11 +75,15 @@ def visualize_tf(node_values, adj, edge_values, filename, open_browser):
         edge_labels = [' | '.join([str(label) for label in label_list]) for label_list in edge_values.numpy().tolist()]
     else:
         edge_labels = None
+    if labels is not None:
+        true_labels = [' | '.join([str(label) for label in label_list]) for label_list in labels.numpy().tolist()]
+    else:
+        true_labels = None
     titles = [str(i) for i in nodes]
-    show(nodes, node_labels, edges, edge_labels, titles, filename, open_browser)
+    show(nodes, node_labels, edges, edge_labels, titles, true_labels, filename, open_browser)
 
 
-def visualize_np(node_values, adj, edge_values, filename, open_browser):
+def visualize_np(node_values, adj, edge_values, labels, filename, open_browser):
     if len(node_values.shape) != 2:
         raise ValueError("Not a valid node labeling function!")
     nodes = list(range(node_values.shape[0]))
@@ -85,16 +93,21 @@ def visualize_np(node_values, adj, edge_values, filename, open_browser):
         edge_labels = [' | '.join([str(label) for label in label_list]) for label_list in edge_values.tolist()]
     else:
         edge_labels = None
+    if labels is not None:
+        true_labels = [' | '.join([str(label) for label in label_list]) for label_list in labels.tolist()]
+    else:
+        true_labels = None
     titles = [str(i) for i in nodes]
-    show(nodes, node_labels, edges, edge_labels, titles, filename, open_browser)
+    show(nodes, node_labels, edges, edge_labels, titles, true_labels, filename, open_browser)
 
 
-def print_layer(model, inputs, layer_name=None, layer_idx=None, open_browser=True):
+def print_layer(model, inputs, labels=None, layer_name=None, layer_idx=None, open_browser=True):
     debug_model = tf.keras.Model(inputs=model.inputs, outputs=fetch_layer(model, layer_name, layer_idx))
     idx_or_name = layer_idx if layer_idx is not None else layer_name
     assert idx_or_name is not None
-    visualize_tf(debug_model(inputs), find_adj(inputs), find_edges(inputs), get_name(idx_or_name), open_browser)
+    visualize_tf(debug_model(inputs), find_adj(inputs), find_edges(inputs), labels, get_name(idx_or_name), open_browser)
 
 
-def print_graph(graph, open_browser=True):
-    visualize_np(graph.x, graph.a, graph.e, str(graph), open_browser)
+def print_graph(graph, show_labels=False, open_browser=True):
+    y = graph.y if show_labels else None
+    visualize_np(graph.x, graph.a, graph.e, y, str(graph), open_browser)

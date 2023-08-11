@@ -24,10 +24,11 @@ class TestDataset(Dataset):
             x = np.array([[1], [2], [4], [1], [1]])
             a = coo_matrix(([1, 1, 1, 1, 1, 1, 1], ([0, 0, 1, 2, 2, 3, 4], [1, 2, 2, 1, 3, 4, 1])), shape=(5, 5))
             e = np.array([[1], [0], [0], [0], [1], [1], [1]])
+            y = np.array([[2], [4], [8], [2], [2]])
             if self.edges:
-                graphs.append(Graph(x, a, e))
+                graphs.append(Graph(x, a, e, y))
             else:
-                graphs.append(Graph(x, a))
+                graphs.append(Graph(x, a, y=y))
         return graphs
 
 
@@ -79,7 +80,8 @@ class BaseTest(tf.test.TestCase):
     def tearDown(self):
         for file in os.listdir("."):
             if file.endswith(".html"):
-                os.remove(file)
+                # os.remove(file)
+                pass
 
     def test_visualizer_only_nodes(self):
         expr = 'a || b'
@@ -87,9 +89,12 @@ class BaseTest(tf.test.TestCase):
         loader = SingleGraphLoader(self.dataset_only_nodes, epochs=1)
         model = compiler.compile(expr)
         for inputs in loader.load():
-            print_layer(model, inputs, layer_idx=-1, open_browser=False)
-            print_layer(model, inputs, layer_name='a', open_browser=False)
-            print_layer(model, inputs, layer_name='(a)', open_browser=False)
+            print_layer(model, inputs[0], labels=inputs[1], layer_idx=-1, open_browser=False)
+            print_layer(model, inputs[0], labels=inputs[1], layer_name='a', open_browser=False)
+            print_layer(model, inputs[0], labels=inputs[1], layer_name='(a)', open_browser=False)
+            print_layer(model, inputs[0], labels=None, layer_idx=-1, open_browser=False)
+            print_layer(model, inputs[0], labels=None, layer_name='a', open_browser=False)
+            print_layer(model, inputs[0], labels=None, layer_name='(a)', open_browser=False)
 
     def test_visualizer_nodes_and_edges(self):
         expr = 'a || b'
@@ -97,9 +102,12 @@ class BaseTest(tf.test.TestCase):
         loader = SingleGraphLoader(self.dataset_nodes_and_edges, epochs=1)
         model = compiler.compile(expr)
         for inputs in loader.load():
-            print_layer(model, inputs, layer_idx=-1, open_browser=False)
-            print_layer(model, inputs, layer_name='a', open_browser=False)
-            print_layer(model, inputs, layer_name='(a)', open_browser=False)
+            print_layer(model, inputs[0], labels=inputs[1], layer_idx=-1, open_browser=False)
+            print_layer(model, inputs[0], labels=inputs[1], layer_name='a', open_browser=False)
+            print_layer(model, inputs[0], labels=inputs[1], layer_name='(a)', open_browser=False)
+            print_layer(model, inputs[0], labels=None, layer_idx=-1, open_browser=False)
+            print_layer(model, inputs[0], labels=None, layer_name='a', open_browser=False)
+            print_layer(model, inputs[0], labels=None, layer_name='(a)', open_browser=False)
 
     def test_visualizer_multiple_graphs(self):
         expr = 'a || b'
@@ -107,15 +115,20 @@ class BaseTest(tf.test.TestCase):
         loader = MultipleGraphLoader(self.dataset_multiple_graphs, epochs=1, node_level=True, batch_size=2)
         model = compiler.compile(expr)
         for inputs in loader.load():
-            print_layer(model, inputs, layer_idx=-1, open_browser=False)
-            print_layer(model, inputs, layer_name='a', open_browser=False)
-            print_layer(model, inputs, layer_name='(a)', open_browser=False)
+            print_layer(model, inputs[0], labels=inputs[1], layer_idx=-1, open_browser=False)
+            print_layer(model, inputs[0], labels=inputs[1], layer_name='a', open_browser=False)
+            print_layer(model, inputs[0], labels=inputs[1], layer_name='(a)', open_browser=False)
+            print_layer(model, inputs[0], labels=None, layer_idx=-1, open_browser=False)
+            print_layer(model, inputs[0], labels=None, layer_name='a', open_browser=False)
+            print_layer(model, inputs[0], labels=None, layer_name='(a)', open_browser=False)
 
     def test_visualizer_graph(self):
         graph = self.dataset_only_nodes[0]
-        print_graph(graph, open_browser=True)
+        print_graph(graph, show_labels=False, open_browser=False)
+        print_graph(graph, show_labels=True, open_browser=False)
         graph = self.dataset_nodes_and_edges[0]
-        print_graph(graph, open_browser=True)
+        print_graph(graph, show_labels=False, open_browser=False)
+        print_graph(graph, show_labels=True, open_browser=False)
 
 
 if __name__ == '__main__':
