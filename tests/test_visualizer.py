@@ -9,7 +9,7 @@ from libmg import SingleGraphLoader, MultipleGraphLoader
 from libmg import GNNCompiler, CompilationConfig, NodeConfig
 from libmg import Dataset
 from libmg.functions import Constant
-from libmg.visualizer import print_layer
+from libmg.visualizer import print_layer, print_graph
 
 
 class TestDataset(Dataset):
@@ -110,6 +110,12 @@ class BaseTest(tf.test.TestCase):
             print_layer(model, inputs, layer_idx=-1, open_browser=False)
             print_layer(model, inputs, layer_name='a', open_browser=False)
             print_layer(model, inputs, layer_name='(a)', open_browser=False)
+
+    def test_visualizer_graph(self):
+        graph = self.dataset_only_nodes[0]
+        print_graph(graph, open_browser=True)
+        graph = self.dataset_nodes_and_edges[0]
+        print_graph(graph, open_browser=True)
 
 
 if __name__ == '__main__':
