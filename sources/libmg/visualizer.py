@@ -2,6 +2,7 @@ import tensorflow as tf
 from lark import Lark
 from lark.reconstruct import Reconstructor
 from pyvis.network import Network
+from pyvis.options import Layout, Options
 from tensorflow.python.keras import backend as K
 from libmg.grammar import mg_grammar
 
@@ -46,7 +47,9 @@ def find_edges(inputs):
 
 
 def show(nodes, node_labels, edges, edge_labels, titles, true_labels, filename, open_browser):
+    options = Options(layout=True)
     net = Network(directed=True, neighborhood_highlight=True, select_menu=True, filter_menu=True)
+    net.set_options(options.__repr__())
     if true_labels is not None:
         node_labels = ['[' + feat + '] → [' + target + ']' for feat, target in zip(node_labels, true_labels)]
     else:
@@ -58,6 +61,7 @@ def show(nodes, node_labels, edges, edge_labels, titles, true_labels, filename, 
         for i, edge in enumerate(edges):
             net.add_edge(*edge, label=edge_labels[i])
     net.barnes_hut(gravity=-2000, spring_length=250, spring_strength=0.04)
+    net.toggle_physics(False)
     net.show_buttons()
     if open_browser:
         net.show('graph_' + filename + '.html', notebook=False)
