@@ -1,4 +1,5 @@
 import tensorflow as tf
+from tensorflow.python.eager.backprop_util import IsTrainable
 from tensorflow.python.keras import backend as K
 from spektral.layers import MessagePassing
 
@@ -315,7 +316,8 @@ class FixPoint(MessagePassing):
         # compute forward pass with the gradient being tracked
         otp = output[0]
         with tf.GradientTape(persistent=True, watch_accessed_variables=False) as tape:
-            tape.watch(otp)
+            if IsTrainable(otp[0]):
+                tape.watch(otp)
             output = self.gnn_x(saved_args + otp + additional_inputs)
 
         @tf.custom_gradient
