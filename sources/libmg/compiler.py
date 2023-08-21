@@ -3,27 +3,27 @@ from __future__ import annotations
 from typing import Callable, Type, Optional, Tuple
 
 from bidict import bidict
-from lark import Lark, v_args
+from lark import v_args
 from lark.visitors import Interpreter
 import tensorflow as tf
 import time
 
 from .functions import FunctionDict, Psi, Sigma, Phi
 from .loaders import SingleGraphLoader, MultipleGraphLoader
-from .normalizer import Normalizer, is_fixpoint
+from .normalizer import Normalizer, is_free
 from .dummy_dataset import DummyDataset
-from .grammar import mg_grammar
+from .grammar import mg_parser
 from .layers import PreImage, PostImage, FunctionApplication, Ite, FixPoint, Repeat
 
 
 class NodeConfig:
-    def __init__(self, node_type: tf.DType, node_size: int):
-        """
-        Specifies the initial type of node labels, in the form of a feature vector
+    """
+    Specifies the initial type of node labels, in the form of a feature vector
 
-        :param node_type: The Tensorflow type of each element in the feature vector, e.g. tf.float32 or tf.uint8
-        :param node_size: The length of the feature vector
-        """
+    :param node_type: The Tensorflow type of each element in the feature vector, e.g. tf.float32 or tf.uint8
+    :param node_size: The length of the feature vector
+    """
+    def __init__(self, node_type: tf.DType, node_size: int):
         self._type = node_type
         self._size = node_size
 
@@ -37,13 +37,13 @@ class NodeConfig:
 
 
 class EdgeConfig:
-    def __init__(self, edge_type: tf.DType, edge_size: int):
-        """
-        Specifies the initial type of edge labels, in the form of a feature vector
+    """
+    Specifies the initial type of edge labels, in the form of a feature vector
 
-        :param edge_type: The Tensorflow type of each element in the feature vector, e.g. tf.float32 or tf.uint8
-        :param edge_size: The length of the feature vector
-        """
+    :param edge_type: The Tensorflow type of each element in the feature vector, e.g. tf.float32 or tf.uint8
+    :param edge_size: The length of the feature vector
+    """
+    def __init__(self, edge_type: tf.DType, edge_size: int):
         self._type = edge_type
         self._size = edge_size
 
@@ -57,18 +57,20 @@ class EdgeConfig:
 
 
 class CompilationConfig:
+    """
+    Configures how to compile a mG formula into a Model. The constructor isn't meant to be used very often, it
+    is recommended to use the static constructor methods to build this object.
+
+    :param node_config: A NodeConfig object specifying the initial type of the node labels in the graph
+    :param edge_config: An EdgeConfig object specifying the initial type of the node edges in the graph, if any
+    :param matrix_type: A Tensorflow type specifying the type of the adjacency matrix entries, usually tf.uint8
+    :param precision: A ``dict`` that maps strings to tuples of (float, string).
+     The values are tuples that contain a tolerance value and the solver for fixpoint expressions. Missing keys are
+     interpreted as exact equality.
+    :param disjoint_loader: Set this to True if will be using a MultipleGraphLoader, False for a SingleGraphLoader
+    """
     def __init__(self, node_config: NodeConfig, edge_config: EdgeConfig | None, matrix_type: tf.DType,
                  precision: dict[str, Optional[tuple[float, str]]], disjoint_loader: bool):
-        """
-        Configures how to compile a mG formula into a Model. The constructor isn't meant to be used very often, it
-        is recommended to use the static constructor methods to build this object.
-
-        :param node_config: A NodeConfig object specifying the initial type of the node labels in the graph
-        :param edge_config: An EdgeConfig object specifying the initial type of the node edges in the graph, if any
-        :param matrix_type: A Tensorflow type specifying the type of the adjacency matrix entries, usually tf.uint8
-        :param precision: Tolerance value for numeric fixpoint computations. Use `None` for exact computation.
-        :param disjoint_loader: Set this to True if will be using a MultipleGraphLoader, False for a SingleGraphLoader
-        """
         self.node_config = node_config
         self.edge_config = edge_config
         self._matrix_type = matrix_type
@@ -84,7 +86,8 @@ class CompilationConfig:
 
         :param node_config: A NodeConfig object specifying the initial type of the node labels in the graph
         :param matrix_type: A Tensorflow type specifying the type of the adjacency matrix entries, usually tf.uint8
-        :param precision: Tolerance value for numeric fixpoint computations. Use `None` for exact computation.
+        :param precision: A ``dict`` that maps strings to tuples of (float, string).
+         The values are tuples that contain a tolerance value and the solver for fixpoint expressions.
         :return: A CompilationConfig object
         """
         return CompilationConfig(node_config, None, matrix_type, precision, False)
@@ -98,7 +101,8 @@ class CompilationConfig:
 
         :param node_config: A NodeConfig object specifying the initial type of the node labels in the graph
         :param matrix_type: A Tensorflow type specifying the type of the adjacency matrix entries, usually tf.uint8
-        :param precision: Tolerance value for numeric fixpoint computations. Use `None` for exact computation.
+        :param precision: A ``dict`` that maps strings to tuples of (float, string).
+         The values are tuples that contain a tolerance value and the solver for fixpoint expressions.
         :return: A CompilationConfig object
         """
         return CompilationConfig(node_config, None, matrix_type, precision, True)
@@ -113,7 +117,8 @@ class CompilationConfig:
         :param node_config: A NodeConfig object specifying the initial type of the node labels in the graph
         :param edge_config: An EdgeConfig object specifying the initial type of the node edges in the graph, if any
         :param matrix_type: A Tensorflow type specifying the type of the adjacency matrix entries, usually tf.uint8
-        :param precision: Tolerance value for numeric fixpoint computations. Use `None` for exact computation.
+        :param precision: A ``dict`` that maps strings to tuples of (float, string).
+         The values are tuples that contain a tolerance value and the solver for fixpoint expressions.
         :return: A CompilationConfig object
         """
         return CompilationConfig(node_config, edge_config, matrix_type, precision, False)
@@ -128,7 +133,8 @@ class CompilationConfig:
         :param node_config: A NodeConfig object specifying the initial type of the node labels in the graph
         :param edge_config: An EdgeConfig object specifying the initial type of the node edges in the graph, if any
         :param matrix_type: A Tensorflow type specifying the type of the adjacency matrix entries, usually tf.uint8
-        :param precision: Tolerance value for numeric fixpoint computations. Use `None` for exact computation.
+        :param precision: A ``dict`` that maps strings to tuples of (float, string).
+         The values are tuples that contain a tolerance value and the solver for fixpoint expressions.
         :return: A CompilationConfig object
         """
         return CompilationConfig(node_config, edge_config, matrix_type, precision, True)
@@ -189,6 +195,15 @@ class CompilationConfig:
 
 
 class IntermediateOutput:
+    """
+    Container for intermediate outputs during the compilation step.
+
+    :param name: The mG expression that generated this intermediate output.
+    :param x: The node features symbolic tensor.
+    :param a: The adjacency matrix sparse symbolic tensor.
+    :param e: The edge features symbolic tensor, or ``None``.
+    :param i: The index symbolic tensor, or ``None``. Used for batches of multiple graphs.
+    """
     def __init__(self, name, x, a, e, i):
         self._name = name
         self._x = x
@@ -218,6 +233,11 @@ class IntermediateOutput:
 
     @property
     def full_inputs(self):
+        """
+        Gets all the symbolic tensors, following the expected order X, A and, if present, E, I.
+
+        :return: A ``list`` of the available symbolic tensors.
+        """
         output = [self.x, self.a]
         if self.e is not None:
             output.append(self.e)
@@ -227,6 +247,11 @@ class IntermediateOutput:
 
     @property
     def func_inputs(self):
+        """
+        Gets the symbolic tensors for ``FunctionApplication`` layers: X, and, if present, I.
+
+        :return: A ``list`` of the aforementioned symbolic tensors.
+        """
         output = [self.x]
         if self.i is not None:
             output.append(self.i)
@@ -234,6 +259,11 @@ class IntermediateOutput:
 
     @property
     def img_inputs(self):
+        """
+        Gets the symbolic tensors for ``PreImage`` or ``PostImage`` layers: X, A, and, if present, E.
+
+        :return: A ``list`` of the aforementioned symbolic tensors.
+        """
         output = [self.x, self.a]
         if self.e is not None:
             output.append(self.e)
@@ -241,6 +271,11 @@ class IntermediateOutput:
 
     @property
     def fixpoint_inputs(self):
+        """
+        Gets the symbolic tensors for ``FixPoint`` or ``Repeat`` layers: A, and, if present, E, I.
+
+        :return: A ``list`` of the aforementioned symbolic tensors.
+        """
         output = [self.a]
         if self.e is not None:
             output.append(self.e)
@@ -248,15 +283,31 @@ class IntermediateOutput:
             output.append(self.i)
         return output
 
-    def step(self, name, x, free_vars):  # add a check here for free variables
+    def step(self, name, x, free_vars):
+        """
+        Creates a new ``IntermediateOutput`` object starting from this object. The adjacency matrix, edge features and
+        indexes are kept as is, as only the node features are allowed to change in mG. If this object represented a free
+        variable, the hash of the node features symbolic tensor is updated with the new hash.
+
+        :param name: Name of the new ``IntermediateOutput`` object.
+        :param x: The new symbolic tensor for the node features.
+        :param free_vars: A ``dict`` of Tensor hashes, containing the hashes of all the free variables in the current environment.
+        :return: A new ``IntermediateOutput`` object with the specified name and node features symbolic tensor.
+        """
         if self.x.ref() in free_vars:
             free_vars[x.ref()] = free_vars.pop(self.x.ref())
         return IntermediateOutput(name, x, self.a, self.e, self.i)
 
 
 class FixPointExpression:
+    """
+    Container for the body of fixpoint expressions.
+
+    :param name: The mG expression corresponding to this object.
+    :param inputs: The ``list`` of symbolic tensor inputs of the model corresponding to this expression
+    :param outputs: The ``list`` of symbolic tensor outputs of the model corresponding to this expression
+    """
     def __init__(self, name, inputs, outputs):
-        # self._expr = lambda args: args[-1][0]  # the last element of args is a tuple (X, A, E, I), and we return X
         self._model = tf.keras.Model(inputs=inputs, outputs=outputs)
         self._args = []  # initially no arguments
         self._name = name  # initially it is just a variable name
@@ -297,6 +348,13 @@ class FixPointExpression:
 
 
 class FixPointConfig:
+    """
+    Container for configuration of variables in fixpoint expressions.
+
+    :param dimension: Dimensionality of the variable.
+    :param dtype: ``DType`` of the variable.
+    :param name: Name of the variable.
+    """
     def __init__(self, dimension, dtype, name):
         self._signature = tf.keras.Input(shape=dimension, dtype=dtype)
         self._initial_var_name = name
@@ -311,6 +369,12 @@ class FixPointConfig:
 
 
 class ModelWrapper:
+    """
+    A wrapper for TensorFlow models, which allows to associate a name to each model.
+
+    :param model: A TensorFlow ``Model``.
+    :param name: Name to be assigned to the model.
+    """
     def __init__(self, model, name):
         self._model = model
         self._name = name
@@ -325,6 +389,13 @@ class ModelWrapper:
 
 
 class MGFunction:
+    """
+    Container for mG defined functions and let expressions.
+
+    :param name: Name of the function or variable.
+    :param var_list: A ``list`` of variable symbols, the arguments of the function. For variables, this is an empty list.
+    :param body_tree: A ``ParseTree``, the body of the function definition or let expression.
+    """
     def __init__(self, name, var_list, body_tree):
         self.name = name
         self.var_list = var_list  # dictionary name: type
@@ -339,15 +410,29 @@ class MGFunction:
         return matched_args
 
 
-def analyze_fix_var(var):
-    if type(var) is FixPointExpression:
-        return var.signature.shape[1], var.signature.dtype
+def analyze_tensor(t):
+    """
+    Returns dimensionality and type of a symbolic tensor.
+
+    :param t: A symbolic tensor.
+    :return: A ``tuple``, containing the dimension of ``t`` and the ``DType`` of ``t``.
+    """
+    if type(t) is FixPointExpression:
+        return t.signature.shape[1], t.signature.dtype
     else:
-        return var.x.shape[1], var.x.dtype
+        return t.x.shape[1], t.x.dtype
 
 
 # make function for parallel op, only interested in the x and ignores a, e, i
-def make_function_ops2(op_layer, layers, name):
+def make_fixpoint_expr_par(op_layer, layers, name):
+    """
+    Constructs a ``FixPointExpression`` object for the case the fixpoint variable is in a parallel composition expression.
+
+    :param op_layer: A ``Layer``, typically a ``Concatenate`` layer.
+    :param layers: A ``list`` of ``Layer`` objects, the terms of the parallel composition expression.
+    :param name: Name for the new ``FixPointExpression`` objects.
+    :return: A ``FixPointExpression`` object.
+    """
     new_model_inputs = []
     to_concatenate = []
     new_args = []
@@ -382,6 +467,17 @@ def make_function_ops2(op_layer, layers, name):
 # no asterisk in output: only step x. Used on kop, parallel, lhd, rhd, mu, nu
 
 class TreeToTF(Interpreter):
+    """
+    Interpreter for mG expressions.
+
+    :param psi_functions: A ``dict`` that maps strings to ``Psi`` objects.
+    :param sigma_functions: A ``dict`` that maps strings to ``Sigma`` objects.
+    :param phi_functions: A ``dict`` that maps strings to ``Phi`` objects.
+    :param inputs: An ``IntermediateOutput`` object, that contains the initial symbolic tensors.
+    :param precision: A ``dict`` that maps strings to tuples of (float, string). The keys of this dict are types from ``supported_types``.
+     The values are tuples that contain a tolerance value and the solver for fixpoint expressions.
+    :param parser: The parser to use, usually ``mg_parser``.
+    """
     supported_types = {'bool': tf.bool, 'int': tf.int32, 'float': tf.float32, 'uint8': tf.uint8, 'uint16': tf.uint16,
                        'uint32': tf.uint32, 'uint64': tf.uint64, 'int8': tf.int8, 'int16': tf.int16, 'int32': tf.int32,
                        'int64': tf.int64, 'float16': tf.float16, 'float32': tf.float32, 'float64': tf.float64,
@@ -554,7 +650,7 @@ class TreeToTF(Interpreter):
         phi = self.visit(phi)
         self.context.append(phi.name)
         if type(phi) is FixPointExpression:  # phi is a fixpoint expression
-            if is_fixpoint(psi, self.current_fix_var()):  # both are fixpoint expressions
+            if is_free(psi, self.current_fix_var()):  # both are fixpoint expressions
                 # deal as in ite
                 self.eval_if_clause = True
                 test_input = tf.keras.Input(type_spec=phi.signature.type_spec)
@@ -597,7 +693,7 @@ class TreeToTF(Interpreter):
                 has_var = True
                 break
         if has_var:
-            return make_function_ops2(tf.keras.layers.Concatenate(), args, name)
+            return make_fixpoint_expr_par(tf.keras.layers.Concatenate(), args, name)
         else:
             ctx_name = self.get_contextualized_name(name)
             if self.undef_layer(ctx_name):
@@ -662,8 +758,8 @@ class TreeToTF(Interpreter):
         test = self.visit(test)
         # where do we have fixpoint variables?
         if len(self.fix_var) > 0:
-            fixpoint_idx = [isinstance(test, FixPointExpression), is_fixpoint(iftrue, self.current_fix_var()),
-                            is_fixpoint(iffalse, self.current_fix_var())]
+            fixpoint_idx = [isinstance(test, FixPointExpression), is_free(iftrue, self.current_fix_var()),
+                            is_free(iffalse, self.current_fix_var())]
         else:
             fixpoint_idx = [False, False, False]
         # iftrue and iffalse are evaluated in the current context, so we make them from the initial inputs
@@ -783,7 +879,7 @@ class TreeToTF(Interpreter):
     def fix(self, variable_decl, initial_var_gnn, body):
         var_name = self.visit(variable_decl)
         initial_var_gnn = self.visit(initial_var_gnn)
-        initial_var_gnn_dimension, initial_gnn_var_type = analyze_fix_var(initial_var_gnn)
+        initial_var_gnn_dimension, initial_gnn_var_type = analyze_tensor(initial_var_gnn)
         precision = self.get_precision(initial_gnn_var_type.name)
         fixpoint_config = FixPointConfig(initial_var_gnn_dimension, initial_gnn_var_type, initial_var_gnn.name)
         self.fix_var[var_name] = fixpoint_config
@@ -798,7 +894,7 @@ class TreeToTF(Interpreter):
     def repeat(self, variable_decl, initial_var_gnn, body, n):
         var_name = self.visit(variable_decl)
         initial_var_gnn = self.visit(initial_var_gnn)
-        initial_var_gnn_dimension, initial_gnn_var_type = analyze_fix_var(initial_var_gnn)
+        initial_var_gnn_dimension, initial_gnn_var_type = analyze_tensor(initial_var_gnn)
         fixpoint_config = FixPointConfig(initial_var_gnn_dimension, initial_gnn_var_type, initial_var_gnn.name)
         self.fix_var[var_name] = fixpoint_config
         nx = self.visit(body)
@@ -810,27 +906,25 @@ class TreeToTF(Interpreter):
         return self._interpret_fix_expr(var_name, initial_var_gnn, nx, fix_layer, name)
 
 
-
-
 class GNNCompiler:
+    """
+    A compiler for mG formulas. A formula is transformed into a TensorFlow model using the compile method.
+
+    :param psi_functions: A ``dict`` of ``Psi`` objects.
+    :param sigma_functions: A ``dict`` of ``Sigma`` objects.
+    :param phi_functions: A ``dict`` of ``Phi`` objects.
+    :param config: A CompilationConfig object to configure this GNNCompiler object
+    """
     def __init__(self, psi_functions: dict[str, Psi | Callable[[str], Psi] | Type[Psi]],
                  sigma_functions: dict[str, Sigma | Callable[[str], Sigma] | Type[Sigma]],
                  phi_functions: dict[str, Phi | Callable[[str], Phi] | Type[Phi]],
                  config: CompilationConfig):
-        """
-        A compiler for mG formulas. A formula is transformed into a Tensorflow model using the compile method.
-
-        :param psi_functions: A dictionary of Psi functions, from any among the Psi, PsiLocal and PsiGlobal classes
-        :param sigma_functions: A dictionary of Sigma functions
-        :param phi_functions: A dictionary of Phi functions
-        :param config: A CompilationConfig object to configure this GNNCompiler object
-        """
         if config.node_feature_type == tf.float64 or config.edge_feature_type == tf.float64:
             tf.keras.backend.set_floatx('float64')
         elif config.node_feature_type == tf.float16 or config.edge_feature_type == tf.float16:
             tf.keras.backend.set_floatx('float16')
-        self.parser = Lark(mg_grammar, maybe_placeholders=False, parser='lalr')
-        self.macros = Normalizer(self.parser)
+        self.parser = mg_parser
+        self.macros = Normalizer()
         self.model_inputs = [
             tf.keras.Input(shape=config.node_feature_size, name="INPUT_X", dtype=config.node_feature_type),
             tf.keras.Input(shape=(None,), sparse=True, name="INPUT_A", dtype=config.matrix_type)]
@@ -853,6 +947,15 @@ class GNNCompiler:
 
     @staticmethod
     def graph_mode_constructor(model, input_spec, method):
+        """
+        Prepares a model for tracing.
+
+        :param model: The TensorFlow ``Model`` to prepare.
+        :param input_spec: A ``list`` of ``TensorSpec``, the input signature of the model.
+        :param method: What kind of TensorFlow API to use to run the model. Options are ``call`` or ``predict``.
+         This should be the same as the API that are later used to run the model.
+        :return: In the case of ``call``, a ``callable``. Otherwise a ``Model``.
+        """
         if method == 'call':
             @tf.function(input_signature=[input_spec])
             def serve(x):
@@ -870,6 +973,15 @@ class GNNCompiler:
 
     @staticmethod
     def dummy_run(model, dummy_loader, method):
+        """
+        Runs the model on the dummy dataset.
+
+        :param model: A TensorFlow ``Model``.
+        :param dummy_loader: A ``Loader`` which loads the dummy dataset.
+        :param method: What kind of TensorFlow API to use to run the model. Options are ``call``, ``predict`` or
+         ``predict_on_batch``. This should be the same as the API that are later used to run the model.
+        :return: Elapsed time in seconds for the dummy run.
+        """
         elapsed = 0.0
         if method == 'call':
             for x, y in dummy_loader.load():
@@ -897,11 +1009,11 @@ class GNNCompiler:
 
     def compile(self, expr: str, verbose: bool = False) -> tf.keras.Model:
         """
-        Compiles a mG formula `expr` into a Tensorflow Model.
+        Compiles a mG formula into a TensorFlow Model.
 
-        :param expr: A mG formula to evaluate
+        :param expr: A mG formula to evaluate.
         :param verbose: Set this to True to print some debug information.
-        :return: A Tensorflow Model that is the mG evaluation of 'expr'.
+        :return: A TensorFlow ``Model`` that is the mG evaluation of 'expr'.
         """
         self.interpreter.initialize()
         outputs = self.interpreter.visit(self.macros.visit(self.parser.parse(expr)))
@@ -916,9 +1028,10 @@ class GNNCompiler:
         """
         Performs tracing on the input model, and returns it, together with the time took for tracing.
 
-        :param model: A TensorFlow model
+        :param model: A TensorFlow ``Model``
         :param optimize: Set this to "call" to optimize the model for being used with the "call" API, set this to
-        "predict" to optimize the model for being used with the "predict" API. When set to "call" the model is transformed into a function.
+        "predict" to optimize the model for being used with the "predict" API. When set to "call" the model is transformed into a ``callable``.
+        :return: A tuple, containing a ``Model`` and the elapsed time in seconds to perform tracing.
         """
         model = GNNCompiler.graph_mode_constructor(model, self.model_input_spec, optimize)
         compile_time = GNNCompiler.dummy_run(model, self.dummy_loader, optimize)

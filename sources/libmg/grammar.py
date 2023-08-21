@@ -1,5 +1,6 @@
-# reserved words: || fix let if then else def in
-# reserved symbols: , | < > = ( ) ; [ ] #
+# reserved words: || fix let if then else def in repeat for
+# reserved symbols: , | < > = ( ) ; [ ] # { }
+from lark import Lark
 
 mg_grammar = r"""
                 ?gnn_formula: label                                                                               -> atom_op
@@ -34,3 +35,5 @@ mg_grammar = r"""
                 %import common.UCASE_LETTER
                 %ignore WS
                 """
+
+mg_parser = Lark(mg_grammar, maybe_placeholders=False, parser='lalr')

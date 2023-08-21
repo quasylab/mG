@@ -12,20 +12,19 @@ KT = TypeVar('KT')
 VT = TypeVar('VT')
 
 
-# Custom dictionary class
 class FunctionDict(UserDict, typing.Mapping[KT, VT]):
     """
-    This custom dictionary class has a few differences compared to a normal dict. It only accepts ``Callable`` items.
-    In particular, a ``tf.keras.layers.Layer`` object is a ``Callable`` that is  processed differently than any other
-    ``Callable`` object.
+    This custom dictionary class has a few differences compared to a normal dict. It only accepts ``callable`` items.
+    In particular, a ``tf.keras.layers.Layer`` object is a ``callable`` that is  processed differently than any other
+    ``callable`` object.
 
     ``__setitem__`` interface
     --------------------------
 
     - A ``tf.keras.layers.Layer`` is stored in the dictionary wrapped in a one-argument lambda that discards its
       argument and simply returns it.
-    - Any other ``Callable`` object is stored as is.
-    - An attempt to save a non-``Callable`` object results in a ``ValueError`` exception.
+    - Any other ``callable`` object is stored as is.
+    - An attempt to save a non-``callable`` object results in a ``ValueError`` exception.
 
     ``__getitem__`` interface
     --------------------------
@@ -37,7 +36,7 @@ class FunctionDict(UserDict, typing.Mapping[KT, VT]):
     We call the first substring ``true_key`` and the second substring ``arg``.
 
     Once the key is parsed, we obtain the item in the dictionary using ``true_key``. The dictionary does not return the
-    ``Callable`` object directly, but instead returns the output of the application of ``arg`` to the ``Callable``.
+    ``callable`` object directly, but instead returns the output of the application of ``arg`` to the ``callable``.
 
     """
     @staticmethod
@@ -84,7 +83,8 @@ class Psi(tf.keras.layers.Layer):
         takes an additional parameter to distinguish which values in the first argument refer to which graph. For
         more information, refer to the disjoint data mode in the Spektral library documentation.
 
-        :param single_op: A function that transforms a Tensor of node labels of type T into a node label of type U.
+
+        :param single_op: A function that transforms a Tensor of node labels of type T into one of node labels of type U.
          The function must be compatible with Tensorflow's broadcasting rules. The function takes only one argument of
          type Tensor[T] and uses broadcasting to emulate the tuple (T*, T) in the definition of f.
         :param multiple_op: A function that transforms a Tensor of node labels of type T and a Tensor of their
@@ -102,20 +102,17 @@ class Psi(tf.keras.layers.Layer):
         else:
             self.multiple_op = multiple_op
 
-
     def single_graph_op(self, x):
         raise NotImplementedError
 
     def multiple_graph_op(self, x, i):
         raise NotImplementedError
 
-
     def __call__(self, x, i=None):
         if i is not None:
             return self.multiple_op(x, i)
         else:
             return self.single_op(x)
-
 
 
 class PsiLocal(Psi):
@@ -245,10 +242,6 @@ class Pi(PsiLocal):
         :param i: 0-based index, first element of the sequence to return
         :param j: 0-based index, last element (exclusive) of the sequence to return. Defaults to i + 1
         """
-        if j is not None:
-            assert j > i
-        else:
-            j = i + 1
+        j = i + 1 if j is None else j
         f = lambda x: x[:, i:j]
-
         super().__init__(f, **kwargs)

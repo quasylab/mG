@@ -1,9 +1,15 @@
 from lark import Transformer, v_args
-from lark.reconstruct import Reconstructor
-from lark.visitors import Interpreter, Visitor
+from lark.visitors import Visitor
 
 
-def is_fixpoint(tree, fix_var=None):
+def is_free(tree, var=None):
+    """
+    Checks if the variable ``var`` is free in the given expression tree.
+
+    :param tree: A ``ParseTree`` that represents a mG expression.
+    :param var: A variable symbol in mG.
+    :return: True if ``var`` is free in ``tree``, False otherwise.
+    """
     class IsFixpoint(Transformer):
         @v_args(inline=True)
         def label(self, f):
@@ -15,7 +21,7 @@ def is_fixpoint(tree, fix_var=None):
 
         @v_args(inline=True)
         def atom_op(self, label):
-            return label == fix_var
+            return label == var
 
         def lhd(self, _):
             return False
@@ -56,24 +62,31 @@ def is_fixpoint(tree, fix_var=None):
         def fix(self, variable_decl, initial_var_gnn, body):
             return initial_var_gnn or body
 
-    return IsFixpoint().transform(tree) if fix_var is not None else False
+    return IsFixpoint().transform(tree) if var is not None else False
 
 
 def fixpoint_no_vars(tree):
+    """
+    Transforms a mG fixpoint expression in which the fixpoint variable doesn't occur in its body.
+
+    :param tree: A ``ParseTree`` representing a mG fixpoint expression.
+    :return: A ``ParseTree`` consisting of the body of the input fixpoint expression.
+    """
     return tree.children[-1]
 
 
 class Normalizer(Visitor):
+    """
+    Transforms a mG expression in normal form, by acting on its ``ParseTree``. Currently the only normalization is the
+    removal of the fixpoint expressions in which the fixpoint variable does not occur in the fixpoint body.
+    """
 
-    def __init__(self, parser):
+    def __init__(self):
         super().__init__()
-        self.parser = parser
-        self.reconstructor = Reconstructor(parser)
-        self.fixpoint_vars = []
 
     @v_args(tree=True)
     def fix(self, tree):
-        if not is_fixpoint(tree.children[-1], str(tree.children[0].children[0])):
+        if not is_free(tree.children[-1], str(tree.children[0].children[0])):
             new_expr = fixpoint_no_vars(tree)
             tree.data = new_expr.data
             tree.children = new_expr.children

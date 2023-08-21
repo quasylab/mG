@@ -4,6 +4,22 @@ from spektral.layers import MessagePassing
 
 
 def loop_body(X, F, H, k, m, beta, lam, x0, f, y, fixpoint_printer):
+    """
+    Body of the loop in the ``anderson_mixing`` function.
+
+    :param X: A ``TensorArray`` that contains the past ``m`` guesses for a fixed point.
+    :param F: A ``TensorArray`` that contains the past ``m`` outputs of ``f``.
+    :param H: A ``Tensor`` that encodes a linear system to solve.
+    :param k: Current iteration number
+    :param m: Number of previous guesses to keep into consideration.
+    :param beta: For beta < 1, makes a damped version of Anderson update. For beta > 1 makes an overprojected version that might help convergence.
+    :param lam: This small value is needed to make the linear system solvable.
+    :param x0: A ``list`` of inputs for the model, acts as initial guess for the fixed point.
+    :param f: A mG model for which we want to compute the fixed point.
+    :param y: A ``Tensor`` that encodes the constant terms of the linear system in ``H``.
+    :param fixpoint_printer: A ``callable`` that handles the printing of its input and then returns it.
+    :return: A ``list`` containing the loop variables X, F, H, and k.
+    """
     k = k + 1
     n = tf.math.minimum(k, m)
     G = tf.reshape(F.stack()[:n] - X.stack()[:n], shape=[n, -1])
@@ -24,6 +40,18 @@ def loop_body(X, F, H, k, m, beta, lam, x0, f, y, fixpoint_printer):
 
 
 def anderson_mixing(f, x0, comparator, fixpoint_printer, m=5, lam=1e-4, beta=1.0):
+    """
+    This function implements Anderson acceleration (aka Anderson mixing).
+
+    :param f: A mG model for which we want to compute the fixed point.
+    :param x0: A ``list`` of inputs for the model, acts as initial guess for the fixed point.
+    :param comparator: A ``callable`` of two arguments, which should return ``True`` if its two inputs are the *equal*.
+    :param fixpoint_printer: A ``callable`` that handles the printing of its input and then returns it.
+    :param m: Number of previous guesses to keep into consideration.
+    :param lam: This small value is needed to make the linear system solvable.
+    :param beta: For beta < 1, makes a damped version of Anderson update. For beta > 1 makes an overprojected version that might help convergence.
+    :return: The fixed point of ``f`` computed starting from ``x0``, the value of ``f`` in the previous steps, and number of iterations.
+    """
     # nodes * node feats = size
     X = tf.TensorArray(dtype=x0.dtype, size=m, clear_after_read=False)
     F = tf.TensorArray(dtype=x0.dtype, size=m, clear_after_read=False)
@@ -51,10 +79,28 @@ def anderson_mixing(f, x0, comparator, fixpoint_printer, m=5, lam=1e-4, beta=1.0
 
 
 def anderson_fixpoint(f, x0, comparator, fixpoint_printer):
+    """
+    Fixed point solver that uses Anderson acceleration (aka Anderson mixing).
+
+    :param f: A mG model for which we want to compute the fixed point.
+    :param x0: A ``list`` of inputs for the model, acts as initial guess for the fixed point.
+    :param comparator: A ``callable`` of two arguments, which should return ``True`` if its two inputs are the *equal*.
+    :param fixpoint_printer: A ``callable`` that handles the printing of its input and then returns it.
+    :return: The fixed point of ``f`` computed starting from ``x0``, the value of ``f`` in the previous steps, and number of iterations.
+    """
     return anderson_mixing(lambda x: f([x])[0], x0[0], comparator, fixpoint_printer)
 
 
 def standard_fixpoint(f, x0, comparator, fixpoint_printer):
+    """
+    Fixed point solver that simply repeats the execution of a function until it converges.
+
+    :param f: A mG model for which we want to compute the fixed point.
+    :param x0: A ``list`` of inputs for the model, acts as initial guess for the fixed point.
+    :param comparator: A ``callable`` of two arguments, which should return ``True`` if its two inputs are the *equal*.
+    :param fixpoint_printer: A ``callable`` that handles the printing of its input and then returns it.
+    :return: The fixed point of ``f`` computed starting from ``x0``, the value of ``f`` in the previous steps, and number of iterations.
+    """
     iter = tf.constant(1)
     x = f(x0)
     return tf.while_loop(
@@ -66,6 +112,11 @@ def standard_fixpoint(f, x0, comparator, fixpoint_printer):
 
 
 class FunctionApplication(MessagePassing):
+    """
+    This layer implements a mG psi expression, i.e. a function application.
+
+    :param psi: The ``Psi`` function to apply.
+    """
 
     def __init__(self, psi, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -89,6 +140,13 @@ class FunctionApplication(MessagePassing):
 
 
 class PreImage(MessagePassing):
+    """
+    This layer implements a mG pre-image expression. The layer computes a multiset of messages using a ``Phi`` function
+    and then aggregates them using a ``Sigma`` function. Each node receives the messages from its predecessors.
+
+    :param sigma: A ``Sigma`` function that aggregates messages.
+    :param phi: A ``Phi`` function that generates messages.
+    """
     def __init__(self, sigma, phi=lambda i, e, j: j, **kwargs):
         super().__init__(**kwargs)
         self.sigma = sigma
@@ -102,6 +160,13 @@ class PreImage(MessagePassing):
 
 
 class PostImage(MessagePassing):
+    """
+    This layer implements a mG pre-image expression. The layer computes a multiset of messages using a ``Phi`` function
+    and then aggregates them using a ``Sigma`` function. Each node receives the messages from its successors.
+
+    :param sigma: A ``Sigma`` function that aggregates messages.
+    :param phi: A ``Phi`` function that generates messages.
+    """
     def __init__(self, sigma, phi=lambda i, e, j: j, **kwargs):
         super().__init__(**kwargs)
         self.sigma = sigma
@@ -115,6 +180,14 @@ class PostImage(MessagePassing):
 
 
 class Ite(MessagePassing):
+    """
+    This layer implements a mG choice expression, i.e. an if-then-else (ITE) construct. The layer expects that the first
+    input is a Boolean Tensor. If all the values in this Tensor are True, the GNN ``iftrue`` is executed on the remaining
+    input values, otherwise ``iffalse`` is executed.
+
+    :param iftrue: A mG model to run if the condition is true.
+    :param iffalse: A mG model to run if the condition is false.
+    """
     def __init__(self, iftrue, iffalse, **kwargs):
         super().__init__(**kwargs)
         self.iftrue = iftrue
@@ -176,6 +249,19 @@ class Ite(MessagePassing):
 
 
 class FixPoint(MessagePassing):
+    """
+    This layer implements a mG fixpoint expression. The layer expects that the first k - 1 inputs are pre-computed
+    labels for the body of expression and that the k-th input is the node labels. The layer evaluates the body on these
+    inputs until the node labels stabilize, and then returns them.
+
+    :param gnn_x: A mG model, corresponding to the body of a fixpoint expression. It expects inputs in the same format
+     of this layer
+    :param precision: A ``tuple``, where the first element is a floating-point number that specifies the tolerance for
+     convergence, and the second element is a string that specifies the solver for the fixed point. Options are *iter*
+     for a standard iterative convergence, or *anderson* for using anderson acceleration.
+    :param debug: If true, print debugging information such as intermediate fixpoint outputs and number of iterations to
+     convergenge. Prints to the logging console.
+    """
 
     @staticmethod
     def fixpoint_print_and_return(x):
@@ -250,6 +336,15 @@ class FixPoint(MessagePassing):
 
 
 class Repeat(MessagePassing):
+    """
+    This layer implements a mG repeat expression. The layer expects that the first k - 1 inputs are pre-computed
+    labels for the body of expression and that the k-th input is the node labels. The layer evaluates the body on these
+    inputs for ``repeat`` steps.
+
+    :param gnn_x: A mG model, corresponding to the body of a fixpoint expression. It expects inputs in the same format
+     of this layer
+    :param repeat: Number of times to repeat the body.
+    """
 
     def __init__(self, gnn_x, repeat, **kwargs):
         super().__init__(**kwargs)

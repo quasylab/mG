@@ -1,30 +1,52 @@
 import tensorflow as tf
-from lark import Lark
 from pyvis.network import Network
 from pyvis.options import Layout, Options
 from spektral.data import Graph
 from tensorflow.python.keras import backend as K
-from libmg.grammar import mg_grammar
 
-parser = Lark(mg_grammar, maybe_placeholders=False, parser='lalr')
+from .grammar import mg_parser
 
 
 def fetch_layer(model, layer_name=None, layer_idx=None):
+    """
+    Finds a layer, identified either by name or index, in the model. If both are
+    given, index takes precedence.
+
+    :param model: A mG ``Model``.
+    :param layer_name: Name of the layer to find. At least this or an index must be provided.
+    :param layer_idx: Index of the layer to find. At least this or a name must be provided.
+    :return: The ``Layer`` with the given name or at the given index.
+    :raises ValueError: If no layer with the given name is found or if neither an index nor a name is provided.
+    """
     if layer_idx is not None:
         return model.get_layer(index=layer_idx).output
-    else:
-        layer_hash = hash(parser.parse(layer_name))
+    elif layer_name is not None:
+        layer_hash = hash(mg_parser.parse(layer_name))
         if layer_hash in model.saved_layers:
             return model.saved_layers[layer_hash].x
         else:
             raise ValueError("No layer found with name: " + layer_name)
+    else:
+        raise ValueError("Layer name or index must be provided!")
 
 
 def find_adj(inputs):
+    """
+    Finds the adjacency matrix in the list ``inputs``.
+
+    :param inputs: A list of ``Tensor`` objects.
+    :return: The adjacency matrix ``SparseTensor``.
+    """
     return next((x for x in inputs if K.is_sparse(x)))
 
 
 def find_edges(inputs):
+    """
+    Finds the edge features matrix in the list ``inputs``, if present.
+
+    :param inputs: A list of ``Tensor`` objects.
+    :return: The edge features ``Tensor`` if found or ``None``.
+    """
     if len(inputs) == 3 and K.ndim(inputs[-1]) == 2:
         return inputs[-1]
     elif len(inputs) == 4:
@@ -34,8 +56,18 @@ def find_edges(inputs):
 
 
 def show(node_values, adj, edge_values, labels, filename, open_browser):
-    if len(node_values.shape) != 2:
-        raise ValueError("Not a valid node labeling function!")
+    """
+    Builds a PyVis network using the node features, labels, adjacency matrix and edge features. The result is an .html
+    page named *graph_filename.html*.
+
+    :param node_values: A ``ndarray`` with shape (n_nodes, n_node_features) containing the node features
+    :param adj: A `coo_matrix`` adjacency matrix
+    :param edge_values: An optional ``ndarray`` with shape (n_edges, n_edge_features) containing the edge labels
+    :param labels: An optional ``ndarray`` with shape (n_nodes, n_labels) containing the node labels
+    :param filename: Name of the .html file to generate
+    :param open_browser: If true, opens the default web browser and opens the generated .html page.
+    :return: Nothing
+    """
     nodes = list(range(node_values.shape[0]))
     edges = [(int(i), int(j)) for i, j in zip(adj.row, adj.col)]
     node_labels = [' | '.join([str(label) for label in label_list]) for label_list in node_values.tolist()]
@@ -77,15 +109,37 @@ def show(node_values, adj, edge_values, labels, filename, open_browser):
 
 
 def print_layer(model, inputs, labels=None, layer_name=None, layer_idx=None, open_browser=True):
+    """
+    Visualizes the outputs of a model's layer using PyVis. Layer must be identified either by name or index. If both are
+    given, index takes precedence.
+
+    :param model: A mG ``Model`` that contains the layer to visualize.
+    :param inputs: Inputs to feed the model, as obtained by the data ``Loader`` for the model.
+    :param labels: If provided, also show the labels alongside the node features. Only works for node level labels.
+    :param layer_name: Name of the layer whose output is to be visualized. At least this or an index must be provided.
+    :param layer_idx: Index of the layer whose output is to be visualized. At least this or a name must be provided.
+    :param open_browser: If true, opens the default web browser and opens the generated .html page.
+    :return: Nothing.
+    :raises ValueError: If neither an index nor a name is provided.
+    """
     debug_model = tf.keras.Model(inputs=model.inputs, outputs=fetch_layer(model, layer_name, layer_idx))
     inputs = inputs[0]
     idx_or_name = layer_idx if layer_idx is not None else layer_name
-    assert idx_or_name is not None
+    if idx_or_name is None:
+        raise ValueError("Layer name or index must be provided!")
     labels = labels.numpy() if labels is not None else None
     graph = Graph(x=debug_model(inputs).numpy(), a=find_adj(inputs).indices.numpy(), e=find_edges(inputs).numpy(), y=labels)
     print_graph(graph, False if labels is None else True, open_browser)
 
 
 def print_graph(graph, show_labels=False, open_browser=True):
+    """
+    Visualizes a graph using PyVis.
+
+    :param graph: A ``Graph``.
+    :param show_labels: If true, also show the labels alongside the node features. Only works for node level labels.
+    :param open_browser: If true, opens the default web browser and opens the generated .html page.
+    :return: Nothing.
+    """
     y = graph.y if show_labels else None
     show(graph.x, graph.a, graph.e, y, str(graph), open_browser)

@@ -1,15 +1,15 @@
-from libmg.grammar import mg_grammar
-import tensorflow as tf
-from lark import Lark
 
+import tensorflow as tf
+
+from libmg.grammar import mg_parser
 from libmg.normalizer import Normalizer
 
 
 class NormalizerTests(tf.test.TestCase):
     def setUp(self):
         super().setUp()
-        self.parser = Lark(mg_grammar, maybe_placeholders=False)
-        self.normalizer = Normalizer(self.parser)
+        self.parser = mg_parser
+        self.normalizer = Normalizer()
 
     def test_fixpoint_no_vars(self):
         expr = 'fix X = true in (true || false)'

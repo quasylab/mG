@@ -80,7 +80,7 @@ class BaseTest(tf.test.TestCase):
     def tearDown(self):
         for file in os.listdir("."):
             if file.endswith(".html"):
-                # os.remove(file)
+                os.remove(file)
                 pass
 
     def test_visualizer_only_nodes(self):
