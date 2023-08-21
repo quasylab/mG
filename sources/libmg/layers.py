@@ -119,8 +119,9 @@ class FunctionApplication(MessagePassing):
     :param psi: The ``Psi`` function to apply.
     """
 
-    def __init__(self, psi, *args, **kwargs):
+    def __init__(self, expr, psi, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.expr = expr
         self.psi = psi
 
     def call(self, inputs, **kwargs):
@@ -273,6 +274,7 @@ class FixPoint(MessagePassing):
         super().__init__(**kwargs)
         self.fixpoint_print = self.fixpoint_print_and_return if debug else lambda x: x
         self.gnn_x = gnn_x
+        self.iters = None
         tolerance, solver = precision
         if tolerance is not None:
             self.comparator = lambda curr, prev: tf.math.less_equal(tf.math.abs(tf.math.subtract(curr, prev)), tolerance)
@@ -311,7 +313,8 @@ class FixPoint(MessagePassing):
 
         # compute forward pass without tracking the gradient
         output = tf.nest.map_structure(tf.stop_gradient, self.solver(lambda x: [self.gnn_x(saved_args + x + additional_inputs)], X_o, lambda curr, prev: self.comparator(curr, prev), self.fixpoint_print))
-        tf.print('fixpoint (solver = {0}) iters: '.format(self.solver.__name__), output[-1], output_stream=tf.compat.v1.logging.info)
+        self.iters = output[-1]
+        tf.print('fixpoint (solver = {0}) iters: '.format(self.solver.__name__), self.iters, output_stream=tf.compat.v1.logging.info)
 
         # compute forward pass with the gradient being tracked
         otp = output[0]

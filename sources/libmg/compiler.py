@@ -368,26 +368,6 @@ class FixPointConfig:
         return self._initial_var_name
 
 
-class ModelWrapper:
-    """
-    A wrapper for TensorFlow models, which allows to associate a name to each model.
-
-    :param model: A TensorFlow ``Model``.
-    :param name: Name to be assigned to the model.
-    """
-    def __init__(self, model, name):
-        self._model = model
-        self._name = name
-
-    @property
-    def model(self):
-        return self._model
-
-    @property
-    def name(self):
-        return self._name
-
-
 class MGFunction:
     """
     Container for mG defined functions and let expressions.
@@ -587,7 +567,7 @@ class TreeToTF(Interpreter):
             op_layer = self.visit(deferred_function.body_tree)
             ctx_name = op_layer.name
         elif label in self.psi_functions:  # the label matches a psi function
-            op_layer = FunctionApplication(self.psi_functions[label])
+            op_layer = FunctionApplication(label, self.psi_functions[label])
         elif label in self.fix_var:  # the label is a fix_var, but not the current one
             io = self.inputs.step(label, self.fix_var[label].signature, self.free_fix_var)
             self.free_fix_var[io.x.ref()] = label
@@ -657,12 +637,10 @@ class TreeToTF(Interpreter):
                 self.inputs = current_inputs.step(phi.name, test_input, self.free_fix_var)
                 psi = self.visit(psi)
                 self.eval_if_clause = False
-                psi_model = ModelWrapper(tf.keras.Model(
+                psi_model = tf.keras.Model(
                     inputs=[test_input] + [self.current_fix_var_config().signature] + self.initial_inputs.full_inputs[1:],
-                    outputs=psi.x),
-                                         name=psi.name)
-
-                new_expr = FixPointExpression('(' + psi.name + ')', phi.input_signature, psi_model.model(
+                    outputs=psi.x)
+                new_expr = FixPointExpression('(' + psi.name + ')', phi.input_signature, psi_model(
                     [phi.signature] + [self.current_fix_var_config().signature] + self.initial_inputs.full_inputs[1:]))
                 new_expr.args = phi.args
                 self.inputs = current_inputs
@@ -767,28 +745,24 @@ class TreeToTF(Interpreter):
             self.eval_if_clause = True
             iftrue = self.visit(iftrue)
             self.eval_if_clause = False
-            iftrue_model = ModelWrapper(tf.keras.Model(inputs=self.initial_inputs.full_inputs[:1] + [
-                self.current_fix_var_config().signature] + self.initial_inputs.full_inputs[1:], outputs=iftrue.x),
-                                        name=iftrue.name)
+            iftrue_model = tf.keras.Model(inputs=self.initial_inputs.full_inputs[:1] + [
+                self.current_fix_var_config().signature] + self.initial_inputs.full_inputs[1:], outputs=iftrue.x)
         else:
             iftrue = self.visit(iftrue)
-            iftrue_model = ModelWrapper(tf.keras.Model(inputs=self.initial_inputs.full_inputs, outputs=iftrue.x),
-                                        name=iftrue.name)
+            iftrue_model = tf.keras.Model(inputs=self.initial_inputs.full_inputs, outputs=iftrue.x)
         if fixpoint_idx[2] is True:
             self.eval_if_clause = True
             iffalse = self.visit(iffalse)
             self.eval_if_clause = False
-            iffalse_model = ModelWrapper(tf.keras.Model(inputs=self.initial_inputs.full_inputs[:1] + [
-                self.current_fix_var_config().signature] + self.initial_inputs.full_inputs[1:], outputs=iffalse.x),
-                                         name=iffalse.name)
+            iffalse_model = tf.keras.Model(inputs=self.initial_inputs.full_inputs[:1] + [
+                self.current_fix_var_config().signature] + self.initial_inputs.full_inputs[1:], outputs=iffalse.x)
         else:
             iffalse = self.visit(iffalse)
-            iffalse_model = ModelWrapper(tf.keras.Model(inputs=self.initial_inputs.full_inputs, outputs=iffalse.x),
-                                         name=iffalse.name)
+            iffalse_model = tf.keras.Model(inputs=self.initial_inputs.full_inputs, outputs=iffalse.x)
 
         ctx_name = self.get_contextualized_name('if ' + test.name + ' then ' + iftrue.name + ' else ' + iffalse.name)
         if (fixpoint_idx[0] and fixpoint_idx[1]) or (fixpoint_idx[0] and fixpoint_idx[2]) or all(fixpoint_idx):
-            ite_layer = Ite(iftrue_model.model, iffalse_model.model)
+            ite_layer = Ite(iftrue_model, iffalse_model)
             # noinspection PyCallingNonCallable
             new_expr = FixPointExpression('if ' + test.name + ' then ' + iftrue.name + ' else ' + iffalse.name,
                                           inputs=self.initial_inputs.full_inputs[:1] + test.args + test.input_signature,
@@ -797,7 +771,7 @@ class TreeToTF(Interpreter):
             new_expr.args = self.initial_inputs.full_inputs[:1] + test.args
             return new_expr
         elif fixpoint_idx[1] or fixpoint_idx[2]:
-            ite_layer = Ite(iftrue_model.model, iffalse_model.model)
+            ite_layer = Ite(iftrue_model, iffalse_model)
             # noinspection PyCallingNonCallable
             new_expr = FixPointExpression('if ' + test.name + ' then ' + iftrue.name + ' else ' + iffalse.name,
                                           inputs=[test.x] + self.initial_inputs.full_inputs[:1] + [
@@ -808,7 +782,7 @@ class TreeToTF(Interpreter):
             new_expr.args = [test.x] + self.initial_inputs.full_inputs[:1]  # here go actual saved inputs
             return new_expr
         elif fixpoint_idx[0]:
-            ite_layer = Ite(iftrue_model.model, iffalse_model.model)
+            ite_layer = Ite(iftrue_model, iffalse_model)
             # noinspection PyCallingNonCallable
             new_expr = FixPointExpression('if ' + test.name + ' then ' + iftrue.name + ' else ' + iffalse.name,
                                           inputs=self.initial_inputs.full_inputs[:1] + test.args + test.input_signature,
@@ -817,7 +791,7 @@ class TreeToTF(Interpreter):
             new_expr.args = self.initial_inputs.full_inputs[:1] + test.args  # here go actual saved inputs
             return new_expr
         else:
-            ite_layer = Ite(iftrue_model.model, iffalse_model.model)
+            ite_layer = Ite(iftrue_model, iffalse_model)
             if self.undef_layer(ctx_name):
                 # we pass the initial inputs
                 # noinspection PyCallingNonCallable
