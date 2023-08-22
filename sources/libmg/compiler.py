@@ -567,7 +567,7 @@ class TreeToTF(Interpreter):
             op_layer = self.visit(deferred_function.body_tree)
             ctx_name = op_layer.name
         elif label in self.psi_functions:  # the label matches a psi function
-            op_layer = FunctionApplication(label, self.psi_functions[label])
+            op_layer = FunctionApplication(self.psi_functions[label])
         elif label in self.fix_var:  # the label is a fix_var, but not the current one
             io = self.inputs.step(label, self.fix_var[label].signature, self.free_fix_var)
             self.free_fix_var[io.x.ref()] = label

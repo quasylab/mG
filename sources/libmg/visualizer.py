@@ -61,7 +61,7 @@ def show(node_values, adj, edge_values, labels, filename, open_browser):
     page named *graph_filename.html*.
 
     :param node_values: A ``ndarray`` with shape (n_nodes, n_node_features) containing the node features
-    :param adj: A `coo_matrix`` adjacency matrix
+    :param adj: A `ndarray`` adjacency list
     :param edge_values: An optional ``ndarray`` with shape (n_edges, n_edge_features) containing the edge labels
     :param labels: An optional ``ndarray`` with shape (n_nodes, n_labels) containing the node labels
     :param filename: Name of the .html file to generate
@@ -69,7 +69,8 @@ def show(node_values, adj, edge_values, labels, filename, open_browser):
     :return: Nothing
     """
     nodes = list(range(node_values.shape[0]))
-    edges = [(int(i), int(j)) for i, j in zip(adj.row, adj.col)]
+    # edges = [(int(i), int(j)) for i, j in zip(adj.row, adj.col)]
+    edges = [(int(e[0]), int(e[1])) for e in adj]
     node_labels = [' | '.join([str(label) for label in label_list]) for label_list in node_values.tolist()]
     if edge_values is not None:
         edge_labels = [' | '.join([str(label) for label in label_list]) for label_list in edge_values.tolist()]
@@ -123,13 +124,12 @@ def print_layer(model, inputs, labels=None, layer_name=None, layer_idx=None, ope
     :raises ValueError: If neither an index nor a name is provided.
     """
     debug_model = tf.keras.Model(inputs=model.inputs, outputs=fetch_layer(model, layer_name, layer_idx))
-    inputs = inputs[0]
     idx_or_name = layer_idx if layer_idx is not None else layer_name
     if idx_or_name is None:
         raise ValueError("Layer name or index must be provided!")
     labels = labels.numpy() if labels is not None else None
-    graph = Graph(x=debug_model(inputs).numpy(), a=find_adj(inputs).indices.numpy(), e=find_edges(inputs).numpy(), y=labels)
-    print_graph(graph, False if labels is None else True, open_browser)
+    e = find_edges(inputs).numpy() if find_edges(inputs) is not None else None
+    show(debug_model(inputs).numpy(), find_adj(inputs).indices.numpy(), e, labels, str(idx_or_name), open_browser)
 
 
 def print_graph(graph, show_labels=False, open_browser=True):
@@ -142,4 +142,4 @@ def print_graph(graph, show_labels=False, open_browser=True):
     :return: Nothing.
     """
     y = graph.y if show_labels else None
-    show(graph.x, graph.a, graph.e, y, str(graph), open_browser)
+    show(graph.x, zip(graph.a.row, graph.a.col), graph.e, y, str(graph), open_browser)

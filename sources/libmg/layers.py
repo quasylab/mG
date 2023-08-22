@@ -119,9 +119,8 @@ class FunctionApplication(MessagePassing):
     :param psi: The ``Psi`` function to apply.
     """
 
-    def __init__(self, expr, psi, *args, **kwargs):
+    def __init__(self, psi, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.expr = expr
         self.psi = psi
 
     def call(self, inputs, **kwargs):
