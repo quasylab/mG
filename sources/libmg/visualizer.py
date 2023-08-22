@@ -22,8 +22,8 @@ def fetch_layer(model, layer_name=None, layer_idx=None):
         return model.get_layer(index=layer_idx).output
     elif layer_name is not None:
         layer_hash = hash(mg_parser.parse(layer_name))
-        if layer_hash in model.saved_layers:
-            return model.saved_layers[layer_hash].x
+        if layer_hash in model.mg_layers:
+            return model.mg_layers[layer_hash].output
         else:
             raise ValueError("No layer found with name: " + layer_name)
     else:

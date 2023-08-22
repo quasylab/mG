@@ -195,6 +195,7 @@ class Ite(MessagePassing):
         self.iffalse = iffalse
         self.iftrue_input_len = len(self.iftrue.inputs)
         self.iffalse_input_len = len(self.iffalse.inputs)
+        self.branch = None
 
     @staticmethod
     def get_inputs(inputs):
@@ -353,7 +354,7 @@ class Repeat(MessagePassing):
     def __init__(self, gnn_x, repeat, **kwargs):
         super().__init__(**kwargs)
         self.gnn_x = gnn_x
-        self.repeat = repeat
+        self.iters = repeat
 
     def call(self, inputs, **kwargs):
         x, a, e, i = self.get_inputs(inputs)
@@ -385,7 +386,7 @@ class Repeat(MessagePassing):
         # X = [self.gnn_x(saved_args + X_o + additional_inputs)]
         # alternative: use set_shape in body of while
         return tf.while_loop(
-            cond=lambda curr, iter: tf.less(iter, self.repeat),
+            cond=lambda curr, iter: tf.less(iter, self.iters),
             body=lambda curr, iter: [[self.gnn_x(saved_args + curr + additional_inputs)], iter + 1],
             loop_vars=[X_o, 0],
             shape_invariants=[[X_o[0].get_shape()], None]

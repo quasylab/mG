@@ -475,6 +475,7 @@ class TreeToTF(Interpreter):
         self.fix_var = {}
         self.free_fix_var = bidict({})
         self.context = []
+        self.intermediate_outputs = {}
         self.layers = {}
         self.defined_functions = {}
         self.defined_variables = {}
@@ -484,18 +485,19 @@ class TreeToTF(Interpreter):
         self.eval_if_clause = False
         self.inputs = self.initial_inputs
 
-    def add_layer(self, layer, ctx_name):
+    def add_layer(self, intermediate_output, op_layer, ctx_name):
         if not self.disable_saving_layers:
-            self.layers[hash(self.parser.parse(ctx_name))] = layer
+            self.intermediate_outputs[hash(self.parser.parse(ctx_name))] = intermediate_output
+            self.layers[hash(self.parser.parse(ctx_name))] = op_layer
 
     def get_layer(self, ctx_name):
-        if hash(self.parser.parse(ctx_name)) in self.layers:
-            return self.layers[hash(self.parser.parse(ctx_name))]
+        if hash(self.parser.parse(ctx_name)) in self.intermediate_outputs:
+            return self.intermediate_outputs[hash(self.parser.parse(ctx_name))]
         else:
             raise ValueError("No layer with name:", ctx_name)
 
     def undef_layer(self, ctx_name):
-        return not (hash(self.parser.parse(ctx_name)) in self.layers)
+        return not (hash(self.parser.parse(ctx_name)) in self.intermediate_outputs)
 
     def get_contextualized_name(self, name):
         if len(self.context) == 0:
@@ -525,7 +527,7 @@ class TreeToTF(Interpreter):
         self.fix_var = {}
         self.free_fix_var = bidict({})
         self.context = []
-        self.layers = {}
+        self.intermediate_outputs = {}
         self.var_input = {}
         self.defined_functions = {}
         self.defined_variables = {}
@@ -579,12 +581,12 @@ class TreeToTF(Interpreter):
         if self.undef_layer(ctx_name):
             if label in self.defined_variables or label in self.defined_local_variables:
                 # noinspection PyCallingNonCallable
-                layer = self.inputs.step(ctx_name, op_layer.x, self.free_fix_var)
+                output = self.inputs.step(ctx_name, op_layer.x, self.free_fix_var)
             else:
                 # noinspection PyCallingNonCallable
-                layer = self.inputs.step(ctx_name, op_layer(self.inputs.func_inputs), self.free_fix_var)
-            self.add_layer(layer, ctx_name)
-            return layer
+                output = self.inputs.step(ctx_name, op_layer(self.inputs.func_inputs), self.free_fix_var)
+            self.add_layer(output, op_layer, ctx_name)
+            return output
         else:
             return self.get_layer(ctx_name)
 
@@ -601,9 +603,9 @@ class TreeToTF(Interpreter):
         ctx_name = self.get_contextualized_name(name)
         if self.undef_layer(ctx_name):
             # noinspection PyCallingNonCallable
-            layer = self.inputs.step(ctx_name, lhd_layer(self.inputs.img_inputs), self.free_fix_var)
-            self.add_layer(layer, ctx_name)
-            return layer
+            output = self.inputs.step(ctx_name, lhd_layer(self.inputs.img_inputs), self.free_fix_var)
+            self.add_layer(output, lhd_layer, ctx_name)
+            return output
         return self.get_layer(ctx_name)
 
     def rhd(self, args):
@@ -619,9 +621,9 @@ class TreeToTF(Interpreter):
         ctx_name = self.get_contextualized_name(name)
         if self.undef_layer(ctx_name):
             # noinspection PyCallingNonCallable
-            layer = self.inputs.step(ctx_name, rhd_layer(self.inputs.img_inputs), self.free_fix_var)
-            self.add_layer(layer, ctx_name)
-            return layer
+            output = self.inputs.step(ctx_name, rhd_layer(self.inputs.img_inputs), self.free_fix_var)
+            self.add_layer(output, rhd_layer, ctx_name)
+            return output
         return self.get_layer(ctx_name)
 
     @v_args(inline=True)
@@ -674,10 +676,11 @@ class TreeToTF(Interpreter):
             return make_fixpoint_expr_par(tf.keras.layers.Concatenate(), args, name)
         else:
             ctx_name = self.get_contextualized_name(name)
+            op_layer = tf.keras.layers.Concatenate()
             if self.undef_layer(ctx_name):
-                layer = self.inputs.step(ctx_name, tf.keras.layers.Concatenate()([arg.x for arg in args]), self.free_fix_var)
-                self.add_layer(layer, ctx_name)
-                return layer
+                output = self.inputs.step(ctx_name, op_layer([arg.x for arg in args]), self.free_fix_var)
+                self.add_layer(output, op_layer, ctx_name)
+                return output
             return self.get_layer(ctx_name)
 
     def fun_def(self, tree):
@@ -709,13 +712,14 @@ class TreeToTF(Interpreter):
         if isinstance(f_layer, FixPointExpression):
             return f_layer
         else:
-            if self.undef_layer(ctx_name):
+            # TODO: probably should not save this layer
+            # if self.undef_layer(ctx_name):
                 # noinspection PyCallingNonCallable
-                layer = self.inputs.step(ctx_name, f_layer.x, self.free_fix_var)
-                self.add_layer(layer, ctx_name)
-                return layer
-            else:
-                return self.get_layer(ctx_name)
+            output = self.inputs.step(ctx_name, f_layer.x, self.free_fix_var)
+            #    self.add_layer(output, ctx_name)
+            return output
+            # else:
+            #    return self.get_layer(ctx_name)
 
     def local_var_expr(self, tree):
         args = tree.children
@@ -795,9 +799,9 @@ class TreeToTF(Interpreter):
             if self.undef_layer(ctx_name):
                 # we pass the initial inputs
                 # noinspection PyCallingNonCallable
-                layer = self.inputs.step(ctx_name, ite_layer([test.x] + self.initial_inputs.full_inputs), self.free_fix_var)
-                self.add_layer(layer, ctx_name)
-                return layer
+                output = self.inputs.step(ctx_name, ite_layer([test.x] + self.initial_inputs.full_inputs), self.free_fix_var)
+                self.add_layer(output, ite_layer, ctx_name)
+                return output
             else:
                 return self.get_layer(ctx_name)
 
@@ -808,11 +812,11 @@ class TreeToTF(Interpreter):
             ctx_name = self.get_contextualized_name(name)
             if self.undef_layer(ctx_name):
                 # noinspection PyCallingNonCallable
-                layer = self.inputs.step(ctx_name,
+                output = self.inputs.step(ctx_name,
                                          fix_layer(nx.args + [initial_var_gnn.x] + self.inputs.fixpoint_inputs),
                                          self.free_fix_var)
-                self.add_layer(layer, ctx_name)
-                return layer
+                self.add_layer(output, fix_layer, ctx_name)
+                return output
             return self.get_layer(ctx_name)
         else:  # we have free fixpoint variables
             # take all the free vars and remove them from nx.args
@@ -992,7 +996,7 @@ class GNNCompiler:
         self.interpreter.initialize()
         outputs = self.interpreter.visit(self.macros.visit(self.parser.parse(expr)))
         model = tf.keras.Model(inputs=self.model_inputs, outputs=outputs.x)
-        model.saved_layers = self.interpreter.layers
+        model.mg_layers = self.interpreter.layers
         if verbose is True:
             model.summary()
         self.interpreter.initialize()
