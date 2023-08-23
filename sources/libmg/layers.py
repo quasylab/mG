@@ -230,10 +230,11 @@ class Ite(MessagePassing):
             partitioned_test = tf.ragged.stack_dynamic_partitions(test, tf.cast(i, dtype=tf.int32), tf.size(count))
             partitioned_values = tf.ragged.stack_dynamic_partitions(values[0], tf.cast(i, dtype=tf.int32), tf.size(count))
             partitioned_idx = tf.ragged.stack_dynamic_partitions(i, tf.cast(i, dtype=tf.int32), tf.size(count))
+            self.branch = tf.map_fn(lambda args: tf.reduce_all(args), partitioned_test, swap_memory=True, infer_shape=False, fn_output_signature=tf.TensorSpec(shape=(), dtype=tf.bool))
             if len(values) == 1:
                 return tf.reshape(tf.map_fn(lambda args: tf.cond(tf.reduce_all(args[0]), lambda: self.iftrue([args[1]] + inputs + [args[2]]),
                                                                  lambda: self.iffalse([args[1]] + inputs + [args[2]])),
-                                            (partitioned_test, partitioned_values, partitioned_idx), swap_memory=True,
+                                            (tf.expand_dims(self.branch, -1), partitioned_values, partitioned_idx), swap_memory=True,
                                             infer_shape=False, fn_output_signature=self.iftrue.outputs[0].type_spec),
                                   [-1, self.iftrue.outputs[0].shape[-1]])
             else:
@@ -241,13 +242,14 @@ class Ite(MessagePassing):
                 return tf.reshape(tf.map_fn(lambda args: tf.cond(tf.reduce_all(args[0]),
                                                                  lambda: self.iftrue([args[1], args[2]][:iftrue_input_len] + inputs + [args[3]]),
                                                                  lambda: self.iffalse([args[1], args[2]][:iffalse_input_len] + inputs + [args[3]])),
-                                            (partitioned_test, partitioned_values, partitioned_fix_var, partitioned_idx), swap_memory=True,
+                                            (tf.expand_dims(self.branch, -1), partitioned_values, partitioned_fix_var, partitioned_idx), swap_memory=True,
                                             infer_shape=False, fn_output_signature=self.iftrue.outputs[0].type_spec),
                                   [-1, self.iftrue.outputs[0].shape[-1]])
         else:
             inputs_iftrue = values[:self.iftrue_input_len - 1] + inputs
             inputs_iffalse = values[:self.iffalse_input_len - 1] + inputs
-            return tf.cond(tf.reduce_all(test), lambda: self.iftrue(inputs_iftrue), lambda: self.iffalse(inputs_iffalse))
+            self.branch = tf.reduce_all(test)
+            return tf.cond(self.branch, lambda: self.iftrue(inputs_iftrue), lambda: self.iffalse(inputs_iffalse))
 
 
 class FixPoint(MessagePassing):

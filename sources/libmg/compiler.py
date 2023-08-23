@@ -528,10 +528,11 @@ class TreeToTF(Interpreter):
         self.free_fix_var = bidict({})
         self.context = []
         self.intermediate_outputs = {}
-        self.var_input = {}
+        self.layers = {}
         self.defined_functions = {}
         self.defined_variables = {}
         self.defined_local_variables = {}
+        self.var_input = {}
         self.disable_saving_layers = False
         self.eval_if_clause = False
         self.inputs = self.initial_inputs
