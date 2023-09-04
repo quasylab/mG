@@ -329,11 +329,9 @@ class BaseTest(tf.test.TestCase):
         expr = ['fix X = (false || true)  in X']
         base_tester(self.dataset, self.compilers, expr)
 
-
     def test_repeat(self):
         expr = ['repeat X = false in X;not for 3']
         base_tester(self.dataset, self.compilers, expr)
-
 
     def test_reuse(self):
         expr = 'a || ((a || b);or) || (b ; |> or) || (fix X = false in ((a || X) ; or)) || (a ; not)'
