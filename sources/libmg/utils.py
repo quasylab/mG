@@ -1,7 +1,8 @@
 from tensorflow.python.keras import backend as K
 
 from libmg.grammar import mg_parser
-from libmg.compiler import CompilationConfig, NodeConfig, EdgeConfig
+
+
 
 
 def fetch_layer(model, layer_name=None, layer_idx=None):
@@ -41,17 +42,3 @@ def unpack_inputs(inputs):
     else:
         node_feats, adj, edge_feats, indexes = inputs
     return node_feats, adj, edge_feats, indexes
-
-
-'''
-def parse_config(model):
-    node_feats, adj, edge_feats, indexes = unpack_inputs(model.inputs)
-    if edge_feats is None and indexes is None:
-        return CompilationConfig.xa_config(NodeConfig(node_feats.dtype, node_feats.shape[-1]), adj.dtype, {})
-    elif indexes is None:
-        return CompilationConfig.xae_config(NodeConfig(node_feats.dtype, node_feats.shape[-1]), EdgeConfig(edge_feats.dtype, edge_feats.shape[-1]), adj.dtype, {})
-    elif edge_feats is None:
-        return CompilationConfig.xai_config(NodeConfig(node_feats.dtype, node_feats.shape[-1]), adj.dtype, {})
-    else:
-        return CompilationConfig.xaei_config(NodeConfig(node_feats.dtype, node_feats.shape[-1]), EdgeConfig(edge_feats.dtype, edge_feats.shape[-1]), adj.dtype, {})
-'''

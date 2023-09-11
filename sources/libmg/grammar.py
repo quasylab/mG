@@ -1,6 +1,7 @@
 # reserved words: || fix let if then else def in repeat for
 # reserved symbols: , | < > = ( ) ; [ ] # { }
 from lark import Lark
+from lark.reconstruct import Reconstructor
 
 mg_grammar = r"""
                 ?gnn_formula: label                                                                               -> atom_op
@@ -20,12 +21,12 @@ mg_grammar = r"""
 
                 ?start: p_formula
 
-                label: /[a-zA-Z_0-9\+\*\^\-\!\%\&\=\~\/\@]+/
+                label: /[a-zA-Z_0-9\+\*\^\-\!\%\&\~\/\@]+/
                             |  FUNC_GEN
 
-                FUNC_GEN: /[a-zA-Z_0-9\+\*\^\-\!\%\&\=\~\/\@]+/ "[" /[^\]\[]+/ "]"
+                FUNC_GEN: /[a-zA-Z_0-9\+\*\^\-\!\%\&\~\/\@]+/ "[" /[^\]\[]+/ "]"
 
-                label_decl: /[a-zA-Z_0-9\+\*\^\-\!\%\&\=\~\/\@]+/
+                label_decl: /[a-zA-Z_0-9\+\*\^\-\!\%\&\~\/\@]+/
                 
                 COMMENT: "#" /[^\n]/*
 
@@ -37,3 +38,4 @@ mg_grammar = r"""
                 """
 
 mg_parser = Lark(mg_grammar, maybe_placeholders=False, parser='lalr')
+mg_reconstructor = Reconstructor(mg_parser)

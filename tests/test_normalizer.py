@@ -18,7 +18,6 @@ class NormalizerTests(tf.test.TestCase):
         self.assertEqual('atom_op', tree.children[0].data)
         self.assertEqual('atom_op', tree.children[1].data)
 
-
         expr = 'fix X = true in (X || false)'
         tree = self.normalizer.visit(self.parser.parse(expr))
         self.assertEqual('fix', tree.data,)

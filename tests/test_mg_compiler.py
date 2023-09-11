@@ -215,7 +215,8 @@ class BaseTest(tf.test.TestCase):
     def test_seq_expr(self):
         expr = ['a;not', 'a;not;not', 'a;not;not;not',
                 'fix X = false in (X ; not; not)',
-                'fix X = false in (X ; id)', 'fix X = true in (a ; ((X || not);and))',
+                'fix X = false in (X ; id)',
+                'fix X = true in (a ; ((X || not);and))',
                 'fix X = false in (((X || a);or) ; ((X || not);or))']
         base_tester(self.dataset, self.compilers, expr)
 
@@ -342,9 +343,9 @@ class BaseTest(tf.test.TestCase):
 
         for i, (loader, compiler) in enumerate(zip(loaders, self.compilers)):
             if i % 2 == 0:
-                expected_n_layers = 11  # account for the I layer
+                expected_n_layers = 12  # account for the I layer
             else:
-                expected_n_layers = 12
+                expected_n_layers = 13
             model = compiler.compile(expr)
             for inputs in loader().load():
                 model.call([inputs], training=False)
@@ -414,9 +415,9 @@ class EdgeTest(tf.test.TestCase):
 
         for i, (loader, compiler) in enumerate(zip(loaders, self.compilers)):
             if i % 2 == 0:
-                expected_n_layers = 12  # account for the I layer
+                expected_n_layers = 13  # account for the I layer
             else:
-                expected_n_layers = 13
+                expected_n_layers = 14
             model = compiler.compile(expr)
             for inputs in loader().load():
                 model.call([inputs], training=False)

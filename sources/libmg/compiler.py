@@ -443,6 +443,46 @@ def make_fixpoint_expr_par(op_layer, layers, name):
     return new_expr
 
 
+class Context:
+    def __init__(self):
+        self.context = None
+        self.len = 0
+
+    def clear(self):
+        self.context = None
+        self.len = 0
+
+    def get(self, name):
+        if self.len == 0:
+            return name
+        else:
+            seq = mg_parser.parse('left ; right')
+            seq.children[0] = self.context
+            seq.children[1] = name
+            return seq
+
+    def push(self, name):
+        if self.len == 0:
+            self.context = name
+            self.len = 1
+        else:
+            seq = mg_parser.parse('left ; right')
+            seq.children[0] = self.context
+            seq.children[1] = name
+            self.context = seq
+            self.len += 1
+
+    def pop(self):
+        if self.len > 1:
+            self.context = self.context.children[0]
+            self.len -= 1
+        elif self.len == 1:
+            self.context = None
+            self.len = 0
+        else:
+            raise ValueError("Attempting to pop an empty context!")
+
+
 # asterisk in output: step whatever it returns. Used on base gnns, poolers, sequential
 # no asterisk in output: only step x. Used on kop, parallel, lhd, rhd, mu, nu
 
@@ -474,21 +514,24 @@ class TreeToTF(Interpreter):
         # Initialization
         self.fix_var = {}
         self.free_fix_var = bidict({})
-        self.context = None # self.context = []
+        self.context = Context()  # None # self.context = []
         self.intermediate_outputs = {}
         self.layers = {}
         self.defined_functions = {}
         self.defined_variables = {}
         self.defined_local_variables = {}
         self.var_input = {}
-        self.disable_saving_layers = False
+        # self.disable_saving_layers = False
+        # self.temp_layer_dicts = []
         self.eval_if_clause = False
         self.inputs = self.initial_inputs
 
     def add_layer(self, intermediate_output, op_layer, ctx_name):
-        if not self.disable_saving_layers:
-            self.intermediate_outputs[hash(ctx_name)] = intermediate_output
-            self.layers[hash(ctx_name)] = op_layer
+        # if not self.disable_saving_layers:
+        self.intermediate_outputs[hash(ctx_name)] = intermediate_output
+        self.layers[hash(ctx_name)] = op_layer
+        # else:
+        #    self.temp_layer_dicts[-1][hash(ctx_name)] = op_layer
 
     def get_layer(self, ctx_name):
         if hash(ctx_name) in self.intermediate_outputs:
@@ -499,6 +542,7 @@ class TreeToTF(Interpreter):
     def undef_layer(self, ctx_name):
         return not (hash(ctx_name) in self.intermediate_outputs)
 
+    '''
     def get_from_context(self, name):
         if self.context is None:
             return name
@@ -522,6 +566,7 @@ class TreeToTF(Interpreter):
             self.context = self.context.children[0]
         else:
             self.context = None
+    '''
 
     def get_precision(self, typ):
         if typ == 'float32':
@@ -544,14 +589,15 @@ class TreeToTF(Interpreter):
     def initialize(self):
         self.fix_var = {}
         self.free_fix_var = bidict({})
-        self.context = None # self.context = []
+        self.context.clear()  # None # self.context = []
         self.intermediate_outputs = {}
         self.layers = {}
         self.defined_functions = {}
         self.defined_variables = {}
         self.defined_local_variables = {}
         self.var_input = {}
-        self.disable_saving_layers = False
+        # self.disable_saving_layers = False
+        # self.temp_layer_dicts = []
         self.eval_if_clause = False
         self.inputs = self.initial_inputs
 
@@ -564,7 +610,7 @@ class TreeToTF(Interpreter):
         return str(var)
 
     def atom_op(self, tree):
-        ctx_name = self.get_from_context(tree)
+        ctx_name = self.context.get(tree)
         label = self.visit(tree.children[0])
         if len(self.fix_var) > 0 and label == self.current_fix_var() and not self.eval_if_clause:
             # we are inside a fixpoint op and the label matches the fixpoint var
@@ -609,7 +655,7 @@ class TreeToTF(Interpreter):
             return self.get_layer(ctx_name)
 
     def lhd(self, tree):
-        ctx_name = self.get_from_context(tree)
+        ctx_name = self.context.get(tree)
         args = self.visit_children(tree)
         if len(args) == 2:
             edge_function, agg_function = args
@@ -628,7 +674,7 @@ class TreeToTF(Interpreter):
         return self.get_layer(ctx_name)
 
     def rhd(self, tree):
-        ctx_name = self.get_from_context(tree)
+        ctx_name = self.context.get(tree)
         tree = self.visit_children(tree)
         if len(tree) == 2:
             edge_function, agg_function = tree
@@ -651,7 +697,7 @@ class TreeToTF(Interpreter):
         current_inputs = self.inputs
         phi = self.visit(left)
         # self.context.append(phi.name)
-        self.add_to_context(left)
+        self.context.push(left)
         if type(phi) is FixPointExpression:  # phi is a fixpoint expression
             if is_free(right, self.current_fix_var()):  # both are fixpoint expressions
                 # deal as in ite
@@ -669,11 +715,13 @@ class TreeToTF(Interpreter):
                 self.inputs = current_inputs
                 return new_expr
             else:  # only phi is a fixpoint expression
-                self.disable_saving_layers = True
+                # self.disable_saving_layers = True
+                # self.temp_layer_dicts.append({})
                 self.inputs = current_inputs.step(phi.name, phi.signature, self.free_fix_var)
                 psi = self.visit(right)
-                self.pop_context()
-                self.disable_saving_layers = False
+                self.context.pop()
+                # temp_layer_dict = self.temp_layer_dicts.pop()
+                # self.disable_saving_layers = False
                 new_expr = FixPointExpression(psi.name, phi.input_signature, psi.x)
                 new_expr.args = phi.args
                 self.inputs = current_inputs
@@ -681,12 +729,12 @@ class TreeToTF(Interpreter):
         else:  # phi is not a fixpoint expression
             self.inputs = phi
             psi = self.visit(right)
-            self.pop_context()
+            self.context.pop()
             self.inputs = current_inputs
             return psi
 
     def parallel(self, tree):
-        ctx_name = self.get_from_context(tree)
+        ctx_name = self.context.get(tree)
         name = tree
         tree = self.visit_children(tree)
         has_var = False
@@ -717,7 +765,7 @@ class TreeToTF(Interpreter):
         return self.visit(args[-1])
 
     def fun_call(self, tree):
-        ctx_name = self.get_from_context(tree)
+        ctx_name = self.context.get(tree)
         args = tree.children
         function_name = self.visit(args[0])
         arguments = [self.visit(arg) for arg in args[1:]]
@@ -758,7 +806,7 @@ class TreeToTF(Interpreter):
         return expr
 
     def ite(self, tree):
-        ctx_name = self.get_from_context(tree)
+        ctx_name = self.context.get(tree)
         test, iftrue, iffalse = tree.children
         test = self.visit(test)
         # where do we have fixpoint variables?
@@ -796,6 +844,7 @@ class TreeToTF(Interpreter):
                                           outputs=ite_layer([test.signature] + self.initial_inputs.full_inputs[:1] + [
                                               self.current_fix_var_config().signature] + test.input_signature[1:]))
             new_expr.args = self.initial_inputs.full_inputs[:1] + test.args
+            self.add_layer(new_expr, ite_layer, ctx_name)
             return new_expr
         elif fixpoint_idx[1] or fixpoint_idx[2]:
             ite_layer = Ite(iftrue_model, iffalse_model)
@@ -807,6 +856,7 @@ class TreeToTF(Interpreter):
                                               self.current_fix_var_config().signature] + self.initial_inputs.full_inputs[
                                                                                     1:]))
             new_expr.args = [test.x] + self.initial_inputs.full_inputs[:1]  # here go actual saved inputs
+            self.add_layer(new_expr, ite_layer, ctx_name)
             return new_expr
         elif fixpoint_idx[0]:
             ite_layer = Ite(iftrue_model, iffalse_model)
@@ -816,6 +866,7 @@ class TreeToTF(Interpreter):
                                           outputs=ite_layer([test.signature] + self.initial_inputs.full_inputs[
                                                                                :1] + test.input_signature[1:]))
             new_expr.args = self.initial_inputs.full_inputs[:1] + test.args  # here go actual saved inputs
+            self.add_layer(new_expr, ite_layer, ctx_name)
             return new_expr
         else:
             ite_layer = Ite(iftrue_model, iffalse_model)
@@ -875,9 +926,8 @@ class TreeToTF(Interpreter):
                 new_expr.args = nx.args + [initial_var_gnn.x]
                 return new_expr
 
-
     def fix(self, tree):
-        ctx_name = self.get_from_context(tree)
+        ctx_name = self.context.get(tree)
         variable_decl, initial_var_gnn, body = tree.children
         var_name = self.visit(variable_decl)
         initial_var_gnn = self.visit(initial_var_gnn)
@@ -892,9 +942,8 @@ class TreeToTF(Interpreter):
         fix_layer = FixPoint(nx.model, precision, debug=False)
         return self._interpret_fix_expr(var_name, initial_var_gnn, nx, fix_layer, ctx_name, tree)
 
-
     def repeat(self, tree):
-        ctx_name = self.get_from_context(tree)
+        ctx_name = self.context.get(tree)
         variable_decl, initial_var_gnn, body, n = tree.children
         var_name = self.visit(variable_decl)
         initial_var_gnn = self.visit(initial_var_gnn)
@@ -1012,17 +1061,6 @@ class GNNCompiler:
                 break
         return elapsed
 
-    def _compile_tree(self, tree, verbose=False):
-        self.interpreter.initialize()
-        outputs = self.interpreter.visit(tree)
-        model = tf.keras.Model(inputs=self.model_inputs, outputs=outputs.x)
-        model.mg_layers = self.interpreter.layers
-        model.config = self.config
-        if verbose is True:
-            model.summary()
-        self.interpreter.initialize()
-        return model
-
     def compile(self, expr: str, verbose: bool = False) -> tf.keras.Model:
         """
         Compiles a mG formula into a TensorFlow Model.
@@ -1031,8 +1069,15 @@ class GNNCompiler:
         :param verbose: Set this to True to print some debug information.
         :return: A TensorFlow ``Model`` that is the mG evaluation of 'expr'.
         """
-        model = self._compile_tree(self.macros.visit(self.parser.parse(expr)), verbose)
+        self.interpreter.initialize()
+        outputs = self.interpreter.visit(self.macros.visit(self.parser.parse(expr)))
+        model = tf.keras.Model(inputs=self.model_inputs, outputs=outputs.x)
         model.expr = expr
+        model.mg_layers = self.interpreter.layers
+        model.config = self.config
+        if verbose is True:
+            model.summary()
+        self.interpreter.initialize()
         return model
 
     def optimize(self, model: tf.keras.Model, optimize: str) -> Tuple[tf.keras.Model, float] | Tuple[Callable, float]:

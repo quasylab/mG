@@ -147,5 +147,6 @@ class GrammarTests(tf.test.TestCase):
         tree = self.parser.parse(expr)
         self.assertEqual('atom_op', tree.data)
 
+
 if __name__ == '__main__':
     tf.test.main()
