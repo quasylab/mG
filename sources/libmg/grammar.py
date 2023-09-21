@@ -1,5 +1,6 @@
 # reserved words: || fix let if then else def in repeat for
 # reserved symbols: , | < > = ( ) ; [ ] # { }
+# variables should not be declared to start with a double underscore __
 from lark import Lark
 from lark.reconstruct import Reconstructor
 

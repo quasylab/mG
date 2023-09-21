@@ -105,7 +105,7 @@ class BaseTest(tf.test.TestCase):
         model.fit(loader.load(), steps_per_epoch=loader.steps_per_epoch, epochs=100)
         x, y = loader.load().__iter__().__next__()
         print(model.call(x))
-        print(model.layers[-3].iters)
+        print(model.layers[-1].iters)
 
 
 if __name__ == '__main__':

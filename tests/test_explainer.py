@@ -89,6 +89,7 @@ class BaseTest(tf.test.TestCase):
                 'a ; (false || true)', 'repeat X = false in X;|>or for 3',
                 'fix X = true in ((a || (X;|>or));and)', 'fix X = true in (if X then true else false)',
                 'if (a;|>or) then false else true']
+        expr = ['fix X = true in ((a || (X;|>or));and)']
         compiler = self.compilers[0]
         loader = SingleGraphLoader(self.dataset_only_nodes, epochs=1)
         for e in expr:

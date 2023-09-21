@@ -23,6 +23,7 @@ class NodeConfig:
     :param node_type: The Tensorflow type of each element in the feature vector, e.g. tf.float32 or tf.uint8
     :param node_size: The length of the feature vector
     """
+
     def __init__(self, node_type: tf.DType, node_size: int):
         self._type = node_type
         self._size = node_size
@@ -43,6 +44,7 @@ class EdgeConfig:
     :param edge_type: The Tensorflow type of each element in the feature vector, e.g. tf.float32 or tf.uint8
     :param edge_size: The length of the feature vector
     """
+
     def __init__(self, edge_type: tf.DType, edge_size: int):
         self._type = edge_type
         self._size = edge_size
@@ -69,6 +71,7 @@ class CompilationConfig:
      interpreted as exact equality.
     :param disjoint_loader: Set this to True if will be using a MultipleGraphLoader, False for a SingleGraphLoader
     """
+
     def __init__(self, node_config: NodeConfig, edge_config: EdgeConfig | None, matrix_type: tf.DType,
                  precision: dict[str, Optional[tuple[float, str]]], disjoint_loader: bool):
         self.node_config = node_config
@@ -204,6 +207,7 @@ class IntermediateOutput:
     :param e: The edge features symbolic tensor, or ``None``.
     :param i: The index symbolic tensor, or ``None``. Used for batches of multiple graphs.
     """
+
     def __init__(self, name, x, a, e, i):
         self._name = name
         self._x = x
@@ -307,6 +311,7 @@ class FixPointExpression:
     :param inputs: The ``list`` of symbolic tensor inputs of the model corresponding to this expression
     :param outputs: The ``list`` of symbolic tensor outputs of the model corresponding to this expression
     """
+
     def __init__(self, name, inputs, outputs):
         self._model = tf.keras.Model(inputs=inputs, outputs=outputs)
         self._args = []  # initially no arguments
@@ -355,6 +360,7 @@ class FixPointConfig:
     :param dtype: ``DType`` of the variable.
     :param name: Name of the variable.
     """
+
     def __init__(self, dimension, dtype, name):
         self._signature = tf.keras.Input(shape=dimension, dtype=dtype)
         self._initial_var_name = name
@@ -376,6 +382,7 @@ class MGFunction:
     :param var_list: A ``list`` of variable symbols, the arguments of the function. For variables, this is an empty list.
     :param body_tree: A ``ParseTree``, the body of the function definition or let expression.
     """
+
     def __init__(self, name, var_list, body_tree):
         self.name = name
         self.var_list = var_list  # dictionary name: type
@@ -389,13 +396,58 @@ class MGFunction:
             matched_args[ordered_keys[i]] = arguments[i]
         return matched_args
 
+    @staticmethod
+    def get_default(function_name, arguments):
+        name = 'op_k_macro'
+        var_list = ['__X' + str(i) for i, _ in enumerate(arguments)]
+        body_tree = mg_parser.parse('(' + ' || '.join(var_list) + ') ; ' + function_name)
+        return MGFunction(name, var_list, body_tree)
+
+
+class MGModel:
+    def __init__(self, inputs, outputs, expr, layers, config, psi, phi, sigma):
+        self._model = tf.keras.Model(inputs=inputs, outputs=outputs)
+        self._expr = expr
+        self._mg_layers = layers
+        self._config = config
+        self._psi_functions = psi
+        self._phi_functions = phi
+        self._sigma_functions = sigma
+
+    def __getattr__(self, item):
+        return getattr(self._model, item)
+
+    @property
+    def expr(self):
+        return self._expr
+
+    @property
+    def mg_layers(self):
+        return self._mg_layers
+
+    @property
+    def config(self):
+        return self._config
+
+    @property
+    def psi_functions(self):
+        return self._psi_functions
+
+    @property
+    def phi_functions(self):
+        return self._phi_functions
+
+    @property
+    def sigma_functions(self):
+        return self._sigma_functions
+
 
 def analyze_tensor(t):
     """
-    Returns dimensionality and type of a symbolic tensor.
+    Returns dimensionality and type of an ``IntermediateOutput`` or ``FixPointExpression`` node label tensor.
 
-    :param t: A symbolic tensor.
-    :return: A ``tuple``, containing the dimension of ``t`` and the ``DType`` of ``t``.
+    :param t: An ``IntermediateOutput`` or ``FixPointExpression`` object.
+    :return: A ``tuple``, containing the dimension and the ``DType`` of the node label tensor.
     """
     if type(t) is FixPointExpression:
         return t.signature.shape[1], t.signature.dtype
@@ -517,7 +569,6 @@ class TreeToTF(Interpreter):
         self.intermediate_outputs = {}
         self.layers = {}
         self.defined_functions = {}
-        self.defined_variables = {}
         self.defined_local_variables = {}
         self.var_input = {}
         self.disable_saving_layers = False
@@ -566,7 +617,6 @@ class TreeToTF(Interpreter):
         self.intermediate_outputs = {}
         self.layers = {}
         self.defined_functions = {}
-        self.defined_variables = {}
         self.defined_local_variables = {}
         self.var_input = {}
         self.disable_saving_layers = False
@@ -593,7 +643,8 @@ class TreeToTF(Interpreter):
             return FixPointExpression(tree, inputs=[var_signature] + self.inputs.full_inputs[1:],
                                       outputs=var_signature)
         elif len(self.fix_var) > 0 and label == self.current_fix_var() and self.eval_if_clause:
-            return self.inputs.step(self.current_fix_var_config().name, self.current_fix_var_config().signature, self.free_fix_var)
+            return self.inputs.step(self.current_fix_var_config().name, self.current_fix_var_config().signature,
+                                    self.free_fix_var)
         elif label in self.var_input:  # we are defining a function
             if isinstance(self.var_input[label], FixPointExpression):
                 return self.var_input[label]
@@ -601,10 +652,6 @@ class TreeToTF(Interpreter):
                 return self.inputs.step(self.var_input[label].name, self.var_input[label].x, self.free_fix_var)
         elif label in self.defined_local_variables:  # the label matches a local variable
             deferred_function = self.defined_local_variables[label]
-            op_layer = self.visit(deferred_function.body_tree)
-            ctx_name = op_layer.name
-        elif label in self.defined_variables:  # the label matches a global variable
-            deferred_function = self.defined_variables[label]
             op_layer = self.visit(deferred_function.body_tree)
             ctx_name = op_layer.name
         elif label in self.psi_functions:  # the label matches a psi function
@@ -619,7 +666,7 @@ class TreeToTF(Interpreter):
             raise SyntaxError('Undeclared variable: ' + label)
         # execution continues here only in the third, fourth or fifth cases of the if-elif-else
         if self.undef_layer(ctx_name):
-            if label in self.defined_variables or label in self.defined_local_variables:
+            if label in self.defined_local_variables:
                 # noinspection PyCallingNonCallable
                 output = self.inputs.step(ctx_name, op_layer.x, self.free_fix_var)
             else:
@@ -689,7 +736,8 @@ class TreeToTF(Interpreter):
                 psi = self.visit(right)
                 self.eval_if_clause = False
                 psi_model = tf.keras.Model(
-                    inputs=[test_input] + [self.current_fix_var_config().signature] + self.initial_inputs.full_inputs[1:],
+                    inputs=[test_input] + [self.current_fix_var_config().signature] + self.initial_inputs.full_inputs[
+                                                                                      1:],
                     outputs=psi.x)
                 new_expr = FixPointExpression(psi.name, phi.input_signature, psi_model(
                     [phi.signature] + [self.current_fix_var_config().signature] + self.initial_inputs.full_inputs[1:]))
@@ -747,31 +795,17 @@ class TreeToTF(Interpreter):
         return self.visit(args[-1])
 
     def fun_call(self, tree):
-        ctx_name = self.context.get(tree)
         args = tree.children
         function_name = self.visit(args[0])
         arguments = [self.visit(arg) for arg in args[1:]]
-        # ctx_name = self.get_contextualized_name(
-        #     function_name + '(' + ','.join([argument.name for argument in arguments]) + ')')
 
-        deferred_function = self.defined_functions[function_name]
+        deferred_function = self.defined_functions.get(function_name, MGFunction.get_default(function_name, arguments))
         matched_args = deferred_function.get_args(arguments)  # match args
         self.var_input |= matched_args  # add the deferred function vars to var input
         f_layer = self.visit(deferred_function.body_tree)  # now visit the function body
         for k in matched_args:  # eliminate the variables of this function from var_input
             self.var_input.pop(k)
-
-        if isinstance(f_layer, FixPointExpression):
-            return f_layer
-        else:
-            # TODO: probably should not save this layer
-            # if self.undef_layer(ctx_name):
-                # noinspection PyCallingNonCallable
-            output = self.inputs.step(ctx_name, f_layer.x, self.free_fix_var)
-            #    self.add_layer(output, ctx_name)
-            return output
-            # else:
-            #    return self.get_layer(ctx_name)
+        return f_layer
 
     def local_var_expr(self, tree):
         args = tree.children
@@ -833,10 +867,11 @@ class TreeToTF(Interpreter):
             # noinspection PyCallingNonCallable
             new_expr = FixPointExpression(tree,
                                           inputs=[test.x] + self.initial_inputs.full_inputs[:1] + [
-                                              self.current_fix_var_config().signature] + self.initial_inputs.full_inputs[1:],
+                                              self.current_fix_var_config().signature] + self.initial_inputs.full_inputs[
+                                                                                         1:],
                                           outputs=ite_layer([test.x] + self.initial_inputs.full_inputs[:1] + [
                                               self.current_fix_var_config().signature] + self.initial_inputs.full_inputs[
-                                                                                    1:]))
+                                                                                         1:]))
             new_expr.args = [test.x] + self.initial_inputs.full_inputs[:1]  # here go actual saved inputs
             self.add_layer(new_expr, ite_layer, ctx_name)
             return new_expr
@@ -855,7 +890,8 @@ class TreeToTF(Interpreter):
             if self.undef_layer(ctx_name):
                 # we pass the initial inputs
                 # noinspection PyCallingNonCallable
-                output = self.inputs.step(ctx_name, ite_layer([test.x] + self.initial_inputs.full_inputs), self.free_fix_var)
+                output = self.inputs.step(ctx_name, ite_layer([test.x] + self.initial_inputs.full_inputs),
+                                          self.free_fix_var)
                 self.add_layer(output, ite_layer, ctx_name)
                 return output
             else:
@@ -869,8 +905,8 @@ class TreeToTF(Interpreter):
             if self.undef_layer(ctx_name):
                 # noinspection PyCallingNonCallable
                 output = self.inputs.step(ctx_name,
-                                         fix_layer(nx.args + [initial_var_gnn.x] + self.inputs.fixpoint_inputs),
-                                         self.free_fix_var)
+                                          fix_layer(nx.args + [initial_var_gnn.x] + self.inputs.fixpoint_inputs),
+                                          self.free_fix_var)
                 self.add_layer(output, fix_layer, ctx_name)
                 return output
             return self.get_layer(ctx_name)
@@ -950,6 +986,7 @@ class GNNCompiler:
     :param phi_functions: A ``dict`` of ``Phi`` objects.
     :param config: A CompilationConfig object to configure this GNNCompiler object
     """
+
     def __init__(self, psi_functions: dict[str, Psi | Callable[[str], Psi] | Type[Psi]],
                  sigma_functions: dict[str, Sigma | Callable[[str], Sigma] | Type[Sigma]],
                  phi_functions: dict[str, Phi | Callable[[str], Phi] | Type[Phi]],
@@ -977,7 +1014,8 @@ class GNNCompiler:
         self.dummy_loader = MultipleGraphLoader(dummy_dataset, node_level=True, batch_size=1, shuffle=False,
                                                 epochs=1) if \
             config.use_disjoint else SingleGraphLoader(dummy_dataset, epochs=1)
-        self.interpreter = TreeToTF(FunctionDict(psi_functions), FunctionDict(sigma_functions), FunctionDict(phi_functions),
+        self.interpreter = TreeToTF(FunctionDict(psi_functions), FunctionDict(sigma_functions),
+                                    FunctionDict(phi_functions),
                                     IntermediateOutput("INPUT", *intermediate_output_args), config.precision)
 
     @staticmethod
@@ -1052,13 +1090,8 @@ class GNNCompiler:
         """
         self.interpreter.initialize()
         outputs = self.interpreter.visit(self.macros.visit(mg_parser.parse(expr)))
-        model = tf.keras.Model(inputs=self.model_inputs, outputs=outputs.x)
-        model.expr = expr
-        model.mg_layers = self.interpreter.layers
-        model.config = self.config
-        model.psi_functions = self.interpreter.used_psi
-        model.phi_functions = self.interpreter.used_phi
-        model.sigma_functions = self.interpreter.used_sigma
+        model = MGModel(self.model_inputs, outputs.x, expr, self.interpreter.layers, self.config,
+                        self.interpreter.used_psi, self.interpreter.used_phi, self.interpreter.used_sigma)
         if verbose is True:
             model.summary()
         self.interpreter.initialize()

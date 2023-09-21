@@ -249,6 +249,22 @@ class BaseTest(tf.test.TestCase):
         """]
         base_tester(self.dataset, self.compilers, expr)
 
+    def test_opk_macro(self):
+        expr = ['and(a, b, c)', 'and(a, b, or(c, true))', """
+        def test(X, Y){
+        (Y || X);and;not
+        } in test(a, and(b, c))
+        """, """
+        def test(X, Y){
+        (Y || and(X, c));and;not
+        } in test(a, b)
+        """, """
+        and(a, def test(X, Y){
+        (Y || X);and;not
+        } in test(b, c))
+        """]
+        base_tester(self.dataset, self.compilers, expr)
+
     def test_variables(self):
         expr = ["""
         let test = b;not, test2 = a;not in
@@ -343,13 +359,13 @@ class BaseTest(tf.test.TestCase):
 
         for i, (loader, compiler) in enumerate(zip(loaders, self.compilers)):
             if i % 2 == 0:
-                expected_n_layers = 12  # account for the I layer
+                expected_n_layers = 11  # account for the I layer
             else:
-                expected_n_layers = 13
+                expected_n_layers = 12
             model = compiler.compile(expr)
             for inputs in loader().load():
                 model.call([inputs], training=False)
-            self.assertEqual(len(model.layers), expected_n_layers)
+            self.assertEqual(expected_n_layers, len(model.layers))
 
 
 class EdgeTest(tf.test.TestCase):
@@ -415,13 +431,13 @@ class EdgeTest(tf.test.TestCase):
 
         for i, (loader, compiler) in enumerate(zip(loaders, self.compilers)):
             if i % 2 == 0:
-                expected_n_layers = 13  # account for the I layer
+                expected_n_layers = 12  # account for the I layer
             else:
-                expected_n_layers = 14
+                expected_n_layers = 13
             model = compiler.compile(expr)
             for inputs in loader().load():
                 model.call([inputs], training=False)
-            self.assertEqual(len(model.layers), expected_n_layers)
+            self.assertEqual(expected_n_layers, len(model.layers))
 
 
 class PoolTest(tf.test.TestCase):
