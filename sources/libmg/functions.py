@@ -1,4 +1,6 @@
 from __future__ import annotations
+from functools import partial
+
 import tensorflow as tf
 from collections import UserDict
 import typing
@@ -58,7 +60,10 @@ class FunctionDict(UserDict, typing.Mapping[KT, VT]):
 
     def __getitem__(self, key):
         true_key, arg = self.parse_key(key)
-        return self.data[true_key](arg)
+        if arg is None:
+            return self.data[true_key]()
+        else:
+            return self.data[true_key](arg)
 
     def __contains__(self, key):
         true_key, _ = self.parse_key(str(key))
@@ -66,14 +71,23 @@ class FunctionDict(UserDict, typing.Mapping[KT, VT]):
 
     def __setitem__(self, key, value):
         if isinstance(value, tf.keras.layers.Layer):
-            self.data[key] = lambda _: value
-        elif callable(value):
-            self.data[key] = value
+            self.data[key] = lambda: value
         else:
-            raise ValueError("Invalid item:", str(value))
+            self.data[key] = value
 
 
-class Psi(tf.keras.layers.Layer):
+class Function(tf.keras.layers.Layer):
+    @classmethod
+    def make(cls, f):
+        return lambda: cls(f)
+
+    @classmethod
+    def make_parametrized(cls, f):
+        return lambda a: cls(partial(f, a))
+
+
+class Psi(Function):
+
     def __init__(self, single_op: Optional[Callable[[tf.Tensor[T]], tf.Tensor[U]]] = None,
                  multiple_op: Optional[Callable[[tf.Tensor[T], tf.Tensor[int]], tf.Tensor[U]]] = None, **kwargs):
         """
@@ -108,6 +122,17 @@ class Psi(tf.keras.layers.Layer):
     def multiple_graph_op(self, x, i):
         raise NotImplementedError
 
+    @classmethod
+    def make_parametrized(cls, single_op=None, multiple_op=None):
+        if single_op is None and multiple_op is None:
+            raise ValueError("At least one function must be provided")
+        elif single_op is None:
+            return lambda a: cls(multiple_op=partial(multiple_op, a))
+        elif multiple_op is None:
+            return lambda a: cls(partial(single_op, a))
+        else:
+            return lambda a: cls(partial(single_op, a), partial(multiple_op, a))
+
     def __call__(self, x, i=None):
         if i is not None:
             return self.multiple_op(x, i)
@@ -116,6 +141,7 @@ class Psi(tf.keras.layers.Layer):
 
 
 class PsiLocal(Psi):
+
     def __init__(self, f: Optional[Callable[[tf.Tensor[T]], tf.Tensor[U]]] = None, **kwargs):
         """
         A local transformation of node labels f: T -> U
@@ -133,7 +159,6 @@ class PsiLocal(Psi):
 
     def __call__(self, x, i=None):
         return self.single_op(x)
-
 
 
 class PsiGlobal(Psi):
@@ -171,7 +196,7 @@ class PsiGlobal(Psi):
             return tf.repeat(output, tf.shape(x)[0], axis=0)
 
 
-class Phi(tf.keras.layers.Layer):
+class Phi(Function):
     def __init__(self, f: Optional[Callable[[tf.Tensor[T], tf.Tensor[U], tf.Tensor[T]], tf.Tensor[V]]] = None,
                  **kwargs):
         """
@@ -193,7 +218,7 @@ class Phi(tf.keras.layers.Layer):
         return self.f(src, e, tgt)
 
 
-class Sigma(tf.keras.layers.Layer):
+class Sigma(Function):
     def __init__(self, f: Optional[Callable[[tf.Tensor[T], tf.Tensor[int], int, tf.Tensor[U]], tf.Tensor[V]]] = None,
                  **kwargs):
         """

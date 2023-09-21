@@ -60,7 +60,6 @@ class ExplainerMG(Interpreter):
         super().__init__()
         self.model = model
         self.query_node = None
-        self.context = Context()
         self.compiler = GNNCompiler(
             psi_functions={'node': ExplainerMG.localize_node, 'id': ExplainerMG.id, 'or': ExplainerMG.or_fun},
             sigma_functions={'or': ExplainerMG.or_agg},
@@ -70,7 +69,6 @@ class ExplainerMG(Interpreter):
     def explain(self, query_node, inputs, labels, open_browser=True):
         # Build the model
         self.query_node = query_node
-        self.context.clear()
         try:
             right_branch = self.visit(mg_parser.parse(self.model.expr))
         except VisitError:
@@ -88,15 +86,13 @@ class ExplainerMG(Interpreter):
         graph = make_graph(explanation, hierarchy, inputs, labels)
         print_graph(graph, node_names_func=get_original_ids_func(explanation), hierarchical=True, show_labels=True,
                     open_browser=open_browser)
-
-    def get_layer(self, name):
-        return self.model.mg_layers.get(hash(self.context.get(name)))
-
+    
     def atom_op(self, tree):
-        layer = self.get_layer(tree)
-        if layer is None:
+        name = str(tree.children[0].children[0])
+        f = self.model.psi_functions.get(name)
+        if f is None:
             new_op = tree
-        elif isinstance(layer.psi, PsiLocal):
+        elif isinstance(f, PsiLocal):
             new_op = mg_parser.parse('id')
         else:  # not local neither a variable
             raise VisitError('atom_op', tree, 'Nonlocal psi function')
@@ -110,16 +106,6 @@ class ExplainerMG(Interpreter):
         new_op = mg_parser.parse('<p3|or')
         return new_op
 
-    def composition(self, tree):
-        left, right = tree.children
-        phi = self.visit(left)
-        self.context.push(left)
-        psi = self.visit(right)
-        self.context.pop()
-        new_op = tree.copy()
-        new_op.children = [phi, psi]
-        return new_op
-
     def parallel(self, tree):
         children = self.visit_children(tree)
         new_op = mg_parser.parse('SUBST;or')
@@ -128,21 +114,9 @@ class ExplainerMG(Interpreter):
         return new_op
 
     def ite(self, tree):
-        '''
-        layer = self.get_layer(tree)
-        new_op = mg_parser.parse('left || right')
-        new_op.children[0] = tree.children[0]
-        if layer.branch is None:
-            raise ValueError("Model was not run!")
-        if layer.branch.numpy():
-            new_op.children[1] = tree.children[1]
-        else:
-            new_op.children[1] = tree.children[2]
-        return self.visit(new_op)
-        '''
         raise VisitError('ite', tree, 'If-Then-Else expression')
 
-    def __default__(self, tree):  # local var expr, fun def, fun call, fix, repeat
+    def __default__(self, tree):  # local var expr, fun def, fun call, fix, repeat, composition
         new_op = tree.copy()
         new_op.children = self.visit_children(tree)
         return new_op

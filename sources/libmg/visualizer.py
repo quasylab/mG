@@ -44,7 +44,6 @@ def show(node_values, adj, edge_values, labels, hierarchy, title_generator, file
         net.options = Options(layout)
         for i, v in enumerate(nodes):
             net.add_node(v, title=titles[i], label=node_labels[i], shape='circle', level=hierarchy[i])
-
     else:
         layout.hierarchical = layout.Hierarchical(enabled=False)
         net.options = Options(layout)

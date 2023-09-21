@@ -503,14 +503,13 @@ class TreeToTF(Interpreter):
                        'int64': tf.int64, 'float16': tf.float16, 'float32': tf.float32, 'float64': tf.float64,
                        'half': tf.float16, 'double': tf.float64}
 
-    def __init__(self, psi_functions, sigma_functions, phi_functions, inputs, precision, parser):
+    def __init__(self, psi_functions, sigma_functions, phi_functions, inputs, precision):
         super().__init__()
         self.psi_functions = psi_functions
         self.sigma_functions = sigma_functions
         self.phi_functions = phi_functions
         self.initial_inputs = inputs
         self.precision = precision
-        self.parser = parser
         # Initialization
         self.fix_var = {}
         self.free_fix_var = bidict({})
@@ -521,17 +520,17 @@ class TreeToTF(Interpreter):
         self.defined_variables = {}
         self.defined_local_variables = {}
         self.var_input = {}
-        # self.disable_saving_layers = False
-        # self.temp_layer_dicts = []
+        self.disable_saving_layers = False
+        self.used_psi = {}
+        self.used_phi = {}
+        self.used_sigma = {}
         self.eval_if_clause = False
         self.inputs = self.initial_inputs
 
     def add_layer(self, intermediate_output, op_layer, ctx_name):
-        # if not self.disable_saving_layers:
-        self.intermediate_outputs[hash(ctx_name)] = intermediate_output
-        self.layers[hash(ctx_name)] = op_layer
-        # else:
-        #    self.temp_layer_dicts[-1][hash(ctx_name)] = op_layer
+        if not self.disable_saving_layers:
+            self.intermediate_outputs[hash(ctx_name)] = intermediate_output
+            self.layers[hash(ctx_name)] = op_layer
 
     def get_layer(self, ctx_name):
         if hash(ctx_name) in self.intermediate_outputs:
@@ -541,32 +540,6 @@ class TreeToTF(Interpreter):
 
     def undef_layer(self, ctx_name):
         return not (hash(ctx_name) in self.intermediate_outputs)
-
-    '''
-    def get_from_context(self, name):
-        if self.context is None:
-            return name
-        else:
-            seq = mg_parser.parse('left ; right')
-            seq.children[0] = self.context
-            seq.children[1] = name
-            return seq
-
-    def add_to_context(self, name):
-        if self.context is None:
-            self.context = name
-        else:
-            seq = mg_parser.parse('left ; right')
-            seq.children[0] = self.context
-            seq.children[1] = name
-            self.context = seq
-
-    def pop_context(self):
-        if self.context.data == 'composition':
-            self.context = self.context.children[0]
-        else:
-            self.context = None
-    '''
 
     def get_precision(self, typ):
         if typ == 'float32':
@@ -596,8 +569,10 @@ class TreeToTF(Interpreter):
         self.defined_variables = {}
         self.defined_local_variables = {}
         self.var_input = {}
-        # self.disable_saving_layers = False
-        # self.temp_layer_dicts = []
+        self.disable_saving_layers = False
+        self.used_psi = {}
+        self.used_phi = {}
+        self.used_sigma = {}
         self.eval_if_clause = False
         self.inputs = self.initial_inputs
 
@@ -634,6 +609,7 @@ class TreeToTF(Interpreter):
             ctx_name = op_layer.name
         elif label in self.psi_functions:  # the label matches a psi function
             op_layer = FunctionApplication(self.psi_functions[label])
+            self.used_psi[label] = self.psi_functions[label]
         elif label in self.fix_var:  # the label is a fix_var, but not the current one
             io = self.inputs.step(label, self.fix_var[label].signature, self.free_fix_var)
             self.free_fix_var[io.x.ref()] = label
@@ -661,10 +637,13 @@ class TreeToTF(Interpreter):
             edge_function, agg_function = args
             # name = '<' + edge_function + '| ' + agg_function
             lhd_layer = PreImage(self.sigma_functions[agg_function], self.phi_functions[edge_function])
+            self.used_sigma[agg_function] = self.sigma_functions[agg_function]
+            self.used_phi[edge_function] = self.phi_functions[edge_function]
         else:
             agg_function, = args
             # name = '<| ' + agg_function
             lhd_layer = PreImage(self.sigma_functions[agg_function])
+            self.used_sigma[agg_function] = self.sigma_functions[agg_function]
 
         if self.undef_layer(ctx_name):
             # noinspection PyCallingNonCallable
@@ -680,10 +659,13 @@ class TreeToTF(Interpreter):
             edge_function, agg_function = tree
             # name = '|' + edge_function + '> ' + agg_function
             rhd_layer = PostImage(self.sigma_functions[agg_function], self.phi_functions[edge_function])
+            self.used_sigma[agg_function] = self.sigma_functions[agg_function]
+            self.used_phi[edge_function] = self.phi_functions[edge_function]
         else:
             agg_function, = tree
             # name = '|> ' + agg_function
             rhd_layer = PostImage(self.sigma_functions[agg_function])
+            self.used_sigma[agg_function] = self.sigma_functions[agg_function]
 
         if self.undef_layer(ctx_name):
             # noinspection PyCallingNonCallable
@@ -715,13 +697,13 @@ class TreeToTF(Interpreter):
                 self.inputs = current_inputs
                 return new_expr
             else:  # only phi is a fixpoint expression
-                # self.disable_saving_layers = True
+                self.disable_saving_layers = True
                 # self.temp_layer_dicts.append({})
                 self.inputs = current_inputs.step(phi.name, phi.signature, self.free_fix_var)
                 psi = self.visit(right)
                 self.context.pop()
                 # temp_layer_dict = self.temp_layer_dicts.pop()
-                # self.disable_saving_layers = False
+                self.disable_saving_layers = False
                 new_expr = FixPointExpression(psi.name, phi.input_signature, psi.x)
                 new_expr.args = phi.args
                 self.inputs = current_inputs
@@ -976,7 +958,6 @@ class GNNCompiler:
             tf.keras.backend.set_floatx('float64')
         elif config.node_feature_type == tf.float16 or config.edge_feature_type == tf.float16:
             tf.keras.backend.set_floatx('float16')
-        self.parser = mg_parser
         self.macros = Normalizer()
         self.config = config
         self.model_inputs = [
@@ -997,7 +978,7 @@ class GNNCompiler:
                                                 epochs=1) if \
             config.use_disjoint else SingleGraphLoader(dummy_dataset, epochs=1)
         self.interpreter = TreeToTF(FunctionDict(psi_functions), FunctionDict(sigma_functions), FunctionDict(phi_functions),
-                                    IntermediateOutput("INPUT", *intermediate_output_args), config.precision, self.parser)
+                                    IntermediateOutput("INPUT", *intermediate_output_args), config.precision)
 
     @staticmethod
     def graph_mode_constructor(model, input_spec, method):
@@ -1070,11 +1051,14 @@ class GNNCompiler:
         :return: A TensorFlow ``Model`` that is the mG evaluation of 'expr'.
         """
         self.interpreter.initialize()
-        outputs = self.interpreter.visit(self.macros.visit(self.parser.parse(expr)))
+        outputs = self.interpreter.visit(self.macros.visit(mg_parser.parse(expr)))
         model = tf.keras.Model(inputs=self.model_inputs, outputs=outputs.x)
         model.expr = expr
         model.mg_layers = self.interpreter.layers
         model.config = self.config
+        model.psi_functions = self.interpreter.used_psi
+        model.phi_functions = self.interpreter.used_phi
+        model.sigma_functions = self.interpreter.used_sigma
         if verbose is True:
             model.summary()
         self.interpreter.initialize()
