@@ -79,11 +79,17 @@ class FunctionDict(UserDict, typing.Mapping[KT, VT]):
 class Function(tf.keras.layers.Layer):
     @classmethod
     def make(cls, f):
+        if isinstance(f, tf.keras.layers.Layer):  # regenerate all layers
+            f = type(f).from_config(f.get_config())
         return lambda: cls(f)
 
     @classmethod
-    def make_parametrized(cls, f):
-        return lambda a: cls(partial(f, a))
+    def make_parametrized(cls, f): # first argument of f is supposed to be a parameter
+        # check if f has only a single argument e.g. lambda x: lambda y: foo(x)(y)
+        if f.__code__.co_argcount == 1:
+            return lambda a: cls(f(a))
+        else:  # e.g. lambda x, y: foo(x)(y)
+            return lambda a: cls(partial(f, a))
 
 
 class Psi(Function):
