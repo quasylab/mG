@@ -444,7 +444,7 @@ class MGModel:
 
 def analyze_tensor(t):
     """
-    Returns dimensionality and type of an ``IntermediateOutput`` or ``FixPointExpression`` node label tensor.
+    Returns dimensionality and type of ``IntermediateOutput`` or ``FixPointExpression`` node label tensor.
 
     :param t: An ``IntermediateOutput`` or ``FixPointExpression`` object.
     :return: A ``tuple``, containing the dimension and the ``DType`` of the node label tensor.
