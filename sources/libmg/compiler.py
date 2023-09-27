@@ -726,7 +726,7 @@ class TreeToTF(Interpreter):
         current_inputs = self.inputs
         phi = self.visit(left)
         # self.context.append(phi.name)
-        self.context.push(left)
+        self.context.push(phi.name)
         if type(phi) is FixPointExpression:  # phi is a fixpoint expression
             if is_free(right, self.current_fix_var()):  # both are fixpoint expressions
                 # deal as in ite
