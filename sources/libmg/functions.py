@@ -80,8 +80,9 @@ class Function(tf.keras.layers.Layer):
     @classmethod
     def make(cls, f):
         if isinstance(f, tf.keras.layers.Layer):  # regenerate all layers
-            f = type(f).from_config(f.get_config())
-        return lambda: cls(f)
+            return lambda: cls(type(f).from_config(f.get_config()))
+        else:
+            return lambda: cls(f)
 
     @classmethod
     def make_parametrized(cls, f): # first argument of f is supposed to be a parameter
