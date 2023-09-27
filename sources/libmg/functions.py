@@ -270,3 +270,9 @@ class Pi(PsiLocal):
         j = i + 1 if j is None else j
         f = lambda x: x[:, i:j]
         super().__init__(f, **kwargs)
+
+
+class NN(PsiLocal):
+    def __init__(self, layer, **kwargs):
+        f = tf.keras.layers.Dense.from_config(layer.get_config())
+        super().__init__(f, **kwargs)
