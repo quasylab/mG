@@ -134,11 +134,24 @@ class Psi(Function):
         if single_op is None and multiple_op is None:
             raise ValueError("At least one function must be provided")
         elif single_op is None:
-            return lambda a: cls(multiple_op=partial(multiple_op, a))
+            if multiple_op.__code__.co_argcount == 1:
+                return lambda a: cls(multiple_op=multiple_op(a))
+            else:
+                return lambda a: cls(multiple_op=partial(multiple_op, a))
         elif multiple_op is None:
-            return lambda a: cls(partial(single_op, a))
+            if single_op.__code__.co_argcount == 1:
+                return lambda a: cls(single_op(a))
+            else:
+                return lambda a: cls(partial(single_op, a))
         else:
-            return lambda a: cls(partial(single_op, a), partial(multiple_op, a))
+            if single_op.__code__.co_argcount == 1 and multiple_op.__code__.co_argcount == 1:
+                return lambda a: cls(single_op(a), multiple_op(a))
+            elif single_op.__code__.co_argcount == 1:
+                return lambda a: cls(single_op(a), partial(multiple_op, a))
+            elif multiple_op.__code__.co_argcount == 1:
+                return lambda a: cls(partial(single_op, a), multiple_op(a))
+            else:
+                return lambda a: cls(partial(single_op, a), partial(multiple_op, a))
 
     def __call__(self, x, i=None):
         if i is not None:
