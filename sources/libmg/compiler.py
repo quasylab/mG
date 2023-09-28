@@ -393,9 +393,10 @@ class MGFunction:
         return matched_args
 
     @staticmethod
-    def get_default(function_name, arguments):
+    def get_default(function_name, arguments, is_operator):
         name = 'op_k_macro'
         var_list = ['__X' + str(i) for i, _ in enumerate(arguments)]
+        function_name = function_name + '[' + str(len(var_list)) + ']' if is_operator else function_name
         body_tree = mg_parser.parse('(' + ' || '.join(var_list) + ') ; ' + function_name)
         return MGFunction(name, var_list, body_tree)
 
@@ -807,7 +808,9 @@ class TreeToTF(Interpreter):
         function_name = self.visit(args[0])
         arguments = [self.visit(arg) for arg in args[1:]]
 
-        deferred_function = self.defined_functions.get(function_name, MGFunction.get_default(function_name, arguments))
+        deferred_function = self.defined_functions.get(function_name)
+        if deferred_function is None:
+            deferred_function = MGFunction.get_default(function_name, arguments, self.psi_functions.is_operator(function_name))
         matched_args = deferred_function.get_args(arguments)  # match args
         self.var_input |= matched_args  # add the deferred function vars to var input
         f_layer = self.visit(deferred_function.body_tree)  # now visit the function body

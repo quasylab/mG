@@ -69,6 +69,30 @@ class FunctionDict(UserDict, typing.Mapping[KT, VT]):
         true_key, _ = self.parse_key(str(key))
         return true_key in self.data
 
+    def requires_args(self, key):
+        true_key, _ = self.parse_key(str(key))
+        if true_key in self.data:
+            value = self.data[true_key]
+            if isinstance(value, type):
+                argcount = value.__init__.__code__.co_argcount
+                return True if argcount > 1 else False
+            else:
+                argcount = value.__code__.co_argcount
+                return True if argcount > 0 else False
+        else:
+            raise KeyError("Key not found")
+
+    def is_operator(self, key):
+        true_key, _ = self.parse_key(str(key))
+        if true_key in self.data:
+            value = self.data[true_key]
+            if isinstance(value, type) and issubclass(value, Operator):
+                return True
+            else:
+                return False
+        else:
+            raise KeyError("Key not found", key)
+
     def __setitem__(self, key, value):
         if isinstance(value, tf.keras.layers.Layer):
             self.data[key] = lambda: value
@@ -291,3 +315,34 @@ class Pi(PsiLocal):
         f = lambda x: x[:, i:j]
         super().__init__(f, **kwargs)
 
+
+class Operator(PsiLocal):
+    def __init__(self, k):
+        self.k = int(k)
+        super().__init__()
+
+
+def make_uoperator(op):
+    class UOperator(Operator):
+        def func(self, x):
+            return op(x)
+
+    return UOperator
+
+
+def make_boperator(op):
+    class BOperator(Operator):
+        def func(self, x):
+            dim = tf.shape(x)[-1] // 2
+            return op(x[:, :dim], x[:, dim:])
+
+    return BOperator
+
+
+def make_koperator(op):
+    class KOperator(Operator):
+        def func(self, x):
+            dim = tf.shape(x)[-1] // self.k
+            return op([x[:, i * dim:(i * dim) + dim] for i in range(self.k)])
+
+    return KOperator

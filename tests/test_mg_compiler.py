@@ -10,7 +10,7 @@ from libmg import PsiLocal, PsiGlobal, Sigma, Phi
 from libmg import SingleGraphLoader, MultipleGraphLoader
 from libmg import GNNCompiler, CompilationConfig, NodeConfig, EdgeConfig
 from libmg import Dataset
-from libmg.functions import Constant
+from libmg.functions import Constant, make_koperator, make_boperator, make_uoperator
 
 
 class A(PsiLocal):
@@ -163,7 +163,10 @@ class BaseTest(tf.test.TestCase):
             'div': PsiLocal(lambda x: x / 2),
             'add1': PsiLocal(lambda x: x + 1),
             'sub1': PsiLocal(lambda x: x - 1),
-            '-': PsiLocal(lambda x: tf.math.subtract(x[:, :1], x[:, 1:]))}
+            '-': PsiLocal(lambda x: tf.math.subtract(x[:, :1], x[:, 1:])),
+            '+': make_koperator(tf.math.add_n),
+            '++': make_boperator(tf.math.add),
+            '~': make_uoperator(tf.math.logical_not)}
         self.psi_dict_lambdas = psi_dict_lambdas
         sigma_dict_lambdas = {
             '*': Sigma(lambda m, i, n, x: tf.math.segment_prod(m, i)),
@@ -174,7 +177,10 @@ class BaseTest(tf.test.TestCase):
         self.sigma_dict_lambdas = sigma_dict_lambdas
         psi_dict_subclassing = {'a': A, 'b': B, 'c': C, 'true': Constant(tf.constant(True)),
                                 'false': Constant(tf.constant(False)), 'and': And,
-                                'or': Or, 'not': Not, 'id': Id, 'le': Le2, 'add1': Add1, 'sub1': Sub1, '-': Subtract}
+                                'or': Or, 'not': Not, 'id': Id, 'le': Le2, 'add1': Add1, 'sub1': Sub1, '-': Subtract,
+                                '+': make_koperator(tf.math.add_n),
+                                '++': make_boperator(tf.math.add),
+                                '~': make_uoperator(tf.math.logical_not)}
         sigma_dict_subclassing = {'or': Max, 'uor': UMax}
         self.compilers = [GNNCompiler(
             psi_functions=psi_dict_lambdas,
@@ -263,7 +269,8 @@ class BaseTest(tf.test.TestCase):
         def test(X, Y){
         (Y || X);and;not
         } in test(a, and(b, c))
-        """, """
+        """,
+        """
         def test(X, Y){
         (Y || and(X, c));and;not
         } in test(a, b)
@@ -271,8 +278,10 @@ class BaseTest(tf.test.TestCase):
         and(a, def test(X, Y){
         (Y || X);and;not
         } in test(b, c))
-        """,
-                'and(a, b) || true(-(add1, sub1))']
+        """, 'and(a, b) || true(-(add1, sub1))',
+                '+(add1, sub1, id)',
+                '++(add1, sub1)',
+                '~(true)']
 
         base_tester(self.dataset, self.compilers, expr)
 
