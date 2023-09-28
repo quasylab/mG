@@ -1,4 +1,5 @@
 import os
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
 import numpy as np
@@ -87,12 +88,18 @@ class Min(PsiLocal):
         return x[:, :1] - x[:, 1:]
 
 
+class Subtract(PsiLocal):
+    def func(self, x):
+        return tf.math.subtract(x[:, :1], x[:, 1:])
+
+
 class Sum(PsiGlobal):
     def multiple_graph_op(self, x, i):
         return tf.math.segment_sum(x, i)
 
     def single_graph_op(self, x):
         return tf.reduce_sum(x, axis=0, keepdims=True)
+
 
 def base_tester(dataset, compilers, expressions):
     loaders = [SingleGraphLoader(dataset, epochs=1),
@@ -155,7 +162,8 @@ class BaseTest(tf.test.TestCase):
             'le': PsiLocal(lambda x: x < 2),
             'div': PsiLocal(lambda x: x / 2),
             'add1': PsiLocal(lambda x: x + 1),
-            'sub1': PsiLocal(lambda x: x - 1)}
+            'sub1': PsiLocal(lambda x: x - 1),
+            '-': PsiLocal(lambda x: tf.math.subtract(x[:, :1], x[:, 1:]))}
         self.psi_dict_lambdas = psi_dict_lambdas
         sigma_dict_lambdas = {
             '*': Sigma(lambda m, i, n, x: tf.math.segment_prod(m, i)),
@@ -164,8 +172,9 @@ class BaseTest(tf.test.TestCase):
                 lambda m, i, n, x: tf.cast(tf.math.unsorted_segment_max(tf.cast(m, tf.uint8), i, n),
                                            tf.bool))}
         self.sigma_dict_lambdas = sigma_dict_lambdas
-        psi_dict_subclassing = {'a': A, 'b': B, 'c': C, 'true': Constant(tf.constant(True)), 'false': Constant(tf.constant(False)), 'and': And,
-                                             'or': Or, 'not': Not, 'id': Id, 'le': Le2, 'add1': Add1, 'sub1': Sub1}
+        psi_dict_subclassing = {'a': A, 'b': B, 'c': C, 'true': Constant(tf.constant(True)),
+                                'false': Constant(tf.constant(False)), 'and': And,
+                                'or': Or, 'not': Not, 'id': Id, 'le': Le2, 'add1': Add1, 'sub1': Sub1, '-': Subtract}
         sigma_dict_subclassing = {'or': Max, 'uor': UMax}
         self.compilers = [GNNCompiler(
             psi_functions=psi_dict_lambdas,
@@ -262,7 +271,9 @@ class BaseTest(tf.test.TestCase):
         and(a, def test(X, Y){
         (Y || X);and;not
         } in test(b, c))
-        """]
+        """,
+                'and(a, b) || true(-(add1, sub1))']
+
         base_tester(self.dataset, self.compilers, expr)
 
     def test_variables(self):
@@ -295,12 +306,14 @@ class BaseTest(tf.test.TestCase):
         dataset[0].x = np.array([[1], [1], [1], [1], [1]])
         dataset[1].x = np.array([[2], [2], [2], [2], [2]])
         expr = 'if le then add1 else sub1'
-        loaders = [MultipleGraphLoader(dataset, epochs=1, batch_size=2, shuffle=False), MultipleGraphLoader(dataset, epochs=1, batch_size=2, shuffle=False)]
+        loaders = [MultipleGraphLoader(dataset, epochs=1, batch_size=2, shuffle=False),
+                   MultipleGraphLoader(dataset, epochs=1, batch_size=2, shuffle=False)]
         compilers = [self.compilers[1], self.compilers[3]]
         for loader, compiler in zip(loaders, compilers):
             model = compiler.compile(expr)
             for inputs in loader.load():
-                self.assertAllEqual([[2], [2], [2], [2], [2], [1], [1], [1], [1], [1]], model.call(inputs, training=False))
+                self.assertAllEqual([[2], [2], [2], [2], [2], [1], [1], [1], [1], [1]],
+                                    model.call(inputs, training=False))
 
     def test_new_fixpoint(self):
         expr = ['fix X = true in X', 'fix X = true in (X;false;|>or)',
@@ -391,8 +404,9 @@ class EdgeTest(tf.test.TestCase):
                                            tf.bool))}
         phi_dict_lambdas = {'z': Phi(lambda i, e, j: tf.math.logical_and(j, tf.equal(e, 0)))}
 
-        psi_dict_subclassing = {'a': A, 'b': B, 'c': C, 'true': Constant(tf.constant(True)), 'false': Constant(tf.constant(False)), 'and': And,
-                                             'or': Or, 'not': Not, 'id': Id}
+        psi_dict_subclassing = {'a': A, 'b': B, 'c': C, 'true': Constant(tf.constant(True)),
+                                'false': Constant(tf.constant(False)), 'and': And,
+                                'or': Or, 'not': Not, 'id': Id}
         sigma_dict_subclassing = {'or': Max, 'uor': UMax}
         phi_dict_subclassing = {'z': IsZero}
 
@@ -459,14 +473,16 @@ class PoolTest(tf.test.TestCase):
             'id': PsiLocal(lambda x: x),
             'one': PsiLocal(tf.ones_like),
             'min': PsiLocal(lambda x: x[:, :1] - x[:, 1:]),
-            'gsum': PsiGlobal(single_op=lambda x: tf.reduce_sum(x, axis=0, keepdims=True), multiple_op=lambda x, i: tf.math.segment_sum(x, i))}
+            'gsum': PsiGlobal(single_op=lambda x: tf.reduce_sum(x, axis=0, keepdims=True),
+                              multiple_op=lambda x, i: tf.math.segment_sum(x, i))}
         sigma_dict_lambdas = {
             'or': Sigma(lambda m, i, n, x: tf.cast(tf.math.segment_max(tf.cast(m, tf.uint8), i), tf.bool)),
             'uor': Sigma(
                 lambda m, i, n, x: tf.cast(tf.math.unsorted_segment_max(tf.cast(m, tf.uint8), i, n),
                                            tf.bool))}
-        psi_dict_subclassing = {'a': A, 'b': B, 'c': C, 'true': Constant(tf.constant(True)), 'false': Constant(tf.constant(False)), 'and': And,
-                                             'or': Or, 'not': Not, 'id': Id, 'one': One, 'min': Min, 'gsum': Sum}
+        psi_dict_subclassing = {'a': A, 'b': B, 'c': C, 'true': Constant(tf.constant(True)),
+                                'false': Constant(tf.constant(False)), 'and': And,
+                                'or': Or, 'not': Not, 'id': Id, 'one': One, 'min': Min, 'gsum': Sum}
         sigma_dict_subclassing = {'or': Max, 'uor': UMax}
         self.compilers = [GNNCompiler(
             psi_functions=psi_dict_lambdas,
@@ -492,7 +508,8 @@ class PoolTest(tf.test.TestCase):
     def test_global_pooling(self):
         expr = ['gsum', '(gsum || one);min']
         loaders = [SingleGraphLoader(self.single_dataset, epochs=1),
-                   MultipleGraphLoader(self.multiple_dataset, node_level=True, batch_size=10, shuffle=False, epochs=1)] + \
+                   MultipleGraphLoader(self.multiple_dataset, node_level=True, batch_size=10, shuffle=False,
+                                       epochs=1)] + \
                   [SingleGraphLoader(self.single_dataset, epochs=1),
                    MultipleGraphLoader(self.multiple_dataset, node_level=True, batch_size=10, shuffle=False, epochs=1)]
         for loader, compiler in zip(loaders, self.compilers):
