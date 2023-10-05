@@ -734,7 +734,7 @@ class TreeToTF(Interpreter):
         current_inputs = self.inputs
         phi = self.visit(left)
         # self.context.append(phi.name)
-        # self.context.push(phi.name)
+        self.context.push(phi.name)
         if type(phi) is FixPointExpression:  # phi is a fixpoint expression
             if is_free(right, self.current_fix_var()):  # both are fixpoint expressions
                 # deal as in ite
@@ -742,6 +742,7 @@ class TreeToTF(Interpreter):
                 test_input = tf.keras.Input(type_spec=phi.signature.type_spec)
                 self.inputs = current_inputs.step(phi.name, test_input, self.free_fix_var)
                 psi = self.visit(right)
+                self.context.pop()
                 self.eval_if_clause = False
                 psi_model = tf.keras.Model(
                     inputs=[test_input] + [self.current_fix_var_config().signature] + self.initial_inputs.full_inputs[
@@ -757,7 +758,7 @@ class TreeToTF(Interpreter):
                 # self.temp_layer_dicts.append({})
                 self.inputs = current_inputs.step(phi.name, phi.signature, self.free_fix_var)
                 psi = self.visit(right)
-                # self.context.pop()
+                self.context.pop()
                 # temp_layer_dict = self.temp_layer_dicts.pop()
                 self.disable_saving_layers = False
                 new_expr = FixPointExpression(psi.name, phi.input_signature, psi.x)
@@ -766,7 +767,7 @@ class TreeToTF(Interpreter):
                 return new_expr
         else:  # phi is not a fixpoint expression
             self.inputs = phi
-            self.context.push(phi.name)
+            # self.context.push(phi.name)
             psi = self.visit(right)
             self.context.pop()
             self.inputs = current_inputs

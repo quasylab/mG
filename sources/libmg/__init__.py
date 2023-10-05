@@ -9,4 +9,4 @@ __all__ = ['SingleGraphLoader', 'MultipleGraphLoader', 'PsiLocal', 'PsiGlobal', 
            'GNNCompiler', 'CompilationConfig', 'NodeConfig', 'EdgeConfig', 'Dataset', 'print_layer', 'print_graph',
            'make_uoperator', 'make_boperator', 'make_koperator']
 
-__version__ = '0.3.56'
+__version__ = '0.3.57'
