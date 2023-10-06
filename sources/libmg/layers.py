@@ -1,7 +1,11 @@
 import tensorflow as tf
+import re
 from tensorflow.python.eager.backprop_util import IsTrainable
 from tensorflow.python.keras import backend as K
 from spektral.layers import MessagePassing
+from tensorflow.python.keras.utils import generic_utils
+
+from libmg import Phi
 
 
 def loop_body(X, F, H, k, m, beta, lam, x0, f, y, fixpoint_printer):
@@ -27,12 +31,13 @@ def loop_body(X, F, H, k, m, beta, lam, x0, f, y, fixpoint_printer):
 
     updates_H = tf.matmul(G, tf.transpose(G)) + lam * tf.eye(n, dtype=x0.dtype)
     updates_H = tf.concat([tf.ones((n, 1), dtype=x0.dtype), updates_H], axis=1)
-    updates_H = tf.concat([updates_H, tf.zeros((n, m-n), dtype=x0.dtype)], axis=1)
-    H = tf.tensor_scatter_nd_update(H, tf.expand_dims(tf.range(start=1, limit=n+1), axis=1), updates_H)
+    updates_H = tf.concat([updates_H, tf.zeros((n, m - n), dtype=x0.dtype)], axis=1)
+    H = tf.tensor_scatter_nd_update(H, tf.expand_dims(tf.range(start=1, limit=n + 1), axis=1), updates_H)
 
     alpha = tf.linalg.solve(H[:n + 1, :n + 1], y[:n + 1])[1:n + 1, 0]
 
-    updates_X = beta * tf.matmul(alpha[None], tf.reshape(F.stack()[:n], shape=[n, -1]))[0] + (1 - beta) * tf.matmul(alpha[None], tf.reshape(X.stack()[:n], shape=[n, -1]))[0]
+    updates_X = beta * tf.matmul(alpha[None], tf.reshape(F.stack()[:n], shape=[n, -1]))[0] + (1 - beta) * \
+                tf.matmul(alpha[None], tf.reshape(X.stack()[:n], shape=[n, -1]))[0]
     X = X.write(k % m, fixpoint_printer(tf.reshape(updates_X, shape=tf.shape(x0))))
     updates_F = f(X.read(k % m))
     F = F.write(k % m, updates_F)
@@ -106,21 +111,46 @@ def standard_fixpoint(f, x0, comparator, fixpoint_printer):
     x = f(x0)
     return tf.while_loop(
         cond=lambda curr, prev, k: tf.math.logical_not(tf.math.reduce_all(comparator(curr[0], prev[0]))),
-        body=lambda curr, prev, k: [f(curr), fixpoint_printer(curr), k+1],
+        body=lambda curr, prev, k: [f(curr), fixpoint_printer(curr), k + 1],
         loop_vars=[x, x0, iter],
         shape_invariants=[[x[0].get_shape()], [x[0].get_shape()], iter.get_shape()]
     )
 
 
-class FunctionApplication(MessagePassing):
+class MGLayer(MessagePassing):
+    tf_name_regex = re.compile(r"^[A-Za-z0-9.][A-Za-z0-9_.\\/>-]*$")
+    translate_dict = {
+        '~': 'tilde', '`': 'tick', '!': 'excl', '@': 'at', '#': 'hash', '£': 'pound', '€': 'euro', '$': 'dollar',
+        '¢': 'cent', '¥': 'yuan', '§': 'sect', '%': 'perc', '°': 'deg', '^': 'caret', '&': 'and', '*': 'star',
+        '(': 'lpar', ')': 'rpar', '+': 'plus', '=': 'eq', '{': 'lcur', '}': 'rcur',
+        '[': 'lsqr', ']': 'rsqr', '|': 'pipe', ':': 'colon', ';': 'semicolon',
+        '\"': 'quote', '\'': 'apos', '<': 'less', ',': 'comma', '?': 'qst', ' ': '.'
+    }
+    translate_table = str.maketrans(translate_dict)
+
+    def __init__(self, name=None):
+        if name is None:
+            super().__init__()
+        else:
+            super().__init__(name=K.unique_object_name(generic_utils.to_snake_case(self.__class__.__name__) + '_' + self.validate_name(name), zero_based=True))
+
+    @staticmethod
+    def validate_name(name):
+        if MGLayer.tf_name_regex.match(name):
+            return name
+        else:
+            return name.translate(MGLayer.translate_table)
+
+
+class FunctionApplication(MGLayer):
     """
     This layer implements a mG psi expression, i.e. a function application.
 
     :param psi: The ``Psi`` function to apply.
     """
 
-    def __init__(self, psi, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, psi):
+        super().__init__(psi.name)
         self.psi = psi
 
     def call(self, inputs, **kwargs):
@@ -140,7 +170,7 @@ class FunctionApplication(MessagePassing):
         return self.psi(x, i)
 
 
-class PreImage(MessagePassing):
+class PreImage(MGLayer):
     """
     This layer implements a mG pre-image expression. The layer computes a multiset of messages using a ``Phi`` function
     and then aggregates them using a ``Sigma`` function. Each node receives the messages from its predecessors.
@@ -148,8 +178,9 @@ class PreImage(MessagePassing):
     :param sigma: A ``Sigma`` function that aggregates messages.
     :param phi: A ``Phi`` function that generates messages.
     """
-    def __init__(self, sigma, phi=lambda i, e, j: j, **kwargs):
-        super().__init__(**kwargs)
+
+    def __init__(self, sigma, phi=Phi(lambda i, e, j: j, name='Pi3')):
+        super().__init__(phi.name + '_' + sigma.name)
         self.sigma = sigma
         self.phi = phi
 
@@ -160,7 +191,7 @@ class PreImage(MessagePassing):
         return self.sigma(messages, self.index_targets, self.n_nodes, x)
 
 
-class PostImage(MessagePassing):
+class PostImage(MGLayer):
     """
     This layer implements a mG pre-image expression. The layer computes a multiset of messages using a ``Phi`` function
     and then aggregates them using a ``Sigma`` function. Each node receives the messages from its successors.
@@ -168,8 +199,9 @@ class PostImage(MessagePassing):
     :param sigma: A ``Sigma`` function that aggregates messages.
     :param phi: A ``Phi`` function that generates messages.
     """
-    def __init__(self, sigma, phi=lambda i, e, j: j, **kwargs):
-        super().__init__(**kwargs)
+
+    def __init__(self, sigma, phi=Phi(lambda i, e, j: j, name='Pi3')):
+        super().__init__(phi.name + '_' + sigma.name)
         self.sigma = sigma
         self.phi = phi
 
@@ -180,7 +212,7 @@ class PostImage(MessagePassing):
         return self.sigma(messages, self.index_sources, self.n_nodes, x)
 
 
-class Ite(MessagePassing):
+class Ite(MGLayer):
     """
     This layer implements a mG choice expression, i.e. an if-then-else (ITE) construct. The layer expects that the first
     input is a Boolean Tensor. If all the values in this Tensor are True, the GNN ``iftrue`` is executed on the remaining
@@ -189,8 +221,9 @@ class Ite(MessagePassing):
     :param iftrue: A mG model to run if the condition is true.
     :param iffalse: A mG model to run if the condition is false.
     """
-    def __init__(self, iftrue, iffalse, **kwargs):
-        super().__init__(**kwargs)
+
+    def __init__(self, iftrue, iffalse):
+        super().__init__()
         self.iftrue = iftrue
         self.iffalse = iffalse
         self.iftrue_input_len = len(self.iftrue.inputs)
@@ -228,21 +261,30 @@ class Ite(MessagePassing):
             iffalse_input_len = self.iffalse_input_len - 2
             _, _, count = tf.unique_with_counts(i)
             partitioned_test = tf.ragged.stack_dynamic_partitions(test, tf.cast(i, dtype=tf.int32), tf.size(count))
-            partitioned_values = tf.ragged.stack_dynamic_partitions(values[0], tf.cast(i, dtype=tf.int32), tf.size(count))
+            partitioned_values = tf.ragged.stack_dynamic_partitions(values[0], tf.cast(i, dtype=tf.int32),
+                                                                    tf.size(count))
             partitioned_idx = tf.ragged.stack_dynamic_partitions(i, tf.cast(i, dtype=tf.int32), tf.size(count))
-            self.branch = tf.map_fn(lambda args: tf.reduce_all(args), partitioned_test, swap_memory=True, infer_shape=False, fn_output_signature=tf.TensorSpec(shape=(), dtype=tf.bool))
+            self.branch = tf.map_fn(lambda args: tf.reduce_all(args), partitioned_test, swap_memory=True,
+                                    infer_shape=False, fn_output_signature=tf.TensorSpec(shape=(), dtype=tf.bool))
             if len(values) == 1:
-                return tf.reshape(tf.map_fn(lambda args: tf.cond(tf.reduce_all(args[0]), lambda: self.iftrue([args[1]] + inputs + [args[2]]),
-                                                                 lambda: self.iffalse([args[1]] + inputs + [args[2]])),
-                                            (tf.expand_dims(self.branch, -1), partitioned_values, partitioned_idx), swap_memory=True,
-                                            infer_shape=False, fn_output_signature=self.iftrue.outputs[0].type_spec),
+                return tf.reshape(tf.map_fn(
+                    lambda args: tf.cond(tf.reduce_all(args[0]), lambda: self.iftrue([args[1]] + inputs + [args[2]]),
+                                         lambda: self.iffalse([args[1]] + inputs + [args[2]])),
+                    (tf.expand_dims(self.branch, -1), partitioned_values, partitioned_idx), swap_memory=True,
+                    infer_shape=False, fn_output_signature=self.iftrue.outputs[0].type_spec),
                                   [-1, self.iftrue.outputs[0].shape[-1]])
             else:
-                partitioned_fix_var = tf.ragged.stack_dynamic_partitions(values[1], tf.cast(i, dtype=tf.int32), tf.size(count))
+                partitioned_fix_var = tf.ragged.stack_dynamic_partitions(values[1], tf.cast(i, dtype=tf.int32),
+                                                                         tf.size(count))
                 return tf.reshape(tf.map_fn(lambda args: tf.cond(tf.reduce_all(args[0]),
-                                                                 lambda: self.iftrue([args[1], args[2]][:iftrue_input_len] + inputs + [args[3]]),
-                                                                 lambda: self.iffalse([args[1], args[2]][:iffalse_input_len] + inputs + [args[3]])),
-                                            (tf.expand_dims(self.branch, -1), partitioned_values, partitioned_fix_var, partitioned_idx), swap_memory=True,
+                                                                 lambda: self.iftrue(
+                                                                     [args[1], args[2]][:iftrue_input_len] + inputs + [
+                                                                         args[3]]),
+                                                                 lambda: self.iffalse(
+                                                                     [args[1], args[2]][:iffalse_input_len] + inputs + [
+                                                                         args[3]])),
+                                            (tf.expand_dims(self.branch, -1), partitioned_values, partitioned_fix_var,
+                                             partitioned_idx), swap_memory=True,
                                             infer_shape=False, fn_output_signature=self.iftrue.outputs[0].type_spec),
                                   [-1, self.iftrue.outputs[0].shape[-1]])
         else:
@@ -252,7 +294,7 @@ class Ite(MessagePassing):
             return tf.cond(self.branch, lambda: self.iftrue(inputs_iftrue), lambda: self.iffalse(inputs_iffalse))
 
 
-class FixPoint(MessagePassing):
+class FixPoint(MGLayer):
     """
     This layer implements a mG fixpoint expression. The layer expects that the first k - 1 inputs are pre-computed
     labels for the body of expression and that the k-th input is the node labels. The layer evaluates the body on these
@@ -272,14 +314,15 @@ class FixPoint(MessagePassing):
         tf.print(x, output_stream=tf.compat.v1.logging.info)
         return x
 
-    def __init__(self, gnn_x, precision, debug=False, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, gnn_x, precision, debug=False):
+        super().__init__()
         self.fixpoint_print = self.fixpoint_print_and_return if debug else lambda x: x
         self.gnn_x = gnn_x
         self.iters = None
         tolerance, solver = precision
         if tolerance is not None:
-            self.comparator = lambda curr, prev: tf.math.less_equal(tf.math.abs(tf.math.subtract(curr, prev)), tolerance)
+            self.comparator = lambda curr, prev: tf.math.less_equal(tf.math.abs(tf.math.subtract(curr, prev)),
+                                                                    tolerance)
             self.solver = standard_fixpoint if solver == 'iter' else anderson_fixpoint
         else:
             self.comparator = lambda curr, prev: curr == prev
@@ -314,9 +357,12 @@ class FixPoint(MessagePassing):
             additional_inputs.append(i)
 
         # compute forward pass without tracking the gradient
-        output = tf.nest.map_structure(tf.stop_gradient, self.solver(lambda x: [self.gnn_x(saved_args + x + additional_inputs)], X_o, lambda curr, prev: self.comparator(curr, prev), self.fixpoint_print))
+        output = tf.nest.map_structure(tf.stop_gradient,
+                                       self.solver(lambda x: [self.gnn_x(saved_args + x + additional_inputs)], X_o,
+                                                   lambda curr, prev: self.comparator(curr, prev), self.fixpoint_print))
         self.iters = output[-1]
-        tf.print('fixpoint (solver = {0}) iters: '.format(self.solver.__name__), self.iters, output_stream=tf.compat.v1.logging.info)
+        tf.print('fixpoint (solver = {0}) iters: '.format(self.solver.__name__), self.iters,
+                 output_stream=tf.compat.v1.logging.info)
 
         # compute forward pass with the gradient being tracked
         otp = output[0]
@@ -332,17 +378,19 @@ class FixPoint(MessagePassing):
                 x0 = dy
                 x = f(x0)
                 grad = tf.while_loop(
-                    cond=lambda curr, prev: tf.math.logical_not(tf.math.reduce_all(tf.math.less_equal(tf.math.abs(tf.math.subtract(curr, prev)), 0.001))),
+                    cond=lambda curr, prev: tf.math.logical_not(
+                        tf.math.reduce_all(tf.math.less_equal(tf.math.abs(tf.math.subtract(curr, prev)), 0.001))),
                     body=lambda curr, prev: [f(curr), curr],
                     loop_vars=[x, x0],
                 )
                 return grad[0]
+
             return tf.identity(x), custom_grad
 
         return fixgrad(output)
 
 
-class Repeat(MessagePassing):
+class Repeat(MGLayer):
     """
     This layer implements a mG repeat expression. The layer expects that the first k - 1 inputs are pre-computed
     labels for the body of expression and that the k-th input is the node labels. The layer evaluates the body on these
@@ -353,8 +401,8 @@ class Repeat(MessagePassing):
     :param repeat: Number of times to repeat the body.
     """
 
-    def __init__(self, gnn_x, repeat, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, gnn_x, repeat):
+        super().__init__(name='for_' + str(repeat))
         self.gnn_x = gnn_x
         self.iters = repeat
 

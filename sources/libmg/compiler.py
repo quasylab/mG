@@ -1105,12 +1105,13 @@ class GNNCompiler:
         :return: A TensorFlow ``Model`` that is the mG evaluation of 'expr'.
         """
         self.interpreter.initialize()
+        tf.keras.backend.clear_session()
         outputs = self.interpreter.visit(self.macros.visit(mg_parser.parse(expr)))
         model = MGModel(self.model_inputs, outputs.x, expr, self.interpreter.layers, self.config,
                         self.interpreter.used_psi, self.interpreter.used_phi, self.interpreter.used_sigma)
         if verbose is True:
-            model.summary()
-        self.interpreter.initialize()
+            model.summary(expand_nested=True, show_trainable=True)
+        # self.interpreter.initialize()
         return model
 
     def optimize(self, model: tf.keras.Model, optimize: str) -> Tuple[tf.keras.Model, float] | Tuple[Callable, float]:

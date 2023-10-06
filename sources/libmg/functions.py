@@ -101,26 +101,35 @@ class FunctionDict(UserDict, typing.Mapping[KT, VT]):
 
 
 class Function(tf.keras.layers.Layer):
-    @classmethod
-    def make(cls, f):
-        if isinstance(f, tf.keras.layers.Layer):  # regenerate all layers
-            return lambda: cls(type(f).from_config(f.get_config()))
-        else:
-            return lambda: cls(f)
+    def __init__(self, name=None):
+        super().__init__()
+        self.function_name = name or self.__class__.__name__
 
     @classmethod
-    def make_parametrized(cls, f): # first argument of f is supposed to be a parameter
+    def make(cls, f, name=None):
+        if isinstance(f, tf.keras.layers.Layer):  # regenerate all layers
+            return lambda: cls(type(f).from_config(f.get_config()), name=name)
+        else:
+            return lambda: cls(f, name=name)
+
+    @classmethod
+    def make_parametrized(cls, f, name=None): # first argument of f is supposed to be a parameter
         # check if f has only a single argument e.g. lambda x: lambda y: foo(x)(y)
         if f.__code__.co_argcount == 1:
-            return lambda a: cls(f(a))
+            return lambda a: cls(f(a), name=name)
         else:  # e.g. lambda x, y: foo(x)(y)
-            return lambda a: cls(partial(f, a))
+            return lambda a: cls(partial(f, a), name=name)
+
+    @property
+    def name(self):
+        return self.function_name
 
 
 class Psi(Function):
 
     def __init__(self, single_op: Optional[Callable[[tf.Tensor[T]], tf.Tensor[U]]] = None,
-                 multiple_op: Optional[Callable[[tf.Tensor[T], tf.Tensor[int]], tf.Tensor[U]]] = None, **kwargs):
+                 multiple_op: Optional[Callable[[tf.Tensor[T], tf.Tensor[int]], tf.Tensor[U]]] = None,
+                 name=None):
         """
         A general function applied on node labels f: (T*, T) -> U. For single graph datasets, which use the
         SingleGraphLoader, only the single_op parameter is necessary. For multiple graph datasets, using the
@@ -137,7 +146,7 @@ class Psi(Function):
          Tensorflow's broadcasting rules. The function must use broadcasting to emulate the tuple (T*, T) in the
          definition of f.
         """
-        super().__init__(**kwargs)
+        super().__init__(name)
         if single_op is None:
             self.single_op = self.single_graph_op
         else:
@@ -154,28 +163,28 @@ class Psi(Function):
         raise NotImplementedError
 
     @classmethod
-    def make_parametrized(cls, single_op=None, multiple_op=None):
+    def make_parametrized(cls, single_op=None, multiple_op=None, name=None):
         if single_op is None and multiple_op is None:
             raise ValueError("At least one function must be provided")
         elif single_op is None:
             if multiple_op.__code__.co_argcount == 1:
-                return lambda a: cls(multiple_op=multiple_op(a))
+                return lambda a: cls(multiple_op=multiple_op(a), name=name)
             else:
-                return lambda a: cls(multiple_op=partial(multiple_op, a))
+                return lambda a: cls(multiple_op=partial(multiple_op, a), name=name)
         elif multiple_op is None:
             if single_op.__code__.co_argcount == 1:
-                return lambda a: cls(single_op(a))
+                return lambda a: cls(single_op(a), name=name)
             else:
-                return lambda a: cls(partial(single_op, a))
+                return lambda a: cls(partial(single_op, a), name=name)
         else:
             if single_op.__code__.co_argcount == 1 and multiple_op.__code__.co_argcount == 1:
-                return lambda a: cls(single_op(a), multiple_op(a))
+                return lambda a: cls(single_op(a), multiple_op(a), name=name)
             elif single_op.__code__.co_argcount == 1:
-                return lambda a: cls(single_op(a), partial(multiple_op, a))
+                return lambda a: cls(single_op(a), partial(multiple_op, a), name=name)
             elif multiple_op.__code__.co_argcount == 1:
-                return lambda a: cls(partial(single_op, a), multiple_op(a))
+                return lambda a: cls(partial(single_op, a), multiple_op(a), name=name)
             else:
-                return lambda a: cls(partial(single_op, a), partial(multiple_op, a))
+                return lambda a: cls(partial(single_op, a), partial(multiple_op, a), name=name)
 
     def __call__(self, x, i=None):
         if i is not None:
@@ -186,7 +195,7 @@ class Psi(Function):
 
 class PsiLocal(Psi):
 
-    def __init__(self, f: Optional[Callable[[tf.Tensor[T]], tf.Tensor[U]]] = None, **kwargs):
+    def __init__(self, f: Optional[Callable[[tf.Tensor[T]], tf.Tensor[U]]] = None, name=None):
         """
         A local transformation of node labels f: T -> U
 
@@ -194,9 +203,9 @@ class PsiLocal(Psi):
          The function must be compatible with Tensorflow's broadcasting rules.
         """
         if f is None:
-            super().__init__(single_op=self.func, **kwargs)
+            super().__init__(single_op=self.func, name=name)
         else:
-            super().__init__(single_op=f, **kwargs)
+            super().__init__(single_op=f, name=name)
 
     def func(self, x):
         raise NotImplementedError
@@ -207,7 +216,7 @@ class PsiLocal(Psi):
 
 class PsiGlobal(Psi):
     def __init__(self, single_op: Optional[Callable[[tf.Tensor[T]], tf.Tensor[U]]] = None,
-                 multiple_op: Optional[Callable[[tf.Tensor[T], tf.Tensor[int]], tf.Tensor[U]]] = None, **kwargs):
+                 multiple_op: Optional[Callable[[tf.Tensor[T], tf.Tensor[int]], tf.Tensor[U]]] = None, name=None):
         """
         A global pooling operation on node labels f: T* -> U. For single graph datasets, which use the
         SingleGraphLoader, only the single_op parameter is necessary. For multiple graph datasets, using the
@@ -222,7 +231,7 @@ class PsiGlobal(Psi):
         :param multiple_op: A function that transforms a Tensor of node labels of type T and a Tensor of their
          respective graph indices of type int64 to Tensor of node labels of type U.
         """
-        super().__init__(single_op=single_op, multiple_op=multiple_op, **kwargs)
+        super().__init__(single_op=single_op, multiple_op=multiple_op, name=name)
 
     def single_graph_op(self, x):
         raise NotImplementedError
@@ -242,14 +251,14 @@ class PsiGlobal(Psi):
 
 class Phi(Function):
     def __init__(self, f: Optional[Callable[[tf.Tensor[T], tf.Tensor[U], tf.Tensor[T]], tf.Tensor[V]]] = None,
-                 **kwargs):
+                 name=None):
         """
          A function  f: (T, U, T) -> V to compute the message sent by a node i to a node j through edge e.
 
         :param f: A function applied on a triple composed of a Tensor of source node labels of type T, a Tensor of edge
          labels of type U, and a Tensor of target node labels of type T that returns a Tensor of node labels of type V.
         """
-        super().__init__(**kwargs)
+        super().__init__(name)
         if f is None:
             self.f = self.func
         else:
@@ -264,7 +273,7 @@ class Phi(Function):
 
 class Sigma(Function):
     def __init__(self, f: Optional[Callable[[tf.Tensor[T], tf.Tensor[int], int, tf.Tensor[U]], tf.Tensor[V]]] = None,
-                 **kwargs):
+                 name=None):
         """
         A function f: (T*, U) -> V to aggregate the messages sent to a node, including the current label of the node.
 
@@ -272,7 +281,7 @@ class Sigma(Function):
         the id of the node each message is being sent to, an integer that specify the total number of nodes in the
         graph and finally a Tensor of node labels of type U. The function must return a Tensor of node labels of type V.
         """
-        super().__init__(**kwargs)
+        super().__init__(name)
         if f is None:
             self.f = self.func
         else:
@@ -286,7 +295,7 @@ class Sigma(Function):
 
 
 class Constant(PsiLocal):
-    def __init__(self, v: tf.Tensor[U], **kwargs):
+    def __init__(self, v: tf.Tensor[U], name=None):
         """
         A constant function f: () -> U
 
@@ -300,11 +309,11 @@ class Constant(PsiLocal):
             f = lambda x: tf.fill((tf.shape(x)[0], tf.size(v)), value=v)
         else:
             f = lambda x: tf.tile([v], [tf.shape(x)[0], 1])
-        super().__init__(f, **kwargs)
+        super().__init__(f, name)
 
 
 class Pi(PsiLocal):
-    def __init__(self, i, j=None, **kwargs):
+    def __init__(self, i, j=None, name=None):
         """
         A projection function f: T* -> T*
 
@@ -313,7 +322,7 @@ class Pi(PsiLocal):
         """
         j = i + 1 if j is None else j
         f = lambda x: x[:, i:j]
-        super().__init__(f, **kwargs)
+        super().__init__(f, name)
 
 
 class Operator(PsiLocal):
@@ -322,27 +331,24 @@ class Operator(PsiLocal):
         super().__init__()
 
 
-def make_uoperator(op):
-    class UOperator(Operator):
-        def func(self, x):
-            return op(x)
+def make_uoperator(op, name=None):
+    def func(self, x):
+        return op(x)
 
-    return UOperator
-
-
-def make_boperator(op):
-    class BOperator(Operator):
-        def func(self, x):
-            dim = tf.shape(x)[-1] // 2
-            return op(x[:, :dim], x[:, dim:])
-
-    return BOperator
+    return type(name or "UOperator", (Operator, ), {'func': func})
 
 
-def make_koperator(op):
-    class KOperator(Operator):
-        def func(self, x):
-            dim = tf.shape(x)[-1] // self.k
-            return op([x[:, i * dim:(i * dim) + dim] for i in range(self.k)])
+def make_boperator(op, name=None):
+    def func(self, x):
+        dim = tf.shape(x)[-1] // 2
+        return op(x[:, :dim], x[:, dim:])
 
-    return KOperator
+    return type(name or "BOperator", (Operator, ), {'func': func})
+
+
+def make_koperator(op, name=None):
+    def func(self, x):
+        dim = tf.shape(x)[-1] // self.k
+        return op([x[:, i * dim:(i * dim) + dim] for i in range(self.k)])
+
+    return type(name or "KOperator", (Operator, ), {'func': func})

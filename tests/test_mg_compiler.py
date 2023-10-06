@@ -389,6 +389,13 @@ class BaseTest(tf.test.TestCase):
                 model.call([inputs], training=False)
             self.assertEqual(expected_n_layers, len(model.layers))
 
+    def test_verbose(self):
+        expr = ['a', 'true', 'false', '<| uor', '|> or', 'a;not', '(a || b);and', '(a || b);or', 'a; false', 'a || b',
+                'if true then true else false', 'fix X = true in (((X;false) || a);or)', 'repeat X = true in X;not for 3']
+        compiler = self.compilers[2]
+        for e in expr:
+            compiler.compile(e, verbose=True)
+
 
 class EdgeTest(tf.test.TestCase):
     def setUp(self):
