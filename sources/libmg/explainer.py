@@ -117,6 +117,6 @@ class ExplainerMG(Interpreter):
         raise VisitError('ite', tree, 'If-Then-Else expression')
 
     def __default__(self, tree):  # local var expr, fun def, fun call, fix, repeat, composition
-        new_op = tree.copy()
-        new_op.children = self.visit_children(tree)
-        return new_op
+        # new_op = tree.copy()
+        tree.children = self.visit_children(tree)
+        return tree

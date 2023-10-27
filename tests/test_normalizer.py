@@ -23,6 +23,20 @@ class NormalizerTests(tf.test.TestCase):
         self.assertEqual('fix', tree.data,)
         self.assertEqual('parallel', tree.children[2].data)
 
+    def test_composition_fixvars(self):
+        expr = ['fix X = true in X;X', 'fix X = true in X;X;not', 'fix X = true in X;X;X', 'fix X = true in X;not;X',
+                'fix X = true in (X;(not || true || X);or)', 'fix X = true in (X;if X then true else false)',
+                'fix X = true in (X;if true then X else false)', 'fix X = true in (a ; ((X || not);and))']
+        eq_expr = ['fix X = true in X', 'fix X = true in X;not', 'fix X = true in X', 'fix X = true in X',
+                   'fix X = true in (((X;not) || (X;true) || X);or)',
+                   'fix X = true in (if X then (X;true) else (X;false))',
+                   'fix X = true in (if (X;true) then X else (X;false))',
+                   'fix X = true in ((X || (a;not));and)']
+        for e1, e2 in zip(expr, eq_expr):
+            tree1 = self.normalizer.visit(self.parser.parse(e1))
+            tree2 = self.parser.parse(e2)
+            self.assertEqual(tree1, tree2)
+
 
 if __name__ == '__main__':
     tf.test.main()

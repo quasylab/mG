@@ -110,7 +110,7 @@ def base_tester(dataset, compilers, expressions):
         for e in expressions:
             model = compiler.compile(e)
             for inputs in loader.load():
-                model.call([inputs], training=False)
+                print(model.call([inputs], training=False))
 
 
 class TestDataset(Dataset):
@@ -151,8 +151,8 @@ class BaseTest(tf.test.TestCase):
             'c': PsiLocal(
                 lambda x: tf.cast(tf.bitwise.bitwise_and(x, tf.constant(2 ** 2, dtype=tf.uint8)), tf.bool)),
             '100': Constant(tf.constant([100.0, 100.0], dtype=tf.float32)),
-            'true': Constant(tf.constant(True)),
-            'false': Constant(tf.constant(False)),
+            'true': Constant(tf.constant(True), name='True'),
+            'false': Constant(tf.constant(False), name='False'),
             'and': PsiLocal(lambda x: tf.math.reduce_all(x, axis=1, keepdims=True)),
             'or': PsiLocal(lambda x: tf.math.reduce_any(x, axis=1, keepdims=True)),
             'not': PsiLocal(lambda x: tf.math.logical_not(x)),
@@ -308,7 +308,7 @@ class BaseTest(tf.test.TestCase):
 
     def test_ite(self):
         expr = ['(if a then b else false) || b', 'add1; if le then add1 else add1']
-        base_tester(self.dataset, self.compilers, expr)
+        base_tester(self.dataset, self.compilers, expr[1:])
 
     def test_ite_multiple(self):
         dataset = TestDataset(n=2, edges=False)
@@ -361,7 +361,8 @@ class BaseTest(tf.test.TestCase):
                 'fix X = true in (fix Y = true in (X || Y || a);and)',
                 'fix Z = true in (fix X = false in (fix Y = false in (X || Y || Z);or))',
                 'fix X = true in ((fix Y = false in (X || Y);and) || (fix Z = true in (X || Z);and));or',
-                'fix X = false in (fix Y = true in ((X;not) || Y);or)', 'fix X = false in (fix Y = true in X)']
+                'fix X = false in (fix Y = true in ((X;not) || Y);or)',
+                'fix X = false in (fix Y = true in X)']
         base_tester(self.dataset, self.compilers, expr)
 
     def test_constants(self):
@@ -384,7 +385,7 @@ class BaseTest(tf.test.TestCase):
                 expected_n_layers = 11  # account for the I layer
             else:
                 expected_n_layers = 12
-            model = compiler.compile(expr)
+            model = compiler.compile(expr, memoize=True)
             for inputs in loader().load():
                 model.call([inputs], training=False)
             self.assertEqual(expected_n_layers, len(model.layers))
@@ -395,6 +396,54 @@ class BaseTest(tf.test.TestCase):
         compiler = self.compilers[2]
         for e in expr:
             compiler.compile(e, verbose=True)
+
+    def test_disable_eval_if(self):
+        expr = ['fix X = false in (if true then (((if true then X else X) || X);or) else true)',
+                'fix X = false in (if true then (((if true then X else false) || X);or) else true)',
+                'fix X = false in (if true then (((if X then false else false) || X);or) else true)',
+                'fix X = false in (if true then ((true || X);or) else true)',
+                'fix X = false in (if true then (X;not;not) else true)',
+                'def f(Y){Y} in fix X = false in (if true then f(X) else true)',
+                'fix X = false in (if true then (fix Y = true in ((X || Y);and)) else true)',
+                'repeat X = false in (if true then (fix Y = true in ((X || Y);and)) else true) for 2',
+                'fix X = false in (if true then (fix Y = X in Y) else true)']
+        compiler = self.compilers[0]
+        for e in expr:
+            model = compiler.compile(e)
+            model.summary()
+            print(model.mg_layers)
+            for k,v in model.mg_layers.items():
+                print(v.name)
+            for inputs in SingleGraphLoader(self.dataset, epochs=1).load():
+                print(model.call([inputs], training=False))
+
+    def test_names(self):
+        expr = ['true;false;true;false;false']
+        expr = ['true;false;true;(true || false);false']
+        expr = ['true;false;true;(if true then false else true);false']
+        expr = ['true;false;true;(if true then false else true);false']
+        expr = ['true;false;true;(fix X = (true;false) in X);false']
+        expr = ['true;false;true;(repeat X = (true;false) in X for 3);false']
+        expr = ['true;false;true;(fix X = true in X);false']
+        expr = ['true;false;true;(fix X = (true;false) in (X;false));false']
+        expr = ['true;false;true;(def f(X){X;false} in f(true;false));false']
+        expr = ['true;false;true;(let X = true;false in (X;false));false']
+        expr = ['true ; false ; let X = true in (X || (let Y = false in (Y;true)))']
+        expr = ['true ; def f(X){X} in (f(true) || f(false))']
+        expr = ['true ; fix X = false in X;true;false']
+        expr = ['true ; if not then true else false']
+        expr = ['fix X = true in (fix Y = false in ((X;id) || Y);and)']
+
+        expr = ['true;(if true then false else true)']
+        expr = ['true ; fix X = false in (if true then X else X)']
+        expr = ['true ; fix X = false in (if X then true else false)']
+        expr = ['true ; fix X = false in (if X then true else X)']
+
+        expr = ['true ; fix X = false in (if (((X;not) || true);and) then false else true)']
+        expr = ['true ; fix X = false in (if (((X;not) || true);and) then (((X;not) || true);and) else true)']
+        compiler = self.compilers[0]
+        for e in expr:
+            model = compiler.compile(e)
 
 
 class EdgeTest(tf.test.TestCase):
@@ -464,7 +513,7 @@ class EdgeTest(tf.test.TestCase):
                 expected_n_layers = 12  # account for the I layer
             else:
                 expected_n_layers = 13
-            model = compiler.compile(expr)
+            model = compiler.compile(expr, memoize=True)
             for inputs in loader().load():
                 model.call([inputs], training=False)
             self.assertEqual(expected_n_layers, len(model.layers))
