@@ -1,7 +1,0 @@
-spektral
-numpy
-lark
-scipy
-tensorflow
-pyvis
-bidict

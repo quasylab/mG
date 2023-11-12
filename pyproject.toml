@@ -1,13 +1,44 @@
+[tool.poetry]
+name = "libmg"
+version = "0.3.61"
+description = ""
+license = "MIT"
+authors = ["Matteo Belenchia"]
+readme = "README.md"
+repository = ""
+documentation = ""
+
+packages = [{include = "libmg"}]
+
+[tool.poetry.dependencies]
+python      = ">=3.9, <3.12"
+tensorflow  = "2.12"
+tensorflow-io-gcs-filesystem = "0.31.0" # for windows compatibility
+spektral    = "^1.3"
+numpy       = "*"
+scipy       = "*"
+bidict      = "*"
+lark        = "*"
+pyvis       = "0.3.2"
+
+
+[tool.poetry.group.test.dependencies]
+pytest      = "*"
+pytest-cov  = "*"
+mypy        = "*"
+flake8      = "*"
+tox         = "*"
+
 [build-system]
-requires = ['setuptools>=42.0', 'wheel']
-build-backend = 'setuptools.build_meta'
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
-addopts = '--cov=libmg'
-testpaths = ['tests',]
+addopts = '--doctest-modules' # --cov=libmg
+testpaths = ['libmg/tests',]
 
 [tool.mypy]
-mypy_path = 'sources'
+exclude = ["libmg/tests/"]
 check_untyped_defs = true
 ignore_missing_imports = true
 no_implicit_optional = true
@@ -18,3 +49,32 @@ warn_return_any = true
 warn_unreachable = true
 warn_unused_configs = true
 no_implicit_reexport = true
+
+[tool.flake8]
+max-line-length = 120
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+minversion = 3.9.0
+envlist = py310, flake8, mypy
+isolated_build = true
+
+[gh-actions]
+python =
+    3.10: py310, flake8, mypy
+
+[testenv]
+setenv =
+    PYTHONPATH = {toxinidir}
+commands =
+    pytest --basetemp={envtmpdir}
+
+[testenv:flake8]
+basepython = python3.10
+commands = flake8 libmg
+
+[testenv:mypy]
+basepython = python3.10
+commands = mypy libmg
+"""

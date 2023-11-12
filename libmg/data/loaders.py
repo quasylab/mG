@@ -1,14 +1,23 @@
+"""Loads datasets to be processed by TensorFlow models.
+
+This module defines two loaders for datasets, based on the loaders defined in the Spektral library.
+
+The module contains the following classes:
+
+- ``SingleGraphLoader(dataset, epochs=None, sample_weights=None)``
+- ``MultipleGraphLoader(dataset, node_level=False, batch_size=1, epochs=None, shuffle=True)``
+"""
+
 import tensorflow as tf
 from spektral.data import SingleLoader, DisjointLoader
-from spektral.data.utils import collate_labels_disjoint, sp_matrices_to_sp_tensors, to_disjoint, prepend_none, \
-    to_tf_signature
+from spektral.data.utils import collate_labels_disjoint, sp_matrices_to_sp_tensors, to_disjoint, prepend_none, to_tf_signature
 
 
 class SingleGraphLoader(SingleLoader):
-    """
-    A ``Loader`` for a dataset consisting of a single graph instance.
+    """Loads a dataset made up by a single graph to be used by a TensorFlow model.
+
     See Spektral's `documentation <https://graphneural.network/data-modes/#single-mode/>`_ for additional information,
-    as this class is directly derived from Spektral's ``SingleLoader``.
+    as this class is directly derived from Spektral's ``SingleLoader`` class.
     """
 
     def collate(self, batch):
@@ -35,10 +44,10 @@ class SingleGraphLoader(SingleLoader):
 
 
 class MultipleGraphLoader(DisjointLoader):
-    """
-    A ``Loader`` for a dataset consisting of multiple graphs, representing a batch as a disjoint union of graphs.
-    See Spektral's `documentation <https://graphneural.network/data-modes/#disjoint-mode/>`_ for additional information,
-    as this class is directly derived from Spektral's ``DisjointLoader``.
+    """Loads a dataset made up by more than one graph to be used by a TensorFlow model.
+
+    See Spektral's `documentation <https://graphneural.network/data-modes/#single-mode/>`_ for additional information,
+    as this class is directly derived from Spektral's ``DisjointLoader`` class.
     """
 
     def collate(self, batch):
