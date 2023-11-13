@@ -207,18 +207,18 @@ class Function(tf.keras.layers.Layer):
         return self._function_name
 
 
-class Psi(Function):
+class PsiNonLocal(Function):
     """A psi function of the mG language.
 
-    A general function applied on node labels psi: (T*, T) -> U. For single graph datasets, which use the
+    A non-local function applied on node labels psi: (T*, T) -> U. For single graph datasets, which use the
     ``SingleGraphLoader``, only the ``single_op`` parameter is necessary. For multiple graph datasets, using the
     ``MultipleGraphLoader``, only the ``multiple_op`` parameter is necessary. The ``multiple_op`` argument is a function which
     takes an additional parameter to distinguish which values in the first argument refer to which graph. For
     more information, refer to the disjoint data mode in the Spektral library `documentation <https://graphneural.network/data-modes/#disjoint-mode/>`_.
 
     Examples:
-        >>> Psi(single_op=lambda x: x + 1, multiple_op=lambda x, i: x + 1, name='Add1')
-        <functions.Psi object at 0x...>
+        >>> PsiNonLocal(single_op=lambda x: x + 1, multiple_op=lambda x, i: x + 1, name='Add1')
+        <...functions.PsiNonLocal object at 0x...>
 
     Attributes:
         single_op: A function to be used in conjunction with a ``SingleGraphLoader``
@@ -259,34 +259,28 @@ class Psi(Function):
         raise NotImplementedError
 
     @classmethod
-    @typing.no_type_check
-    def make(cls, name: str | None, single_op: Callable | None = None, multiple_op: Callable | None = None) -> Callable[[], Psi]:
-        """Returns a zero-argument function that when called returns an instance of ``cls`` initialized with the provided function ``f`` and ``name``.
+    def make(cls, name: str | None, single_op: Callable | None = None, multiple_op: Callable | None = None) -> Callable[[], PsiNonLocal]:
+        """Returns a zero-argument function that when called returns an instance of ``cls`` initialized with the provided functions ``single_op`` and/or
+        ``multiple_op`` and ``name``.
 
-        The class ``cls`` is supposed to be a ``Psi`` subclass. Calling this method on a ``Psi`` subclass
-        creates a zero-argument lambda that returns an instance of such subclass. This way, whenever that function is used in a mG program, the dictionary
-        automatically regenerates the instance. This is useful when the function has trainable weights, which are not supposed to be shared with other instances
-        of the function.
+        Calling this method on a ``PsiNonLocal`` class creates a zero-argument lambda that returns an instance of such subclass. This way, whenever that
+        function is used in a mG program, the dictionary automatically regenerates the instance. This is useful when the function has trainable weights,
+        which are not supposed to be shared with other instances of the function.
 
         Examples:
-            >>> PsiLocal.make('Successor', lambda x: x + 1)
-            <function Psi.make.<locals>.<lambda> at 0x...>
+            >>> PsiNonLocal.make('Successor', lambda x: x + 1)
+            <function PsiNonLocal.make.<locals>.<lambda> at 0x...>
 
         Args:
-            name: The name of the function returned by ``f``.
-            single_op: The function that when applied to some argument ``a`` returns the function that will be used to instantiate ``cls``. If ``cls`` is
-                ``Psi`` or ``PsiGlobal``, this will be the ``single_op`` argument.
-            multiple_op: The function that when applied to some argument ``a`` returns the function that will be used to instantiate ``cls``. If ``cls`` is
-                ``Psi`` or ``PsiGlobal``, this will be the ``multiple_op`` argument. This argument must be ``None`` is ``cls`` is ``PsiLocal``.
+            name: The name of the function returned by ``single_op`` and ``multiple_op``.
+            single_op: The function that will be used to instantiate ``cls`` as the ``single_op`` argument.
+            multiple_op: The function that will be used to instantiate ``cls`` as the ``multiple_op`` argument.
 
         Raises:
             ValueError: Neither ``single_op`` nor ``multiple_op`` have been provided.
-            TypeError: A ``multiple_op`` has been provided to instantiate a ``PsiLocal`` object.
         """
         if single_op is None and multiple_op is None:
             raise ValueError("At least one function must be provided.")
-        if multiple_op is not None and cls is PsiLocal:
-            raise TypeError("Attempt to create a PsiLocal object with a multiple_op.")
         args = {}
         if single_op is not None:
             args['single_op' if cls is not PsiLocal else 'f'] = single_op
@@ -294,41 +288,36 @@ class Psi(Function):
             args['multiple_op'] = multiple_op
         return lambda: cls(name=name, **{k: type(v).from_config(v.get_config()) if isinstance(v, tf.keras.layers.Layer) else v for k, v in args.items()})
 
-    # TODO: add to psilocal
     @classmethod
-    @typing.no_type_check
     def make_parametrized(cls, name: str | None, single_op: Callable[[str], Callable] | Callable[..., Any] | None = None,
-                          multiple_op: Callable[[str], Callable] | Callable[..., Any] | None = None) -> Callable[[str], Psi]:
+                          multiple_op: Callable[[str], Callable] | Callable[..., Any] | None = None) -> Callable[[str], PsiNonLocal]:
         """Returns a one-argument function that when called with the argument ``a`` returns an instance of ``cls`` initialized with the result of the
          application of ``a`` to the function ``single_op`` and/or ``multiple_op``, and ``name``.
 
-        The class ``cls`` is supposed to be a ``Psi`` subclass. Calling this method on a ``Psi`` subclass
-        creates a one-argument lambda that returns an instance of such subclass. This way, whenever that function is used in a mG program, the dictionary
-        automatically regenerates the instance. This is useful when the function has trainable weights, which are not supposed to be shared with other instances
-        of the function. The functions ``single_op`` and ``multiple_op`` may have the form ``lambda x: lambda ... : ...`` or ``lambda x, ... : ...``.
-        The one argument of the lambda returned by this function corresponds to the ``x`` argument of ``single_op`` and ``multiple_op``.
+        Calling this method on a ``PsiNonLocal`` class creates a one-argument lambda that returns an instance of such subclass. This way, whenever that
+        function is used in a mG program, the dictionary automatically regenerates the instance. This is useful when the function has trainable weights,
+        which are not supposed to be shared with other instances of the function. The functions ``single_op`` and ``multiple_op`` may have the form ``lambda
+        x: lambda ... : ...`` or ``lambda x, ... : ...``. The one argument of the lambda returned by this function corresponds to the ``x`` argument of
+        ``single_op`` and ``multiple_op``.
 
         Examples:
-            >>> Psi.make_parametrized('Add', single_op=lambda y: lambda x: x + y, multiple_op=lambda y: lambda x, i: x + y)
-            <function Psi.make_parametrized.<locals>.<lambda> at 0x...>
-            >>> Psi.make_parametrized('Add', single_op=lambda y, x: x + y, multiple_op=lambda y, x, i: x + y)
-            <function Psi.make_parametrized.<locals>.<lambda> at 0x...>
+            >>> PsiNonLocal.make_parametrized('Add', single_op=lambda y: lambda x: x + y, multiple_op=lambda y: lambda x, i: x + y)
+            <function PsiNonLocal.make_parametrized.<locals>.<lambda> at 0x...>
+            >>> PsiNonLocal.make_parametrized('Add', single_op=lambda y, x: x + y, multiple_op=lambda y, x, i: x + y)
+            <function PsiNonLocal.make_parametrized.<locals>.<lambda> at 0x...>
 
         Args:
-            single_op: The function that when applied to some argument ``a`` returns the function that will be used to instantiate ``cls``. If ``cls`` is
-                ``Psi`` or ``PsiGlobal``, this will be the ``single_op`` argument.
-            multiple_op: The function that when applied to some argument ``a`` returns the function that will be used to instantiate ``cls``. If ``cls`` is
-                ``Psi`` or ``PsiGlobal``, this will be the ``multiple_op`` argument. This argument must be ``None`` if ``cls`` is ``PsiLocal``.
-            name: The name of the function returned by ``f``.
+            single_op: The function that when applied to some argument ``a`` returns the function that will be used to instantiate ``cls``as the
+            ``single_op`` argument.
+            multiple_op: The function that when applied to some argument ``a`` returns the function that will be used to instantiate ``cls`` as the
+            ``multiple_op`` argument.
+            name: The name of the function returned by ``single_op`` and ``multiple_op``.
 
         Raises:
             ValueError: Neither ``single_op`` nor ``multiple_op`` have been provided.
-            TypeError: A ``multiple_op`` has been provided to instantiate a ``PsiLocal`` object.
         """
         if single_op is None and multiple_op is None:
             raise ValueError("At least one function must be provided.")
-        if multiple_op is not None and cls is PsiLocal:
-            raise TypeError("Attempt to create a PsiLocal object with a multiple_op.")
         args = {}
         if single_op is not None:
             args['single_op' if cls is not PsiLocal else 'f'] = single_op
@@ -343,17 +332,17 @@ class Psi(Function):
             return self.single_op(x)
 
 
-class PsiLocal(Psi):
+class PsiLocal(Function):
     """A psi function of the mG language that only applies a local transformation of node labels.
 
     A local transformation of node labels psi: T -> U.
 
     Examples:
         >>> PsiLocal(lambda x: x + 1, name='Add1')
-        <functions.PsiLocal object at 0x...>
+        <...functions.PsiLocal object at 0x...>
     """
 
-    def __init__(self, f: Callable[[tf.Tensor], tf.Tensor] | None = None, name: str | None = None):
+    def __init__(self, f: Callable | None = None, name: str | None = None):
         """Initializes the instance with a function and a name.
 
         Args:
@@ -365,16 +354,16 @@ class PsiLocal(Psi):
         """
         if f is None:
             f = self.func
-        super().__init__(single_op=f, name=name)
+        super().__init__(f, name)
 
     def func(self, x: tf.Tensor) -> tf.Tensor:
         raise NotImplementedError
 
     def __call__(self, x: tf.Tensor, i: tf.Tensor | None = None) -> tf.Tensor:
-        return self.single_op(x)
+        return self.f(x)
 
 
-class PsiGlobal(Psi):
+class PsiGlobal(PsiNonLocal):
     """A psi function of the mG language that only applies a global transformation of node labels.
 
     A global transformation (i.e. pooling) of node labels psi: T* -> U. For single graph datasets, which use the
@@ -385,7 +374,7 @@ class PsiGlobal(Psi):
 
     Examples:
         >>> PsiGlobal(single_op=lambda x: tf.reduce_sum(x, axis=0, keepdims=True), multiple_op=lambda x, i: tf.math.segment_sum(x, i), name='SumPooling')
-        <functions.PsiGlobal object at 0x...>
+        <...functions.PsiGlobal object at 0x...>
     """
 
     def __init__(self, single_op: Callable[[tf.Tensor], tf.Tensor] | None = None,
@@ -429,7 +418,7 @@ class Phi(Function):
 
     Examples:
         >>> Phi(lambda i, e, j: i * e, name='EdgeProd')
-        <functions.Phi object at 0x...>
+        <...functions.Phi object at 0x...>
     """
 
     def __init__(self, f: Callable[[tf.Tensor, tf.Tensor, tf.Tensor], tf.Tensor] | None = None,
@@ -462,7 +451,7 @@ class Sigma(Function):
 
     Examples:
         >>> Sigma(lambda m, i, n, x: tf.math.segment_max(m, i), name='Max')
-        <functions.Sigma object at 0x...>
+        <...functions.Sigma object at 0x...>
     """
 
     def __init__(self, f: Callable[[tf.Tensor, tf.Tensor, int, tf.Tensor], tf.Tensor] | None = None,
@@ -495,7 +484,7 @@ class Constant(PsiLocal):
 
     Examples:
         >>> Constant(tf.constant(False), name='False')
-        <functions.Constant object at 0x...>
+        <...functions.Constant object at 0x...>
     """
 
     def __init__(self, v: tf.Tensor, name: str | None = None):
@@ -527,7 +516,7 @@ class Pi(PsiLocal):
 
     Examples:
         >>> Pi(0, 2, name='FirstTwo')
-        <functions.Pi object at 0x...>
+        <...functions.Pi object at 0x...>
     """
 
     def __init__(self, i: int, j: int | None = None, name: str | None = None):

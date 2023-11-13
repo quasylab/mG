@@ -32,7 +32,7 @@ from spektral.data import Graph, Loader
 from tensorflow.python.util.object_identity import Reference
 
 from libmg.data.dataset import Dataset
-from libmg.compiler.functions import FunctionDict, Psi, Phi, Sigma
+from libmg.compiler.functions import FunctionDict, PsiNonLocal, Phi, Sigma
 from libmg.data.loaders import SingleGraphLoader, MultipleGraphLoader
 from libmg.normalizer.normalizer import var_occurs, mg_normalizer
 from libmg.compiler.grammar import mg_parser, mg_reconstructor
@@ -573,7 +573,7 @@ class MGModel:
     """
 
     def __init__(self, inputs: list[tf.Tensor], outputs: tf.Tensor, expr: str, layers: dict[int, tf.keras.layers.Layer],
-                 config: CompilerConfig, psi_functions: dict[str, Psi], phi_functions: dict[str, Phi], sigma_functions: dict[str, Sigma]):
+                 config: CompilerConfig, psi_functions: dict[str, PsiNonLocal], phi_functions: dict[str, Phi], sigma_functions: dict[str, Sigma]):
         """Initializes the instance with the inputs and outputs of the model, the expression that the model implements, the layers of the model indexed by
         expression, and the functions that have been used in it.
 
@@ -679,7 +679,7 @@ class MGCompiler:
             self.defined_functions: dict[str, MGFunction] = {}
             self.defined_local_variables: dict[str, MGFunction] = {}
             self.var_input: dict[str, IntermediateOutput] = {}
-            self.used_psi: dict[str, Psi] = {}
+            self.used_psi: dict[str, PsiNonLocal] = {}
             self.used_phi: dict[str, Phi] = {}
             self.used_sigma: dict[str, Sigma] = {}
             self.eval_if_clause: list[str] = []
@@ -1357,7 +1357,7 @@ class MGCompiler:
             """
             return self.evaluate_loop_expr(tree, 'repeat')
 
-    def __init__(self, psi_functions: dict[str, Psi], sigma_functions: dict[str, Sigma], phi_functions: dict[str, Phi], config: CompilerConfig):
+    def __init__(self, psi_functions: dict[str, PsiNonLocal], sigma_functions: dict[str, Sigma], phi_functions: dict[str, Phi], config: CompilerConfig):
         """Initializes the instance with the psi, phi and sigma functions that this compiler will recognize and the compiler configuration.
 
         Args:
@@ -1455,7 +1455,7 @@ class MGCompiler:
                 break
         return elapsed
 
-    def compile(self, expr: str, verbose: bool = False, memoize: bool = False) -> MGModel:
+    def compile(self, expr: str | Tree, verbose: bool = False, memoize: bool = False) -> MGModel:
         """Compiles a mG program into a TensorFlow model.
 
         Args:
@@ -1480,8 +1480,9 @@ class MGCompiler:
 
         self.visitor.initialize(IntermediateOutput(mg_parser.parse('__INPUT__'), x, a, e, i), memoize)
         tf.keras.backend.clear_session()
-        outputs = self.visitor.visit(mg_normalizer.normalize(mg_parser.parse(expr)))
-        model = MGModel(self.model_inputs, outputs.x, expr, self.visitor.layers, self.config,
+        normalized_expr_tree = mg_normalizer.normalize(expr if isinstance(expr, Tree) else mg_parser.parse(expr))
+        outputs = self.visitor.visit(normalized_expr_tree)
+        model = MGModel(self.model_inputs, outputs.x, mg_reconstructor.reconstruct(normalized_expr_tree), self.visitor.layers, self.config,
                         self.visitor.used_psi, self.visitor.used_phi, self.visitor.used_sigma)
         if verbose is True:
             model.summary(expand_nested=True, show_trainable=True)

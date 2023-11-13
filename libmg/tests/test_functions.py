@@ -2,7 +2,7 @@ from __future__ import annotations
 import pytest
 import tensorflow as tf
 from libmg import PsiLocal
-from libmg.compiler.functions import FunctionDict, make_uoperator, make_boperator, make_koperator, Phi, Sigma, Psi, PsiGlobal, Constant, Pi
+from libmg.compiler.functions import FunctionDict, make_uoperator, make_boperator, make_koperator, Phi, Sigma, PsiNonLocal, PsiGlobal, Constant, Pi
 
 
 class TestFunctionDict:
@@ -54,28 +54,28 @@ class TestFunctionDict:
 
 
 class TestFunction:
-    @pytest.mark.parametrize('cls, f', [(Phi, lambda i, e, j: j), (Sigma, lambda m, i, n, x: tf.math.segment_max(m, i)),
-                                        (Phi, tf.keras.layers.Dense(1)), (Sigma, tf.keras.layers.Dense(1))])
+    @pytest.mark.parametrize('cls, f', [(PsiLocal, lambda x: x), (Phi, lambda i, e, j: j), (Sigma, lambda m, i, n, x: tf.math.segment_max(m, i)),
+                                        (PsiLocal, tf.keras.layers.Dense(1)), (Phi, tf.keras.layers.Dense(1)), (Sigma, tf.keras.layers.Dense(1))])
     def test_make(self, cls, f):
         assert isinstance(cls.make('TestFunction', f)(), cls)
 
-    @pytest.mark.parametrize('cls, f', [(Phi, lambda y: lambda i, e, j: j * int(y)), (Sigma, lambda y: lambda m, i, n, x: tf.math.segment_max(m, i) + int(y)),
-                                        (Phi, lambda y, i, e, j: j * int(y)), (Sigma, lambda y, m, i, n, x: tf.math.segment_max(m, i) + int(y))])
+    @pytest.mark.parametrize('cls, f', [(PsiLocal, lambda y: lambda x: x + y), (Phi, lambda y: lambda i, e, j: j * int(y)),
+                                        (Sigma, lambda y: lambda m, i, n, x: tf.math.segment_max(m, i) + int(y)),
+                                        (PsiLocal, lambda y, x: x + y), (Phi, lambda y, i, e, j: j * int(y)),
+                                        (Sigma, lambda y, m, i, n, x: tf.math.segment_max(m, i) + int(y))])
     def test_make_parametrized(self, cls, f):
         assert isinstance(cls.make_parametrized('TestFunction', f)('1'), cls)
 
 
-class TestPsi(tf.test.TestCase):
+class TestPsiNonLocal(tf.test.TestCase):
     def test_make(self):
-        for args in [(Psi, lambda x: x, lambda x: x), (Psi, lambda x: x, None), (Psi, None, lambda x: x),
-                     (PsiLocal, lambda x: x, None),
+        for args in [(PsiNonLocal, lambda x: x, lambda x: x), (PsiNonLocal, lambda x: x, None), (PsiNonLocal, None, lambda x: x),
                      (PsiGlobal, lambda x: tf.reduce_sum(x, axis=0, keepdims=False), lambda x, i: tf.math.segment_sum(x, i)),
                      (PsiGlobal, lambda x: tf.reduce_sum(x, axis=0, keepdims=False), None),
                      (PsiGlobal, None, lambda x, i: tf.math.segment_sum(x, i)),
-                     (Psi, tf.keras.layers.Dense(1), tf.keras.layers.Dense(1)),
-                     (Psi, tf.keras.layers.Dense(1), None),
-                     (Psi, None, tf.keras.layers.Dense(1)),
-                     (PsiLocal, tf.keras.layers.Dense(1), None),
+                     (PsiNonLocal, tf.keras.layers.Dense(1), tf.keras.layers.Dense(1)),
+                     (PsiNonLocal, tf.keras.layers.Dense(1), None),
+                     (PsiNonLocal, None, tf.keras.layers.Dense(1)),
                      (PsiGlobal, tf.keras.layers.Dense(1), tf.keras.layers.Dense(1)),
                      (PsiGlobal, tf.keras.layers.Dense(1), None),
                      (PsiGlobal, None, tf.keras.layers.Dense(1))
@@ -84,17 +84,15 @@ class TestPsi(tf.test.TestCase):
             assert isinstance(cls.make('TestFunction', single_op, multiple_op)(), cls)
 
     def test_make_parametrized(self):
-        for args in [(Psi, lambda y: lambda x: x + y, lambda y: lambda x: x + y),
-                     (Psi, lambda y: lambda x: x + y, None),
-                     (Psi, None, lambda y: lambda x: x + y),
-                     (PsiLocal, lambda y: lambda x: x + y, None),
+        for args in [(PsiNonLocal, lambda y: lambda x: x + y, lambda y: lambda x: x + y),
+                     (PsiNonLocal, lambda y: lambda x: x + y, None),
+                     (PsiNonLocal, None, lambda y: lambda x: x + y),
                      (PsiGlobal, lambda y: lambda x: tf.reduce_sum(x + y, axis=0, keepdims=False), lambda y: lambda x, i: tf.math.segment_sum(x + y, i)),
                      (PsiGlobal, lambda y: lambda x: tf.reduce_sum(x + y, axis=0, keepdims=False), None),
                      (PsiGlobal, None, lambda y: lambda x, i: tf.math.segment_sum(x + y, i)),
-                     (Psi, lambda y, x: x + y, lambda y, x: x + y),
-                     (Psi, lambda y, x: x + y, None),
-                     (Psi, None, lambda y, x: x + y),
-                     (PsiLocal, lambda y, x: x + y, None),
+                     (PsiNonLocal, lambda y, x: x + y, lambda y, x: x + y),
+                     (PsiNonLocal, lambda y, x: x + y, None),
+                     (PsiNonLocal, None, lambda y, x: x + y),
                      (PsiGlobal, lambda y, x: tf.reduce_sum(x + y, axis=0, keepdims=False), lambda y, x, i: tf.math.segment_sum(x + y, i)),
                      (PsiGlobal, lambda y, x: tf.reduce_sum(x + y, axis=0, keepdims=False), None),
                      (PsiGlobal, None, lambda y, x, i: tf.math.segment_sum(x + y, i)),
@@ -103,16 +101,16 @@ class TestPsi(tf.test.TestCase):
             assert isinstance(cls.make_parametrized('TestFunction', single_op, multiple_op)('1'), cls)
 
     def test_call(self):
-        class IncrementPsi(Psi):
+        class IncrementPsi(PsiNonLocal):
             def single_graph_op(self, x: tf.Tensor) -> tf.Tensor:
                 return x + 1
 
             def multiple_graph_op(self, x: tf.Tensor, i: tf.Tensor) -> tf.Tensor:
                 return x + 1
 
-        for psi in [Psi(single_op=lambda x: x + 1, multiple_op=lambda x, i: x + 1),
+        for psi in [PsiNonLocal(single_op=lambda x: x + 1, multiple_op=lambda x, i: x + 1),
                     IncrementPsi(),
-                    Psi.make(single_op=lambda x: x + 1, multiple_op=lambda x, i: x + 1, name='Increment')()]:
+                    PsiNonLocal.make(single_op=lambda x: x + 1, multiple_op=lambda x, i: x + 1, name='Increment')()]:
             self.assertAllEqual(psi(tf.constant([[1], [2], [3]])), tf.constant([[2], [3], [4]]))
             self.assertAllEqual(psi(tf.constant([[1], [2], [3]]), tf.constant([0, 0, 1])), tf.constant([[2], [3], [4]]))
 
@@ -125,7 +123,7 @@ class TestPsi(tf.test.TestCase):
             def __call__(self, x, i):
                 return self.f(x)
 
-        class PsiDense(Psi):
+        class PsiDense(PsiNonLocal):
             def __init__(self):
                 super().__init__()
                 self.single_dense = tf.keras.layers.Dense(10, activation='linear')
@@ -139,9 +137,9 @@ class TestPsi(tf.test.TestCase):
 
         inputs_x = tf.keras.Input(shape=(5,))
         inputs_i = tf.keras.Input(shape=(None,))
-        for psi in [Psi(single_op=tf.keras.layers.Dense(10, activation='linear'), multiple_op=MultipleLayer()),
+        for psi in [PsiNonLocal(single_op=tf.keras.layers.Dense(10, activation='linear'), multiple_op=MultipleLayer()),
                     PsiDense(),
-                    Psi.make(single_op=tf.keras.layers.Dense(10, activation='linear'), multiple_op=MultipleLayer(), name='Dense')()]:
+                    PsiNonLocal.make(single_op=tf.keras.layers.Dense(10, activation='linear'), multiple_op=MultipleLayer(), name='Dense')()]:
             psi(inputs_x)
             assert psi.weights[0].shape == (5, 10)
             assert psi.weights[1].shape == (10,)
@@ -204,7 +202,7 @@ class TestPsiGlobal(tf.test.TestCase):
             def __call__(self, x, i):
                 return self.f(x)
 
-        class PsiGlobalDense(Psi):
+        class PsiGlobalDense(PsiNonLocal):
             def __init__(self):
                 super().__init__()
                 self.single_dense = tf.keras.layers.Dense(10, activation='linear')

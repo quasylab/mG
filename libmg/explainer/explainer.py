@@ -138,12 +138,13 @@ class MGExplainer(Interpreter):
         # Build the model
         self.query_node = query_node
         try:
-            right_branch = mg_reconstructor.reconstruct(self.visit(mg_parser.parse(self.model.expr)))
+            right_branch = self.visit(mg_parser.parse(self.model.expr))
         except VisitError:
-            right_branch = MGExplainer.all_nodes_expr
-        left_branch = 'node[' + str(self.query_node) + ']'
-        explainer_expr = left_branch + ' ; (' + right_branch + ')'
-        explainer_model = self.compiler.compile(explainer_expr)
+            right_branch = mg_parser.parse(MGExplainer.all_nodes_expr)
+        left_branch = mg_parser.parse('node[' + str(self.query_node) + ']')
+        explainer_expr_tree = mg_parser.parse('left ; right')
+        explainer_expr_tree.children = [left_branch, right_branch]
+        explainer_model = self.compiler.compile(explainer_expr_tree)
 
         # Run the model
         hierarchy = tf.squeeze(explainer_model.call(inputs))

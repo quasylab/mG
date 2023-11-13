@@ -10,17 +10,13 @@ The module contains the following classes:
 
 The module contains the following objects:
 - ``mg_grammar``
+- ``mg_reserved``
 - ``mg_parser``
 - ``mg_reconstructor``
 """
 from typing import Iterable, Callable
-
-# TODO: add white spaces and test string normalization (finish in test_explainer and refactor the class)
-# TODO: tree to parse tree
-# TODO: examples and doctest
 from lark import Lark, ParseTree
 from lark.reconstruct import Reconstructor
-from lark.utils import is_id_continue
 
 mg_grammar = r"""
                 ?gnn_formula: label                                                                               -> atom_op
@@ -56,6 +52,8 @@ mg_grammar = r"""
                 %ignore WS
                 """
 
+mg_reserved = {'||', 'fix', 'let', 'if', 'then', 'else', 'def', 'in', 'repeat', 'for', ',', '|', '<', '>', '(', ')', ';', '[', ']', '#', '{', '}'}
+
 mg_parser = Lark(mg_grammar, maybe_placeholders=False, parser='lalr')
 
 
@@ -63,8 +61,9 @@ class MGReconstructor(Reconstructor):
     """Reconstructor for the mG language.
 
     The reconstructor transforms a parse tree into the corresponding string, reversing the operation of parsing. This implementation is a slight
-    modification of Lark's ``Reconstructor`` class to allow the addition of white spaces between any tokens: even those that contain non alphanumeric symbols.
+    modification of Lark's ``Reconstructor`` class to allow the addition of white spaces between the appropriate tokens.
     """
+
     def reconstruct(self, tree: ParseTree, postproc: Callable[[Iterable[str]], Iterable[str]] | None = None, insert_spaces: bool = True) -> str:
         """Reconstructs a string from a parse tree.
 
@@ -83,12 +82,8 @@ class MGReconstructor(Reconstructor):
         prev_item = ''
         for item in x:
             if insert_spaces and prev_item and item:
-                if item == ';' or prev_item == ';':
-                    y.append(' ')
-                elif (prev_item == '<' or prev_item == '|' or item == '|' or prev_item == '>' or item == '>' or prev_item == '(' or item == ')'
-                        or prev_item == '{' or item == '}' or (item == '(' and is_id_continue(prev_item) and prev_item != 'in') or item == ','):
-                    pass
-                else:
+                if (prev_item not in {'<', '|', '>', '(', '{'} and item not in {'<', '|', '>', ')', '}', ','}
+                        and not (item == '(' and prev_item not in mg_reserved) or item == ';' or prev_item == ';'):
                     y.append(' ')
             y.append(item)
             prev_item = item

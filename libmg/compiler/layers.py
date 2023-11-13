@@ -25,7 +25,7 @@ from tensorflow.python.keras import backend
 from spektral.layers import MessagePassing
 from tensorflow.python.keras.utils import generic_utils
 
-from libmg.compiler.functions import Phi, Psi, Sigma
+from libmg.compiler.functions import Phi, PsiNonLocal, Sigma
 
 
 # def loop_body(X, F, H, k, m, beta, lam, x0, f, y, fixpoint_printer):
@@ -208,7 +208,7 @@ class FunctionApplication(MGLayer):
         psi: The psi function to apply.
     """
 
-    def __init__(self, psi: Psi):
+    def __init__(self, psi: PsiNonLocal):
         """Initializes the instance with a psi function.
 
         Args:
