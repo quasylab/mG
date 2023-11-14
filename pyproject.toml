@@ -65,10 +65,8 @@ python =
     3.11: py311, flake8, mypy
 
 [testenv]
-setenv =
-    PYTHONPATH = {toxinidir}
 commands =
-    pytest --verbose
+    pytest
 allowlist_externals = pytest
 
 [testenv:flake8]
