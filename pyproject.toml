@@ -69,12 +69,15 @@ setenv =
     PYTHONPATH = {toxinidir}
 commands =
     pytest --basetemp={envtmpdir}
+allowlist_externals = pytest
 
 [testenv:flake8]
 basepython = python3.11
 commands = flake8 libmg
+allowlist_externals = flake8
 
 [testenv:mypy]
 basepython = python3.11
 commands = mypy libmg
+allowlist_externals = mypy
 """
