@@ -1,13 +1,44 @@
+[tool.poetry]
+name = "libmg"
+version = "0.3.61"
+description = ""
+license = "MIT"
+authors = ["Matteo Belenchia"]
+readme = "README.md"
+repository = "https://github.com/quasylab/mG"
+documentation = "https://github.com/quasylab/mG"
+
+packages = [{include = "libmg"}]
+
+[tool.poetry.dependencies]
+python      = "~3.11"
+tensorflow  = "~2.12"
+spektral    = "~1.3"
+numpy       = "*"
+scipy       = "*"
+bidict      = "*"
+lark        = "*"
+pyvis       = "*"
+
+
+[tool.poetry.group.test.dependencies]
+pytest      = "*"
+pytest-cov  = "*"
+mypy        = "*"
+flake8      = "*"
+tox         = "*"
+
 [build-system]
-requires = ['setuptools>=42.0', 'wheel']
-build-backend = 'setuptools.build_meta'
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
-addopts = '--cov=libmg'
-testpaths = ['tests',]
+addopts = '--doctest-modules --cov=libmg'
+testpaths = ['libmg',]
+doctest_optionflags = "ELLIPSIS"
 
 [tool.mypy]
-mypy_path = 'sources'
+exclude = ["libmg/tests/"]
 check_untyped_defs = true
 ignore_missing_imports = true
 no_implicit_optional = true
@@ -18,3 +49,35 @@ warn_return_any = true
 warn_unreachable = true
 warn_unused_configs = true
 no_implicit_reexport = true
+
+[tool.flake8]
+max-line-length = 160
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+minversion = 4.0
+envlist = py311, flake8, mypy
+isolated_build = true
+
+[gh-actions]
+python =
+    3.11: py311, flake8, mypy
+
+[testenv]
+setenv =
+    PYTHONPATH = {toxinidir}
+commands =
+    pytest --basetemp={envtmpdir}
+allowlist_externals = pytest
+
+[testenv:flake8]
+basepython = python3.11
+commands = flake8 libmg
+allowlist_externals = flake8
+
+[testenv:mypy]
+basepython = python3.11
+commands = mypy libmg
+allowlist_externals = mypy
+"""

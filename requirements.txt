@@ -1,6 +1,0 @@
-spektral
-numpy
-lark
-scipy
-tensorflow
-tensorflow_addons
