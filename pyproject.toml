@@ -68,7 +68,7 @@ python =
 setenv =
     PYTHONPATH = {toxinidir}
 commands =
-    pytest --basetemp={envtmpdir}
+    pytest --verbose
 allowlist_externals = pytest
 
 [testenv:flake8]
