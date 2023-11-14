@@ -11,7 +11,7 @@ documentation = "https://github.com/quasylab/mG"
 packages = [{include = "libmg"}]
 
 [tool.poetry.dependencies]
-python      = ">=3.9, <3.12"
+python      = "3.12"
 tensorflow  = "2.12"
 # tensorflow-io-gcs-filesystem = "0.31.0" # for windows compatibility
 spektral    = "^1.3"
@@ -57,13 +57,13 @@ max-line-length = 160
 [tool.tox]
 legacy_tox_ini = """
 [tox]
-minversion = 3.9.0
-envlist = py310, flake8, mypy
+minversion = 3.12.0
+envlist = py312, flake8, mypy
 isolated_build = true
 
 [gh-actions]
 python =
-    3.10: py310, flake8, mypy
+    3.12: py312, flake8, mypy
 
 [testenv]
 setenv =
@@ -72,10 +72,10 @@ commands =
     pytest --basetemp={envtmpdir}
 
 [testenv:flake8]
-basepython = python3.10
+basepython = python3.12
 commands = flake8 libmg
 
 [testenv:mypy]
-basepython = python3.10
+basepython = python3.12
 commands = mypy libmg
 """

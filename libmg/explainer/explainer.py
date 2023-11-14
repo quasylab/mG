@@ -88,7 +88,7 @@ class MGExplainer(Interpreter):
     # localize_node = lambda y: PsiLocal(lambda x: tf.one_hot(indices=[int(y)], depth=tf.shape(x)[0],
     # axis=0, on_value=0, off_value=ExplainerMG.INF, dtype=tf.float32))
     id = PsiLocal(lambda x: x)
-    proj3 = Phi(lambda i, e, j: i)
+    proj3 = Phi.make('proj', lambda i, e, j: i)
     or_agg = Sigma(lambda m, i, n, x: tf.minimum(tf.math.unsorted_segment_min(m, i, n) + 1, x))
     or_fun = PsiLocal(lambda x: tf.math.reduce_min(x, axis=1, keepdims=True))
     all_nodes_expr = 'fix X = id in (((X;|p3>or) || (X;<p3|or));or)'

@@ -11,6 +11,7 @@ The module contains the following classes:
 - ``FunctionDict``
 - ``Function``
 - ``Psi``
+- ``PsiNonLocal``
 - ``PsiLocal``
 - ``PsiGlobal``
 - ``Phi``
@@ -138,14 +139,14 @@ class Function(tf.keras.layers.Layer):
         f: The function applied by this object.
     """
 
-    def __init__(self, f: Callable, name: str | None = None):
+    def __init__(self, name: str | None, f: Callable):
         """Initializes the instance with the function that this object will represent, and, if provided, a name.
 
         If a name is not provided, it will be used the name of the dynamic class of the instantiated object.
 
         Args:
-            f: The function that this object represents.
             name: The name of the function.
+            f: The function that this object represents.
         """
         super().__init__()
         self.f = f
@@ -169,9 +170,9 @@ class Function(tf.keras.layers.Layer):
             f: The function that will be used to instantiate ``cls``.
         """
         if isinstance(f, tf.keras.layers.Layer):  # if f is a layer, regenerate from config to get new weights
-            return lambda: cls(type(f).from_config(f.get_config()), name=name)  # type: ignore
+            return lambda: cls(name, type(f).from_config(f.get_config()))  # type: ignore
         else:
-            return lambda: cls(f, name=name)
+            return lambda: cls(name, f)
 
     @classmethod
     def make_parametrized(cls, name: str | None, f: Callable[[str], Callable] | Callable[..., Any]) -> Callable[[str], Function]:
@@ -196,9 +197,9 @@ class Function(tf.keras.layers.Layer):
         """
         # check if f has only a single argument e.g. lambda x: lambda y: foo(x)(y)
         if f.__code__.co_argcount == 1:
-            return lambda a: cls(f(a), name=name)
+            return lambda a: cls(name, f(a))
         else:  # e.g. lambda x, y: foo(x)(y)
-            return lambda a: cls(partial(f, a), name=name)
+            return lambda a: cls(name, partial(f, a))
 
     @property
     def name(self):
@@ -207,7 +208,13 @@ class Function(tf.keras.layers.Layer):
         return self._function_name
 
 
-class PsiNonLocal(Function):
+class Psi(Function):
+    """A psi function of the mG language.
+    """
+    pass
+
+
+class PsiNonLocal(Psi):
     """A psi function of the mG language.
 
     A non-local function applied on node labels psi: (T*, T) -> U. For single graph datasets, which use the
@@ -332,7 +339,7 @@ class PsiNonLocal(Function):
             return self.single_op(x)
 
 
-class PsiLocal(Function):
+class PsiLocal(Psi):
     """A psi function of the mG language that only applies a local transformation of node labels.
 
     A local transformation of node labels psi: T -> U.

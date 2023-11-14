@@ -32,7 +32,7 @@ from spektral.data import Graph, Loader
 from tensorflow.python.util.object_identity import Reference
 
 from libmg.data.dataset import Dataset
-from libmg.compiler.functions import FunctionDict, PsiNonLocal, Phi, Sigma
+from libmg.compiler.functions import FunctionDict, PsiNonLocal, Phi, Sigma, Psi
 from libmg.data.loaders import SingleGraphLoader, MultipleGraphLoader
 from libmg.normalizer.normalizer import var_occurs, mg_normalizer
 from libmg.compiler.grammar import mg_parser, mg_reconstructor
@@ -1357,7 +1357,7 @@ class MGCompiler:
             """
             return self.evaluate_loop_expr(tree, 'repeat')
 
-    def __init__(self, psi_functions: dict[str, PsiNonLocal], sigma_functions: dict[str, Sigma], phi_functions: dict[str, Phi], config: CompilerConfig):
+    def __init__(self, psi_functions: dict[str, Psi], sigma_functions: dict[str, Sigma], phi_functions: dict[str, Phi], config: CompilerConfig):
         """Initializes the instance with the psi, phi and sigma functions that this compiler will recognize and the compiler configuration.
 
         Args:
