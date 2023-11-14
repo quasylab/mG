@@ -26,7 +26,7 @@ pytest      = "*"
 pytest-cov  = "*"
 mypy        = "*"
 flake8      = "*"
-tox         = "*"
+tox         = "~4"
 
 [build-system]
 requires = ["poetry-core"]
@@ -65,8 +65,7 @@ python =
     3.11: py311, flake8, mypy
 
 [testenv]
-commands =
-    pytest
+commands = pytest
 allowlist_externals = pytest
 
 [testenv:flake8]
