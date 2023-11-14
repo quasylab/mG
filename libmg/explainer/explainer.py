@@ -23,7 +23,7 @@ from multiprocessing.pool import ThreadPool
 
 from libmg.compiler.functions import PsiLocal, Phi, Sigma
 from libmg.compiler.compiler import MGCompiler, MGModel
-from libmg.compiler.grammar import mg_parser, mg_reconstructor
+from libmg.compiler.grammar import mg_parser
 from libmg.compiler.layers import unpack_inputs
 from libmg.visualizer.visualizer import print_graph
 
@@ -83,8 +83,11 @@ class MGExplainer(Interpreter):
         compiler: The compiler for the explainer.
     """
     INF = 1e38
-    localize_node = PsiLocal.make_parametrized('localize_node', lambda y: lambda x: tf.one_hot(indices=[int(y)], depth=tf.shape(x)[0], axis=0, on_value=0,
-                                                                              off_value=MGExplainer.INF, dtype=tf.float32))
+    localize_node = PsiLocal.make_parametrized('localize_node', lambda y: lambda x: tf.one_hot(indices=[int(y)],
+                                                                                               depth=tf.shape(x)[0],
+                                                                                               axis=0,
+                                                                                               on_value=0,
+                                                                                               off_value=MGExplainer.INF, dtype=tf.float32))
     # localize_node = lambda y: PsiLocal(lambda x: tf.one_hot(indices=[int(y)], depth=tf.shape(x)[0],
     # axis=0, on_value=0, off_value=ExplainerMG.INF, dtype=tf.float32))
     id = PsiLocal(lambda x: x)
@@ -150,7 +153,8 @@ class MGExplainer(Interpreter):
         hierarchy = tf.squeeze(explainer_model.call(inputs))
         explanation = tf.math.less(hierarchy, MGExplainer.INF)
         graph = make_graph(explanation, hierarchy, inputs, labels)
-        print_graph(graph, id_generator=self.get_original_ids_func(explanation), hierarchical=True, show_labels=True, filename=filename, open_browser=open_browser)
+        print_graph(graph, id_generator=self.get_original_ids_func(explanation), hierarchical=True, show_labels=True, filename=filename,
+                    open_browser=open_browser)
         return graph
 
     def atom_op(self, tree: Tree) -> Tree:

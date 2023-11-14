@@ -23,14 +23,10 @@ The module contains the following classes:
 
 from __future__ import annotations
 
-import typing
 from functools import partial
 import tensorflow as tf
 from collections import UserDict
 from typing import Callable, Any
-
-KT = typing.TypeVar('KT')
-VT = typing.TypeVar('VT')
 
 
 class FunctionDict(UserDict[str, Callable]):
@@ -139,14 +135,14 @@ class Function(tf.keras.layers.Layer):
         f: The function applied by this object.
     """
 
-    def __init__(self, name: str | None, f: Callable):
+    def __init__(self, f: Callable, name: str | None = None):
         """Initializes the instance with the function that this object will represent, and, if provided, a name.
 
         If a name is not provided, it will be used the name of the dynamic class of the instantiated object.
 
         Args:
-            name: The name of the function.
             f: The function that this object represents.
+            name: The name of the function.
         """
         super().__init__()
         self.f = f
@@ -170,9 +166,9 @@ class Function(tf.keras.layers.Layer):
             f: The function that will be used to instantiate ``cls``.
         """
         if isinstance(f, tf.keras.layers.Layer):  # if f is a layer, regenerate from config to get new weights
-            return lambda: cls(name, type(f).from_config(f.get_config()))  # type: ignore
+            return lambda: cls(type(f).from_config(f.get_config()), name)  # type: ignore
         else:
-            return lambda: cls(name, f)
+            return lambda: cls(f, name)
 
     @classmethod
     def make_parametrized(cls, name: str | None, f: Callable[[str], Callable] | Callable[..., Any]) -> Callable[[str], Function]:
@@ -197,9 +193,9 @@ class Function(tf.keras.layers.Layer):
         """
         # check if f has only a single argument e.g. lambda x: lambda y: foo(x)(y)
         if f.__code__.co_argcount == 1:
-            return lambda a: cls(name, f(a))
+            return lambda a: cls(f(a), name)
         else:  # e.g. lambda x, y: foo(x)(y)
-            return lambda a: cls(name, partial(f, a))
+            return lambda a: cls(partial(f, a), name)
 
     @property
     def name(self):
@@ -293,7 +289,7 @@ class PsiNonLocal(Psi):
             args['single_op' if cls is not PsiLocal else 'f'] = single_op
         if multiple_op is not None:
             args['multiple_op'] = multiple_op
-        return lambda: cls(name=name, **{k: type(v).from_config(v.get_config()) if isinstance(v, tf.keras.layers.Layer) else v for k, v in args.items()})
+        return lambda: cls(**{k: type(v).from_config(v.get_config()) if isinstance(v, tf.keras.layers.Layer) else v for k, v in args.items()}, name=name)
 
     @classmethod
     def make_parametrized(cls, name: str | None, single_op: Callable[[str], Callable] | Callable[..., Any] | None = None,
@@ -308,17 +304,17 @@ class PsiNonLocal(Psi):
         ``single_op`` and ``multiple_op``.
 
         Examples:
-            >>> PsiNonLocal.make_parametrized('Add', single_op=lambda y: lambda x: x + y, multiple_op=lambda y: lambda x, i: x + y)
+            >>> PsiNonLocal.make_parametrized(name='Add', single_op=lambda y: lambda x: x + y, multiple_op=lambda y: lambda x, i: x + y)
             <function PsiNonLocal.make_parametrized.<locals>.<lambda> at 0x...>
-            >>> PsiNonLocal.make_parametrized('Add', single_op=lambda y, x: x + y, multiple_op=lambda y, x, i: x + y)
+            >>> PsiNonLocal.make_parametrized( name='Add', single_op=lambda y, x: x + y, multiple_op=lambda y, x, i: x + y)
             <function PsiNonLocal.make_parametrized.<locals>.<lambda> at 0x...>
 
         Args:
+            name: The name of the function returned by ``single_op`` and ``multiple_op``.
             single_op: The function that when applied to some argument ``a`` returns the function that will be used to instantiate ``cls``as the
             ``single_op`` argument.
             multiple_op: The function that when applied to some argument ``a`` returns the function that will be used to instantiate ``cls`` as the
             ``multiple_op`` argument.
-            name: The name of the function returned by ``single_op`` and ``multiple_op``.
 
         Raises:
             ValueError: Neither ``single_op`` nor ``multiple_op`` have been provided.
@@ -330,7 +326,7 @@ class PsiNonLocal(Psi):
             args['single_op' if cls is not PsiLocal else 'f'] = single_op
         if multiple_op is not None:
             args['multiple_op'] = multiple_op
-        return lambda a: cls(name=name, **{k: v(a) if v.__code__.co_argcount == 1 else partial(v, a) for k, v in args.items()})
+        return lambda a: cls(**{k: v(a) if v.__code__.co_argcount == 1 else partial(v, a) for k, v in args.items()}, name=name)
 
     def __call__(self, x: tf.Tensor, i: tf.Tensor | None = None) -> tf.Tensor:
         if i is not None:

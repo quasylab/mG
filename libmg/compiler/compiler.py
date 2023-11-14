@@ -1357,7 +1357,9 @@ class MGCompiler:
             """
             return self.evaluate_loop_expr(tree, 'repeat')
 
-    def __init__(self, psi_functions: dict[str, Psi], sigma_functions: dict[str, Sigma], phi_functions: dict[str, Phi], config: CompilerConfig):
+    def __init__(self, psi_functions: dict[str, Psi | Callable[[], Psi] | Callable[[str], Psi]],
+                 sigma_functions: dict[str, Sigma | Callable[[], Sigma] | Callable[[str], Sigma]],
+                 phi_functions: dict[str, Phi | Callable[[], Phi] | Callable[[str], Phi]], config: CompilerConfig):
         """Initializes the instance with the psi, phi and sigma functions that this compiler will recognize and the compiler configuration.
 
         Args:
@@ -1379,7 +1381,7 @@ class MGCompiler:
             self.model_inputs.append(tf.keras.Input(shape=(), name="INPUT_I", dtype=tf.int64))
         self.model_input_spec = config.input_spec
         self.dummy_dataset = DummyDataset(NodeConfig(config.node_feature_type, config.node_feature_size), config.matrix_type,
-                                     EdgeConfig(config.edge_feature_type, config.edge_feature_size) if config.use_edges else None)  # type: ignore
+                                          EdgeConfig(config.edge_feature_type, config.edge_feature_size) if config.use_edges else None)  # type: ignore
         self.visitor = self.TreeToTF(FunctionDict(psi_functions), FunctionDict(sigma_functions), FunctionDict(phi_functions), config.tolerance)
 
     @staticmethod
@@ -1506,7 +1508,10 @@ class MGCompiler:
         """
         if api == 'predict_on_batch' and self.config.use_edges:
             raise ValueError("The predict_on_batch API, as of TF2.4, isn't compatible with graphs with edge labels.")
-        dummy_loader = MultipleGraphLoader(self.dummy_dataset, node_level=True, batch_size=1, shuffle=False, epochs=1) if self.config.use_multiple_loader else SingleGraphLoader(self.dummy_dataset, epochs=1)
+        if self.config.use_multiple_loader:
+            dummy_loader = MultipleGraphLoader(self.dummy_dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)
+        else:
+            dummy_loader = SingleGraphLoader(self.dummy_dataset, epochs=1)
         traced_model = MGCompiler.graph_mode_constructor(model, self.model_input_spec, api)
         compile_time = MGCompiler.dummy_run(traced_model, dummy_loader, api)
         return traced_model, compile_time

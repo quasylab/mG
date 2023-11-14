@@ -345,14 +345,22 @@ class Ite(MGLayer):
             if len(values) == 1:
                 output = tf.while_loop(cond=lambda it, _: it < n_graphs,
                                        body=lambda it, out_arr: [it + 1, out_arr.write(it, tf.cond(tf.reduce_all(partitioned_test_array.read(it)),
-                                                            lambda: self.iftrue([tf.ensure_shape(partitioned_values_array.read(it), (None, n_node_features))] + inputs + [tf.ensure_shape(partitioned_idx_array.read(it), (None,))]),
-                                                            lambda: self.iffalse([tf.ensure_shape(partitioned_values_array.read(it), (None, n_node_features))] + inputs + [tf.ensure_shape(partitioned_idx_array.read(it), (None,))])))],
+                                                                                                   lambda: self.iftrue(
+                                                                                                       [tf.ensure_shape(partitioned_values_array.read(it),
+                                                                                                                        (None, n_node_features))] +
+                                                                                                       inputs + [tf.ensure_shape(partitioned_idx_array.read(it),
+                                                                                                                                 (None,))]),
+                                                                                                   lambda: self.iffalse(
+                                                                                                       [tf.ensure_shape(partitioned_values_array.read(it),
+                                                                                                                        (None, n_node_features))] +
+                                                                                                       inputs + [tf.ensure_shape(partitioned_idx_array.read(it),
+                                                                                                                                 (None,))])))],
                                        loop_vars=[tf.constant(0, dtype=tf.int32), output_array]
                                        )[1]
                 return tf.ensure_shape(output.concat(), self.iftrue.outputs[0].shape)
-                #output = tf.cond(branch[0], lambda: self.iftrue([partitioned_values[0]] + inputs + [partitioned_idx[0]]),
+                # output = tf.cond(branch[0], lambda: self.iftrue([partitioned_values[0]] + inputs + [partitioned_idx[0]]),
                 #                                          lambda: self.iffalse([partitioned_values[0]] + inputs + [partitioned_idx[0]]))
-                #return output
+                # return output
                 # '''
                 # return tf.reshape(tf.map_fn(lambda args: tf.cond(tf.reduce_all(args[0]),
                 #                                                  lambda: self.iftrue([args[1]] + inputs + [args[2]]),
@@ -369,8 +377,24 @@ class Ite(MGLayer):
                 n_fix_var_features = values[1].shape[-1]
                 output = tf.while_loop(cond=lambda it, _: it < n_graphs,
                                        body=lambda it, out_arr: [it + 1, out_arr.write(it, tf.cond(tf.reduce_all(partitioned_test_array.read(it)),
-                                                            lambda: self.iftrue([tf.ensure_shape(partitioned_values_array.read(it), (None, n_node_features)), tf.ensure_shape(partitioned_fix_var_array.read(it), (None, n_fix_var_features))][:self.iftrue_input_len - values_offset] + inputs + [tf.ensure_shape(partitioned_idx_array.read(it), (None,))]),
-                                                            lambda: self.iffalse([tf.ensure_shape(partitioned_values_array.read(it), (None, n_node_features)), tf.ensure_shape(partitioned_fix_var_array.read(it), (None, n_fix_var_features))][:self.iffalse_input_len - values_offset] + inputs + [tf.ensure_shape(partitioned_idx_array.read(it), (None,))])))],
+                                                                                                   lambda: self.iftrue([tf.ensure_shape(
+                                                                                                       partitioned_values_array.read(it),
+                                                                                                       (None, n_node_features)), tf.ensure_shape(
+                                                                                                       partitioned_fix_var_array.read(it),
+                                                                                                       (None, n_fix_var_features))][
+                                                                                                                       :self.iftrue_input_len - values_offset] +
+                                                                                                                       inputs + [tf.ensure_shape(
+                                                                                                                               partitioned_idx_array.read(it),
+                                                                                                                               (None,))]),
+                                                                                                   lambda: self.iffalse([tf.ensure_shape(
+                                                                                                       partitioned_values_array.read(it),
+                                                                                                       (None, n_node_features)), tf.ensure_shape(
+                                                                                                       partitioned_fix_var_array.read(it),
+                                                                                                       (None, n_fix_var_features))][
+                                                                                                                        :self.iffalse_input_len - values_offset]
+                                                                                                                        + inputs + [tf.ensure_shape(
+                                                                                                                                partitioned_idx_array.read(it),
+                                                                                                                                (None,))])))],
                                        loop_vars=[tf.constant(0, dtype=tf.int32), output_array]
                                        )[1]
                 return tf.ensure_shape(output.concat(), self.iftrue.outputs[0].shape)

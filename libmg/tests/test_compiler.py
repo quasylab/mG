@@ -492,7 +492,7 @@ class TestCompiler(tf.test.TestCase):
         datasets, _ = setup_test_datasets(use_labels=True)
         expr = 'fix X = 0 in +((X;dense), %)'
         expected_outputs = (tf.constant([[2], [4], [8], [2], [2]], dtype=tf.float32),
-                    tf.constant([[2], [4], [6], [8]], dtype=tf.float32))
+                            tf.constant([[2], [4], [6], [8]], dtype=tf.float32))
         loaders = [SingleGraphLoader(datasets[0], epochs=None),
                    MultipleGraphLoader(datasets[1], node_level=True, batch_size=2, shuffle=False, epochs=None)] + \
                   [SingleGraphLoader(datasets[2], epochs=None),
@@ -509,7 +509,7 @@ class TestCompiler(tf.test.TestCase):
         for api in ['call', 'predict', 'predict_on_batch']:
             expr = 'fix X = true in ((a || (X;|>or));and)'
             expected_outputs = (tf.constant([[False], [False], [False], [False], [False]], dtype=tf.bool),
-                            tf.constant([[False], [False], [False], [False]], dtype=tf.bool))
+                                tf.constant([[False], [False], [False], [False]], dtype=tf.bool))
             loaders = [SingleGraphLoader(self.datasets[0], epochs=1),
                        MultipleGraphLoader(self.datasets[1], node_level=True, batch_size=2, shuffle=False, epochs=1)] + \
                       [SingleGraphLoader(self.datasets[2], epochs=1),

@@ -39,7 +39,8 @@ class TestVisualizer(tf.test.TestCase):
                 print_layer(model, inputs, labels=y, layer_name='a || b', filename='test_labels_' + filename, open_browser=False)
                 print_layer(model, inputs, labels=None, layer_name='a || b', filename='test_nolabels_' + filename, open_browser=False)
                 print_layer(model, inputs, labels=y, layer_name='(fix X = false in ((a || X) ; or))', filename='test_labels_' + filename, open_browser=False)
-                print_layer(model, inputs, labels=None, layer_name='(fix X = false in ((a || X) ; or))', filename='test_nolabels_' + filename, open_browser=False)
+                print_layer(model, inputs, labels=None, layer_name='(fix X = false in ((a || X) ; or))', filename='test_nolabels_' + filename,
+                            open_browser=False)
 
     def test_print_graph(self):
         xaei_dataset = self.datasets[-1]
