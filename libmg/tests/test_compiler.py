@@ -1,12 +1,13 @@
 import tensorflow as tf
 import numpy as np
-
 from scipy.sparse import coo_matrix
 from spektral.data import Graph
-from libmg import PsiLocal, PsiGlobal, Sigma, Phi
-from libmg import SingleGraphLoader, MultipleGraphLoader
-from libmg import MGCompiler, CompilerConfig, NodeConfig, EdgeConfig
-from libmg import Dataset
+
+
+from libmg.compiler.functions import PsiLocal, PsiGlobal, Sigma, Phi
+from libmg.data.loaders import SingleGraphLoader, MultipleGraphLoader
+from libmg.compiler.compiler import MGCompiler, CompilerConfig, NodeConfig, EdgeConfig
+from libmg.data.dataset import Dataset
 from libmg.compiler.functions import Constant, make_koperator, make_boperator, make_uoperator
 
 
