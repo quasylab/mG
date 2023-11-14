@@ -1,7 +1,7 @@
 import tensorflow as tf
 import os
 
-from libmg import SingleGraphLoader, MultipleGraphLoader
+from libmg.data.loaders import SingleGraphLoader, MultipleGraphLoader
 from libmg.tests.test_compiler import setup_test_datasets
 from libmg.visualizer.visualizer import print_graph, print_layer
 

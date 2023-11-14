@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 import os
 
-from libmg import SingleGraphLoader
+from libmg.data.loaders import SingleGraphLoader
 from libmg.explainer.explainer import MGExplainer
 from libmg.tests.test_compiler import setup_test_datasets
 

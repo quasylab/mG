@@ -1,8 +1,7 @@
 from __future__ import annotations
 import pytest
 import tensorflow as tf
-from libmg import PsiLocal
-from libmg.compiler.functions import FunctionDict, make_uoperator, make_boperator, make_koperator, Phi, Sigma, PsiNonLocal, PsiGlobal, Constant, Pi
+from libmg.compiler.functions import FunctionDict, make_uoperator, make_boperator, make_koperator, Phi, Sigma, PsiNonLocal, PsiGlobal, Constant, Pi, PsiLocal
 
 
 class TestFunctionDict:
