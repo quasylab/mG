@@ -1,6 +1,6 @@
 # mG
 
-[![Tests](https://github.com/Unicam-mG/mG/actions/workflows/tests.yml/badge.svg)](https://github.com/Unicam-mG/mG/actions/workflows/tests.yml)
+[![Tests](https://github.com/quasylab/mG/actions/workflows/testing.yml/badge.svg)](https://github.com/Unicam-mG/mG/actions/workflows/testing.yml)
 
 ## Usage
 - Install libmg by running `pip install git+https://github.com/Unicam-mG/mG.git`
