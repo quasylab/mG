@@ -93,7 +93,7 @@ class FixVarConfig(LabelConfig):
         signature: The signature of this fixpoint variable.
     """
 
-    def __init__(self, var_type, var_size):
+    def __init__(self, var_type: tf.DType, var_size: int):
         """Initializes the instance with the given type and dimension.
 
         Args:
@@ -684,7 +684,7 @@ class MGCompiler:
             self.used_sigma: dict[str, Sigma] = {}
             self.eval_if_clause: list[str] = []
 
-        def initialize(self, initial_inputs: IntermediateOutput, use_memoization):
+        def initialize(self, initial_inputs: IntermediateOutput, use_memoization: bool) -> None:
             """Initializes and/or resets the instance. Sets the initial inputs for the next expression to compile.
 
             Args:
@@ -730,7 +730,7 @@ class MGCompiler:
             clone.free_fix_var = self.free_fix_var.copy()
             return clone
 
-        def add_layer(self, intermediate_output: IntermediateOutput, op_layer: tf.keras.layers.Layer, ctx_name: Tree):
+        def add_layer(self, intermediate_output: IntermediateOutput, op_layer: tf.keras.layers.Layer, ctx_name: Tree) -> None:
             """Saves an intermediate output under the hash key of the corresponding contextualized expression tree.
 
             It is saved only if the output is set as memoizable.
@@ -821,7 +821,7 @@ class MGCompiler:
             """
             return len(self.eval_if_clause) > 0 and self.current_fix_var() == self.eval_if_clause[-1]
 
-        def start_eval_if(self):
+        def start_eval_if(self) -> None:
             """Marks the start of the evaluation of an if-then-else clause that contains fixpoint variables.
 
             Returns:
@@ -829,7 +829,7 @@ class MGCompiler:
             """
             self.eval_if_clause.append(self.current_fix_var())
 
-        def stop_eval_if(self):
+        def stop_eval_if(self) -> None:
             """Marks the end of the evaluation of an if-then-else clause that contains fixpoint variables.
 
             Returns:
@@ -850,7 +850,7 @@ class MGCompiler:
             return str(label)
 
         @v_args(inline=True)
-        def label_decl(self, label_decl):
+        def label_decl(self, label_decl: Token) -> str:
             """Evaluates a label declaration.
 
             Args:
@@ -1064,7 +1064,7 @@ class MGCompiler:
                     return output
                 return self.get_layer(ctx_name)
 
-        def fun_def(self, tree: Tree):
+        def fun_def(self, tree: Tree) -> Any:
             """Evaluates a def expression.
 
             Args:
@@ -1084,7 +1084,7 @@ class MGCompiler:
             self.defined_functions[function_name] = deferred_function
             return self.visit(args[-1])
 
-        def fun_call(self, tree: Tree):
+        def fun_call(self, tree: Tree) -> Any:
             """Evaluates a function call expression.
 
             If the function name doesn't match a def'ed function, but matches a psi function, it is evaluated as a polish notation operator.
@@ -1113,7 +1113,7 @@ class MGCompiler:
                 self.var_input.pop(k)
             return f_layer
 
-        def local_var_expr(self, tree: Tree):
+        def local_var_expr(self, tree: Tree) -> Any:
             """Evaluates a let expression.
 
             Args:
@@ -1395,7 +1395,7 @@ class MGCompiler:
             model: The model to prepare for tracing.
             input_spec: The input signature for the model.
             method: The TensorFlow API used to run the model. Options are ``call``, ``predict`` or ``predict_on_batch``. This should be the same as the API
-            that is later used to run the model.
+                that is later used to run the model.
 
         Returns:
             If ``method`` was ``call``, returns a ``tf.function`` that runs the model. Otherwise, returns the same model but with its ``predict_func`` wrapped
@@ -1425,7 +1425,7 @@ class MGCompiler:
             model: The model to run on the dummy dataset.
             dummy_loader: The loader of the dummy dataset.
             method: The TensorFlow API used to run the model. Options are ``call``, ``predict`` or ``predict_on_batch``. This should be the same as the API
-            that is later used to run the model.
+                that is later used to run the model.
 
         Returns:
             The duration in seconds of the dummy run.
@@ -1498,7 +1498,7 @@ class MGCompiler:
         Args:
             model: The model to trace.
             api: The TensorFlow API intended to be used with the model. Options are ``call`` for the ``model()`` API,
-            ``predict`` for the ``model.predict()`` API and ``predict_on_batch`` for the ``model.predict_on_batch()`` API.
+                ``predict`` for the ``model.predict()`` API and ``predict_on_batch`` for the ``model.predict_on_batch()`` API.
 
         Returns:
             The model and the elapsed time in seconds for tracing.

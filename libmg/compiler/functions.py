@@ -73,8 +73,8 @@ class FunctionDict(UserDict[str, Callable]):
             key: The key to parse.
 
         Returns:
-             A tuple of the form ``(true_key, arg)`` where ``true_key`` is the substring before the square brackets
-              and ``arg`` is the substring inside the square brackets or ``None``.
+             A tuple of the form ``(true_key, arg)`` where ``true_key`` is the substring before the square brackets and ``arg`` is the substring inside the
+             square brackets or ``None``.
         """
         tokens = key.split('[')
         true_key = tokens[0]
@@ -312,9 +312,9 @@ class PsiNonLocal(Psi):
         Args:
             name: The name of the function returned by ``single_op`` and ``multiple_op``.
             single_op: The function that when applied to some argument ``a`` returns the function that will be used to instantiate ``cls``as the
-            ``single_op`` argument.
+                ``single_op`` argument.
             multiple_op: The function that when applied to some argument ``a`` returns the function that will be used to instantiate ``cls`` as the
-            ``multiple_op`` argument.
+                ``multiple_op`` argument.
 
         Raises:
             ValueError: Neither ``single_op`` nor ``multiple_op`` have been provided.
@@ -557,8 +557,8 @@ class Operator(PsiLocal):
         """Initializes the instance with the number of operands.
 
         Args:
-            k: The number of operands that this operator expects.
-             This number is a string because it will be received during compilation of a mG program by the ``FunctionDict``.
+            k: The number of operands that this operator expects. This number is a string because it will be received during compilation of a mG program by
+                the ``FunctionDict``.
         """
         self.k = int(k)
         super().__init__()

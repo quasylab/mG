@@ -6,6 +6,7 @@ The module contains the following classes:
 
 - ``Dataset(name, **kwargs)``
 """
+from typing import Any
 
 from spektral.data import Dataset as _Dataset
 
@@ -19,7 +20,7 @@ class Dataset(_Dataset):
     Attributes:
         name: A string name for the dataset.
     """
-    def __init__(self, name: str, **kwargs):
+    def __init__(self, name: str, **kwargs: Any):
         """Initializes the instance with the given name, then the superclass will call the ``download`` and ``read`` methods as needed.
 
         Args:

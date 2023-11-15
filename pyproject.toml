@@ -28,6 +28,14 @@ mypy        = "*"
 flake8      = "*"
 flake8-pyproject = "*"
 
+[tool.poetry.group.docs.dependencies]
+mkdocs      = "*"
+"mkdocstrings[python]" = "*"
+mkdocs-material = "*"
+mkdocs_gen_files = "*"
+mkdocs-literate-nav = "*"
+mkdocks-section-index = "*"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
