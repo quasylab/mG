@@ -26,7 +26,6 @@ pytest      = "*"
 pytest-cov  = "*"
 mypy        = "*"
 flake8      = "*"
-tox         = "~4"
 
 [build-system]
 requires = ["poetry-core"]
@@ -49,32 +48,3 @@ warn_return_any = true
 warn_unreachable = true
 warn_unused_configs = true
 no_implicit_reexport = true
-
-[tool.flake8]
-max-line-length = 160
-
-[tool.tox]
-legacy_tox_ini = """
-[tox]
-minversion = 4.0
-envlist = py311, flake8, mypy
-isolated_build = true
-
-[gh-actions]
-python =
-    3.11: py311, flake8, mypy
-
-[testenv]
-commands = pytest
-allowlist_externals = pytest
-
-[testenv:flake8]
-basepython = python3.11
-commands = flake8 libmg
-allowlist_externals = flake8
-
-[testenv:mypy]
-basepython = python3.11
-commands = mypy libmg
-allowlist_externals = mypy
-"""
