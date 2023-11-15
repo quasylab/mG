@@ -53,7 +53,7 @@ def fetch_layer(model: MGModel, layer_name: str | Tree | None = None, layer_idx:
 
 
 def show(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, int]], edge_values: np.ndarray | None, labels: np.ndarray | None,
-         hierarchy: list[int] | None, id_generator: Callable[[int], int | str], filename: str, open_browser: bool):
+         hierarchy: list[int] | None, id_generator: Callable[[int], int | str], filename: str, open_browser: bool) -> None:
     """
     Builds a PyVis network using the node features, labels, adjacency matrix and edge features. The result is an .html
     page named graph_``filename``.html.
@@ -120,7 +120,7 @@ def show(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, int]], e
 
 
 def print_layer(model: MGModel, inputs: list[tf.Tensor], labels: tf.Tensor | None = None, layer_name: str | Tree | None = None, layer_idx: int | None = None,
-                filename: str | None = None, open_browser: bool = True):
+                filename: str | None = None, open_browser: bool = True) -> None:
     """Visualizes the outputs of a model's layer using PyVis.
 
     Layer must be identified either by name or index. If both are given, index takes precedence.
@@ -132,7 +132,7 @@ def print_layer(model: MGModel, inputs: list[tf.Tensor], labels: tf.Tensor | Non
         layer_name: The name of the layer to find.
         layer_idx: The index of the layer to find.
         filename: The name of the .html file to save in the working directory. The string ``graph_`` will be prepended to it and the provided index or layer
-         name will be appended to it.
+            name will be appended to it.
         open_browser: If true, opens the default web browser and loads up the generated .html page.
 
     Returns:
@@ -152,7 +152,7 @@ def print_layer(model: MGModel, inputs: list[tf.Tensor], labels: tf.Tensor | Non
 
 
 def print_graph(graph: Graph, id_generator: Callable[[int], int | str] = lambda x: x, hierarchical: bool = False, show_labels: bool = False,
-                filename: str | None = None, open_browser: bool = True):
+                filename: str | None = None, open_browser: bool = True) -> None:
     """Visualizes a graph using PyVis.
 
     Args:

@@ -13,6 +13,7 @@ The module contains the following objects:
 - ``mg_normalizer``
 """
 from copy import deepcopy
+from typing import Any
 
 from lark import Transformer, v_args, Tree, Token
 from lark.visitors import Interpreter
@@ -82,7 +83,7 @@ class Normalizer(Interpreter[Token, Tree]):
         super().__init__()
 
     @singledispatchmethod
-    def normalize(self, expr):
+    def normalize(self, expr: Any) -> Any:
         """Normalizes a mG expression.
 
         If the expression is provided as a parse tree, a normalized parse tree is returned.

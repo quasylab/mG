@@ -26,6 +26,15 @@ pytest      = "*"
 pytest-cov  = "*"
 mypy        = "*"
 flake8      = "*"
+flake8-pyproject = "*"
+
+[tool.poetry.group.docs.dependencies]
+mkdocs      = "*"
+mkdocstrings = "*"
+mkdocs-material = "*"
+mkdocs_gen_files = "*"
+mkdocs-literate-nav = "*"
+# mkdocks-section-index
 
 [build-system]
 requires = ["poetry-core"]
@@ -48,3 +57,7 @@ warn_return_any = true
 warn_unreachable = true
 warn_unused_configs = true
 no_implicit_reexport = true
+
+[tool.flake8]
+max-line-length = 160
+exclude = 'libmg\tests\'

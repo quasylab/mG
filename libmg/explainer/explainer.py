@@ -33,7 +33,7 @@ def explanation_nodes(explanation: tf.Tensor[bool]) -> list[int]:
 
     Args:
         explanation: The boolean tensor of shape ``(n_nodes,)`` that marks with ``True`` the nodes that are part of the explanation
-         and ``False`` those that do not.
+            and ``False`` those that do not.
     """
     return typing.cast(list[int], tf.squeeze(tf.where(explanation), axis=-1).numpy().tolist())
 
@@ -43,9 +43,9 @@ def make_graph(explanation: tf.Tensor[bool], hierarchy: tf.Tensor[float], old_gr
 
     Args:
         explanation: The boolean tensor of shape ``(n_nodes,)`` that marks with ``True`` the nodes that are part of the explanation
-         and ``False`` those that do not.
+            and ``False`` those that do not.
         hierarchy: The hierarchy tensor of shape ``(n_nodes,)`` that assigns a numerical value to every node in the explanation. The query node is assigned 0,
-         and each >0 number indicates the number of hops of distance to the query node.
+            and each >0 number indicates the number of hops of distance to the query node.
         old_graph: The input graph of the explained model.
         labels: The true labels of the nodes in the graph.
     """
@@ -118,7 +118,7 @@ class MGExplainer(Interpreter):
 
         Args:
             explanation: The boolean tensor of shape ``(n_nodes,)`` that marks with ``True`` the nodes that are part of the explanation
-             and ``False`` those that do not.
+                and ``False`` those that do not.
         """
         sorted_node_ids = sorted(explanation_nodes(explanation))
         return lambda x: sorted_node_ids[x]
