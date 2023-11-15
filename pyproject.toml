@@ -1,12 +1,12 @@
 [tool.poetry]
 name = "libmg"
-version = "0.3.61"
+version = "1.0.0"
 description = ""
 license = "MIT"
 authors = ["Matteo Belenchia"]
 readme = "README.md"
 repository = "https://github.com/quasylab/mG"
-documentation = "https://github.com/quasylab/mG"
+documentation = "https://quasylab.github.io/mG/"
 
 packages = [{include = "libmg"}]
 
