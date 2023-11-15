@@ -30,11 +30,11 @@ flake8-pyproject = "*"
 
 [tool.poetry.group.docs.dependencies]
 mkdocs      = "*"
-"mkdocstrings[python]" = "*"
+mkdocstrings = "*"
 mkdocs-material = "*"
 mkdocs_gen_files = "*"
 mkdocs-literate-nav = "*"
-mkdocks-section-index = "*"
+# mkdocks-section-index
 
 [build-system]
 requires = ["poetry-core"]
