@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "libmg"
-version = "1.0.2"
+version = "1.0.3"
 description = ""
 license = "MIT"
 authors = ["Matteo Belenchia"]
@@ -34,7 +34,7 @@ mkdocstrings = "*"
 mkdocs-material = "*"
 mkdocs_gen_files = "*"
 mkdocs-literate-nav = "*"
-# mkdocks-section-index
+mkdocs-section-index = "*"
 
 [build-system]
 requires = ["poetry-core"]
