@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "libmg"
-version = "1.0.1"
+version = "1.0.2"
 description = ""
 license = "MIT"
 authors = ["Matteo Belenchia"]

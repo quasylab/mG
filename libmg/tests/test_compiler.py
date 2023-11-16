@@ -12,14 +12,14 @@ from libmg.compiler.functions import Constant, make_koperator, make_boperator, m
 
 
 class DatasetTest(Dataset):
-    g1 = (np.array([[1], [2], [4], [1], [1]]),
-          coo_matrix(([1, 1, 1, 1, 1, 1, 1], ([0, 0, 1, 2, 2, 3, 4], [1, 2, 2, 1, 3, 4, 1])), shape=(5, 5)),
-          np.array([[1], [0], [0], [0], [1], [1], [1]]),
-          np.array([[2], [4], [8], [2], [2]]))
-    g2 = (np.array([[1], [2], [3], [4]]),
-          coo_matrix(([1, 1, 1, 1, 1], ([0, 0, 1, 3, 3], [1, 3, 1, 1, 2])), shape=(4, 4)),
-          np.array([[0], [1], [0], [1], [0]]),
-          np.array([[2], [4], [6], [8]]))
+    g1 = (np.array([[1], [2], [4], [1], [1]], dtype=np.uint8),
+          coo_matrix(([1, 1, 1, 1, 1, 1, 1], ([0, 0, 1, 2, 2, 3, 4], [1, 2, 2, 1, 3, 4, 1])), shape=(5, 5), dtype=np.uint8),
+          np.array([[1], [0], [0], [0], [1], [1], [1]], dtype=np.uint8),
+          np.array([[2], [4], [8], [2], [2]], dtype=np.uint8))
+    g2 = (np.array([[1], [2], [3], [4]], dtype=np.uint8),
+          coo_matrix(([1, 1, 1, 1, 1], ([0, 0, 1, 3, 3], [1, 3, 1, 1, 2])), shape=(4, 4), dtype=np.uint8),
+          np.array([[0], [1], [0], [1], [0]], dtype=np.uint8),
+          np.array([[2], [4], [6], [8]], dtype=np.uint8))
 
     def __init__(self, multiple=False, edges=False, labels=False, **kwargs):
         self.multiple = multiple
@@ -528,5 +528,5 @@ class TestCompiler(tf.test.TestCase):
                 elif api == 'predict':
                     self.assertAllEqual(model.predict(loader.load()), expected_output)
                 else:
-                    for inputs in loader.load():
+                    for inputs, in loader.load():
                         self.assertAllEqual(model.predict_on_batch(inputs), expected_output)

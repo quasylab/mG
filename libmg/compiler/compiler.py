@@ -598,6 +598,12 @@ class MGModel:
     def __getattr__(self, item: str) -> Any:
         return getattr(self._model, item)
 
+    def __setattr__(self, key, value):
+        if key in {'_model', 'expr', 'mg_layers', 'config', 'psi_functions', 'phi_functions', 'sigma_functions'}:
+            object.__setattr__(self, key, value)
+        else:
+            object.__setattr__(self._model, key, value)
+
     def __call__(self, *args, **kwargs):
         return self._model(*args, **kwargs)
 
