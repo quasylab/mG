@@ -38,3 +38,7 @@ jobs:
       run: |
         poetry run mkdocs build
         poetry run mkdocs gh-deploy
+      env:
+          REPO_KEY: ${{ secrets.GIT_ACTION_PUSH_TOKEN }}
+          CONFIG_FILE: mkdocs.yml
+          USERNAME: github-actions[bot]
