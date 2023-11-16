@@ -37,7 +37,7 @@ jobs:
     - name: Update docs
       run: |
         poetry run mkdocs build
-        poetry run mkdocs gh-deploy
+        poetry run mkdocs gh-deploy --force
       env:
           REPO_KEY: ${{ secrets.GIT_ACTION_PUSH_TOKEN }}
           CONFIG_FILE: mkdocs.yml
