@@ -1,12 +1,12 @@
 [tool.poetry]
 name = "libmg"
-version = "0.3.61"
+version = "1.0.3"
 description = ""
 license = "MIT"
 authors = ["Matteo Belenchia"]
 readme = "README.md"
 repository = "https://github.com/quasylab/mG"
-documentation = "https://github.com/quasylab/mG"
+documentation = "https://quasylab.github.io/mG/"
 
 packages = [{include = "libmg"}]
 
@@ -17,7 +17,7 @@ spektral    = "~1.3"
 numpy       = "*"
 scipy       = "*"
 bidict      = "*"
-lark        = "*"
+lark        = "^1"
 pyvis       = "*"
 
 
@@ -30,11 +30,11 @@ flake8-pyproject = "*"
 
 [tool.poetry.group.docs.dependencies]
 mkdocs      = "*"
-mkdocstrings = "*"
+mkdocstrings = {extras = ["python"], version = "^0.24.0"}
 mkdocs-material = "*"
 mkdocs_gen_files = "*"
 mkdocs-literate-nav = "*"
-# mkdocks-section-index
+mkdocs-section-index = "*"
 
 [build-system]
 requires = ["poetry-core"]
