@@ -20,6 +20,9 @@ class SingleGraphLoader(SingleLoader):
     as this class is directly derived from Spektral's ``SingleLoader`` class.
     """
 
+    def __init__(self, dataset, epochs=None, sample_weights=None):
+        super().__init__(dataset, epochs, sample_weights)
+
     def collate(self, batch):
         packed = self.pack(batch)
 
@@ -49,6 +52,9 @@ class MultipleGraphLoader(DisjointLoader):
     See Spektral's `documentation <https://graphneural.network/data-modes/#single-mode/>`_ for additional information,
     as this class is directly derived from Spektral's ``DisjointLoader`` class.
     """
+
+    def __init__(self, dataset, batch_size=1, epochs=None, shuffle=True):
+        super().__init__(dataset, node_level=True, batch_size=batch_size, epochs=epochs, shuffle=shuffle)
 
     def collate(self, batch):
         packed = self.pack(batch)

@@ -120,13 +120,13 @@ class TestCompiler(tf.test.TestCase):
     def run_model(self, datasets, compilers, expr, expected):
         if len(datasets) == 2:
             loaders = [SingleGraphLoader(datasets[0], epochs=1),
-                       MultipleGraphLoader(datasets[1], node_level=True, batch_size=2, shuffle=False, epochs=1)]
+                       MultipleGraphLoader(datasets[1], batch_size=2, shuffle=False, epochs=1)]
             expected_outputs = [expected[0], tf.concat(expected, 0)]
         else:
             loaders = [SingleGraphLoader(datasets[0], epochs=1),
-                       MultipleGraphLoader(datasets[1], node_level=True, batch_size=2, shuffle=False, epochs=1)] + \
+                       MultipleGraphLoader(datasets[1], batch_size=2, shuffle=False, epochs=1)] + \
                       [SingleGraphLoader(datasets[2], epochs=1),
-                       MultipleGraphLoader(datasets[3], node_level=True, batch_size=2, shuffle=False, epochs=1)]
+                       MultipleGraphLoader(datasets[3], batch_size=2, shuffle=False, epochs=1)]
             expected_outputs = [expected[0], tf.concat(expected, 0), expected[0], tf.concat(expected, 0)]
         for loader, compiler, expected_output in zip(loaders, compilers, expected_outputs):
             model = compiler.compile(expr)
@@ -472,9 +472,9 @@ class TestCompiler(tf.test.TestCase):
                             tf.constant([[True, True, True, True, False], [False, True, True, False, True], [True, True, False, True, False],
                                          [False, False, True, False, True]], dtype=tf.bool))
         loaders = [SingleGraphLoader(self.datasets[0], epochs=1),
-                   MultipleGraphLoader(self.datasets[1], node_level=True, batch_size=2, shuffle=False, epochs=1)] + \
+                   MultipleGraphLoader(self.datasets[1], batch_size=2, shuffle=False, epochs=1)] + \
                   [SingleGraphLoader(self.datasets[2], epochs=1),
-                   MultipleGraphLoader(self.datasets[3], node_level=True, batch_size=2, shuffle=False, epochs=1)]
+                   MultipleGraphLoader(self.datasets[3], batch_size=2, shuffle=False, epochs=1)]
         for compiler, loader, mem_expected_n_layer, non_mem_expected_n_layer, expected_output in zip(self.compilers, loaders, mem_expected_n_layers,
                                                                                                      non_mem_expected_n_layers,
                                                                                                      [expected_outputs[0], tf.concat(expected_outputs, 0),
@@ -495,9 +495,9 @@ class TestCompiler(tf.test.TestCase):
         expected_outputs = (tf.constant([[2], [4], [8], [2], [2]], dtype=tf.float32),
                             tf.constant([[2], [4], [6], [8]], dtype=tf.float32))
         loaders = [SingleGraphLoader(datasets[0], epochs=None),
-                   MultipleGraphLoader(datasets[1], node_level=True, batch_size=2, shuffle=False, epochs=None)] + \
+                   MultipleGraphLoader(datasets[1], batch_size=2, shuffle=False, epochs=None)] + \
                   [SingleGraphLoader(datasets[2], epochs=None),
-                   MultipleGraphLoader(datasets[3], node_level=True, batch_size=2, shuffle=False, epochs=None)]
+                   MultipleGraphLoader(datasets[3], batch_size=2, shuffle=False, epochs=None)]
         for compiler, loader, expected_output in zip(self.compilers, loaders, [expected_outputs[0], tf.concat(expected_outputs, 0),
                                                                                expected_outputs[0], tf.concat(expected_outputs, 0)]):
             model = compiler.compile(expr)
@@ -512,9 +512,9 @@ class TestCompiler(tf.test.TestCase):
             expected_outputs = (tf.constant([[False], [False], [False], [False], [False]], dtype=tf.bool),
                                 tf.constant([[False], [False], [False], [False]], dtype=tf.bool))
             loaders = [SingleGraphLoader(self.datasets[0], epochs=1),
-                       MultipleGraphLoader(self.datasets[1], node_level=True, batch_size=2, shuffle=False, epochs=1)] + \
+                       MultipleGraphLoader(self.datasets[1], batch_size=2, shuffle=False, epochs=1)] + \
                       [SingleGraphLoader(self.datasets[2], epochs=1),
-                       MultipleGraphLoader(self.datasets[3], node_level=True, batch_size=2, shuffle=False, epochs=1)]
+                       MultipleGraphLoader(self.datasets[3], batch_size=2, shuffle=False, epochs=1)]
             for compiler, loader, expected_output in zip(self.compilers, loaders, [expected_outputs[0], tf.concat(expected_outputs, 0),
                                                                                    expected_outputs[0], tf.concat(expected_outputs, 0)]):
                 model = compiler.compile(expr)

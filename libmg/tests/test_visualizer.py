@@ -26,9 +26,9 @@ class TestVisualizer(tf.test.TestCase):
     def test_print_layer(self):
         expr = 'a || ((a || b);or) || (b ; |> or) || (fix X = false in ((a || X) ; or)) || (a ; not)'
         loaders = [SingleGraphLoader(self.datasets[0], epochs=1),
-                   MultipleGraphLoader(self.datasets[1], node_level=True, batch_size=2, shuffle=False, epochs=1)] + \
+                   MultipleGraphLoader(self.datasets[1], batch_size=2, shuffle=False, epochs=1)] + \
                   [SingleGraphLoader(self.datasets[2], epochs=1),
-                   MultipleGraphLoader(self.datasets[3], node_level=True, batch_size=2, shuffle=False, epochs=1)]
+                   MultipleGraphLoader(self.datasets[3], batch_size=2, shuffle=False, epochs=1)]
         for loader, compiler, filename in zip(loaders, self.compilers, ['xa', 'xai', 'xae', 'xaei']):
             model = compiler.compile(expr)
             for inputs, y in loader.load():

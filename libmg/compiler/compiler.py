@@ -1515,7 +1515,7 @@ class MGCompiler:
         if api == 'predict_on_batch' and self.config.use_edges:
             raise ValueError("The predict_on_batch API, as of TF2.4, isn't compatible with graphs with edge labels.")
         if self.config.use_multiple_loader:
-            dummy_loader = MultipleGraphLoader(self.dummy_dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)
+            dummy_loader = MultipleGraphLoader(self.dummy_dataset, batch_size=1, shuffle=False, epochs=1)
         else:
             dummy_loader = SingleGraphLoader(self.dummy_dataset, epochs=1)
         traced_model = MGCompiler.graph_mode_constructor(model, self.model_input_spec, api)
