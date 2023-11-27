@@ -35,7 +35,7 @@ from libmg.data.dataset import Dataset
 from libmg.compiler.functions import FunctionDict, PsiNonLocal, Phi, Sigma, Psi
 from libmg.data.loaders import SingleGraphLoader, MultipleGraphLoader
 from libmg.normalizer.normalizer import var_occurs, mg_normalizer
-from libmg.compiler.grammar import mg_parser, mg_reconstructor
+from libmg.language.grammar import mg_parser, mg_reconstructor
 from libmg.compiler.layers import PreImage, PostImage, FunctionApplication, Ite, FixPoint, Repeat
 
 

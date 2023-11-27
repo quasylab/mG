@@ -3,7 +3,7 @@ import importlib.metadata
 from spektral.data import Graph
 from .compiler.functions import PsiLocal, PsiGlobal, PsiNonLocal, Phi, Sigma, Constant, Pi, make_uoperator, make_boperator, make_koperator
 from .compiler.compiler import MGCompiler, CompilerConfig, NodeConfig, EdgeConfig
-from .compiler.grammar import mg_reconstructor, mg_parser
+from libmg.language.grammar import mg_reconstructor, mg_parser
 from .data.dataset import Dataset
 from .data.loaders import SingleGraphLoader, MultipleGraphLoader
 from .explainer.explainer import MGExplainer

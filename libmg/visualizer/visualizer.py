@@ -22,7 +22,7 @@ from pyvis.options import Layout, Options
 from spektral.data import Graph
 
 from libmg.compiler.compiler import MGModel
-from libmg.compiler.grammar import mg_parser, mg_reconstructor
+from libmg.language.grammar import mg_parser, mg_reconstructor
 from libmg.compiler.layers import unpack_inputs
 
 

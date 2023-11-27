@@ -1,6 +1,6 @@
 import pytest
 
-from libmg.compiler.grammar import mg_parser
+from libmg.language.grammar import mg_parser
 from libmg.normalizer.normalizer import mg_normalizer, var_occurs
 
 

@@ -23,7 +23,7 @@ from multiprocessing.pool import ThreadPool
 
 from libmg.compiler.functions import PsiLocal, Phi, Sigma
 from libmg.compiler.compiler import MGCompiler, MGModel
-from libmg.compiler.grammar import mg_parser
+from libmg.language.grammar import mg_parser
 from libmg.compiler.layers import unpack_inputs
 from libmg.visualizer.visualizer import print_graph
 

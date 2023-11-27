@@ -19,7 +19,7 @@ from lark import Transformer, v_args, Tree, Token
 from lark.visitors import Interpreter
 from functools import singledispatchmethod, singledispatch
 
-from libmg.compiler.grammar import mg_parser, mg_reconstructor
+from libmg.language.grammar import mg_parser, mg_reconstructor
 
 
 class Normalizer(Interpreter[Token, Tree]):
