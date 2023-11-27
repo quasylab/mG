@@ -1,3 +1,5 @@
+import shutil
+
 import tensorflow as tf
 import os
 
@@ -11,8 +13,12 @@ class TestVisualizer(tf.test.TestCase):
     @classmethod
     def tearDownClass(cls):
         for file in os.listdir('.'):
-            if file.startswith('graph_test_') and file.endswith('.html'):
-                os.remove(file)
+            if file.startswith('graph_test_'):
+                if file.endswith('.html'):
+                    os.remove(file)
+                elif os.path.isdir(file):
+                    # shutil.rmtree(file)
+                    pass
 
     @classmethod
     def setUpClass(cls):
@@ -47,3 +53,11 @@ class TestVisualizer(tf.test.TestCase):
         for i, graph in enumerate(xaei_dataset):
             print_graph(graph, show_labels=False, open_browser=False, filename='test_nolabels_' + str(i))
             print_graph(graph, show_labels=True, open_browser=False, filename='test_labels_' + str(i))
+
+
+    def test_cosmo(self):
+        xaei_dataset = self.datasets[-1]
+        for i, graph in enumerate(xaei_dataset):
+            print_graph(graph, show_labels=False, open_browser=True, filename='test_nolabels_' + str(i), engine='cosmo')
+            break
+            # print_graph(graph, show_labels=True, open_browser=False, filename='test_labels_' + str(i), engine='cosmo')

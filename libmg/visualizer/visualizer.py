@@ -8,7 +8,11 @@ The module contains the following functions:
 - ``print_layer(model, inputs, labels=None, layer_name=None, layer_idx=None, open_browser=True)``
 - ``print_graph(graph, node_names_func='id', hierarchical=False, show_labels=False, open_browser=True)``
 """
-from typing import Callable, Iterator
+import os
+import shutil
+import webbrowser
+import pathlib
+from typing import Callable, Iterator, Literal
 
 import numpy as np
 import tensorflow as tf
@@ -52,8 +56,8 @@ def fetch_layer(model: MGModel, layer_name: str | Tree | None = None, layer_idx:
         raise ValueError("Layer name or index must be provided!")
 
 
-def show(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, int]], edge_values: np.ndarray | None, labels: np.ndarray | None,
-         hierarchy: list[int] | None, id_generator: Callable[[int], int | str], filename: str, open_browser: bool) -> None:
+def show_pyvis(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, int]], edge_values: np.ndarray | None, labels: np.ndarray | None,
+               hierarchy: list[int] | None, id_generator: Callable[[int], int | str], filename: str, open_browser: bool) -> None:
     """
     Builds a PyVis network using the node features, labels, adjacency matrix and edge features. The result is an .html
     page named graph_``filename``.html.
@@ -119,9 +123,23 @@ def show(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, int]], e
         net.save_graph('graph_' + filename + '.html')
 
 
+def show_cosmo(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, int]], edge_values: np.ndarray | None, labels: np.ndarray | None,
+               hierarchy: list[int] | None, id_generator: Callable[[int], int | str], filename: str, open_browser: bool) -> None:
+    data = '"use strict";(self.webpackChunkmy_react_app=self.webpackChunkmy_react_app||[]).push([[126],{{468:e=>{{e.exports=JSON.parse(\'{}\')}}}}]);'
+    formatted_data = data.format('{"nodes":[{"id":0,"color":"red"},{"id":1,"color":"green"},{"id":2,"color":"blue"}],"links":[{"source":0,"target":1,'
+                                 '"color":"blue"},{"source":1,"target":2,"color":"green"},{"source":2,"target":0,"color":"red"}]}')
+    shutil.copytree(os.path.join(os.path.dirname(__file__), 'site_template'), 'graph_' + filename, dirs_exist_ok=True)
+    pathlib.Path(os.path.join('graph_' + filename, 'data.js')).write_text(formatted_data)
+    if open_browser:
+        webbrowser.open('file://' + os.path.realpath(os.path.join('graph_' + filename, 'index.html')))
+
+
+engines = {'pyvis': show_pyvis, 'cosmo': show_cosmo}
+
+
 def print_layer(model: MGModel, inputs: list[tf.Tensor], labels: tf.Tensor | None = None, layer_name: str | Tree | None = None, layer_idx: int | None = None,
-                filename: str | None = None, open_browser: bool = True) -> None:
-    """Visualizes the outputs of a model's layer using PyVis.
+                filename: str | None = None, open_browser: bool = True, engine: Literal["pyvis", "cosmo"] = 'pyvis') -> None:
+    """Visualizes the outputs of a model's layer.
 
     Layer must be identified either by name or index. If both are given, index takes precedence.
 
@@ -134,6 +152,7 @@ def print_layer(model: MGModel, inputs: list[tf.Tensor], labels: tf.Tensor | Non
         filename: The name of the .html file to save in the working directory. The string ``graph_`` will be prepended to it and the provided index or layer
             name will be appended to it.
         open_browser: If true, opens the default web browser and loads up the generated .html page.
+        engine: The visualization engine to use. Options are ``pyvis`` or ``cosmo``.
 
     Returns:
         Nothing.
@@ -147,13 +166,13 @@ def print_layer(model: MGModel, inputs: list[tf.Tensor], labels: tf.Tensor | Non
     idx_or_name = layer_idx if layer_idx is not None else layer.name
     labels = labels.numpy() if labels is not None else None
     _, a, e, _ = unpack_inputs(inputs)
-    show(debug_model(inputs).numpy(), a.indices.numpy(), e.numpy() if e is not None else None, labels, None, lambda x: x,
-         filename + '_' + str(idx_or_name) if filename is not None else str(idx_or_name), open_browser)
+    engines[engine](debug_model(inputs).numpy(), a.indices.numpy(), e.numpy() if e is not None else None, labels, None, lambda x: x,
+                    filename + '_' + str(idx_or_name) if filename is not None else str(idx_or_name), open_browser)
 
 
 def print_graph(graph: Graph, id_generator: Callable[[int], int | str] = lambda x: x, hierarchical: bool = False, show_labels: bool = False,
-                filename: str | None = None, open_browser: bool = True) -> None:
-    """Visualizes a graph using PyVis.
+                filename: str | None = None, open_browser: bool = True, engine: Literal["pyvis", "cosmo"] = 'pyvis') -> None:
+    """Visualizes a graph.
 
     Args:
         graph: The graph to visualize.
@@ -163,9 +182,10 @@ def print_graph(graph: Graph, id_generator: Callable[[int], int | str] = lambda 
         show_labels: If true, show the node labels alongside the node features.
         filename: The name of the .html file to save in the working directory. The string ``graph_`` will be prepended to it.
         open_browser: If true, opens the default web browser and loads up the generated .html page.
+        engine: The visualization engine to use. Options are ``pyvis`` or ``cosmo``.
 
     Returns:
         Nothing.
     """
-    show(graph.x, zip(graph.a.row, graph.a.col), graph.e, graph.y if show_labels else None, graph.hierarchy if hierarchical else None, id_generator,
-         filename if filename is not None else str(graph), open_browser)
+    engines[engine](graph.x, zip(graph.a.row, graph.a.col), graph.e, graph.y if show_labels else None, graph.hierarchy if hierarchical else None, id_generator,
+                    filename if filename is not None else str(graph), open_browser)
