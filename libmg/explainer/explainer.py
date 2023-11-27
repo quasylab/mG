@@ -72,7 +72,6 @@ def make_graph(explanation: tf.Tensor[bool], hierarchy: tf.Tensor[float], old_gr
 
 
 class MGExplainer(Interpreter):
-    # TODO: explain the logic here
     """Explains a mG model output.
 
     Generates the sub-graph of nodes that are responsible for the label of a given node.
