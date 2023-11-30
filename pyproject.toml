@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "libmg"
-version = "1.0.4"
+version = "1.0.5"
 description = ""
 license = "MIT"
 authors = ["Matteo Belenchia"]
@@ -43,7 +43,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
-addopts = '--doctest-modules' #--cov=libmg'
+addopts = '--doctest-modules #--cov=libmg'
 testpaths = ['libmg',]
 doctest_optionflags = "ELLIPSIS"
 
