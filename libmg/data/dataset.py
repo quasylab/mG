@@ -4,7 +4,7 @@ This module defines a container (a dataset) of graphs, based on the class of the
 
 The module contains the following classes:
 
-- ``Dataset(name, **kwargs)``
+- `Dataset(name, **kwargs)`
 """
 from typing import Any
 

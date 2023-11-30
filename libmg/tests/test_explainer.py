@@ -46,5 +46,5 @@ class TestExplainer(tf.test.TestCase):
                 model = compiler.compile(expr)
                 explainer = MGExplainer(model)
                 for inputs, y in loader.load():
-                    graph = explainer.explain(0, inputs, y, filename='test_explainer', open_browser=False)
+                    graph = explainer.explain(0, inputs, filename='test_explainer', open_browser=False)
                     np.testing.assert_array_equal(graph.x, expected_nodes)

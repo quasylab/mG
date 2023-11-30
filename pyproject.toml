@@ -31,17 +31,19 @@ flake8-pyproject = "*"
 [tool.poetry.group.docs.dependencies]
 mkdocs      = "*"
 mkdocstrings = {extras = ["python"], version = "^0.24.0"}
-mkdocs-material = "*"
+mkdocs-material = {extras = ["imaging"], version = "^9.4.14"}
 mkdocs_gen_files = "*"
 mkdocs-literate-nav = "*"
 mkdocs-section-index = "*"
+mkdocs-git-revision-date-localized-plugin = "*"
+black = "*"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
-addopts = '--doctest-modules --cov=libmg'
+addopts = '--doctest-modules' #--cov=libmg'
 testpaths = ['libmg',]
 doctest_optionflags = "ELLIPSIS"
 

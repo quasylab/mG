@@ -1,7 +1,57 @@
-site_name: Libmg Docs
+site_name: Libmg Documentation
+site_url: https://quasylab.github.io/mG/
+repo_url: https://github.com/quasylab/mG
+edit_uri: https://github.com/quasylab/mG/tree/main/libmg
+site_author: Matteo Belenchia
+copyright: Copyright &copy; 2023 Matteo Belenchia – <a href="#__consent">Change cookie settings</a>
 
 theme:
   name: "material"
+  palette:
+    primary: custom
+  logo: assets/logo.png
+  favicon: assets/logo.png
+  features:
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.expand
+    - toc.follow
+    # - toc.integrate
+    - navigation.top
+    - search.suggest
+    # - search.highlight
+    - search.share
+    - navigation.footer
+
+extra_css:
+  - stylesheets/extra.css
+
+extra:
+  consent:
+    title: Cookie consent
+    description: >- 
+      We use cookies to recognize your repeated visits and preferences, as well
+      as to measure the effectiveness of our documentation and whether users
+      find what they're searching for. With your consent, you're helping us to
+      make our documentation better.
+    actions:
+      - accept
+      - manage
+      - reject
+    cookies:
+      analytics:
+        name: Google Analytics
+        checked: true
+      github:
+        name: Github
+        checked: true
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/quasylab/mG
+  generator: false
 
 plugins:
   - mkdocstrings:
@@ -12,25 +62,56 @@ plugins:
             show_source: true
             show_root_heading: false
             show_root_toc_entry: false
+            separate_signature: true
+            line_length: 160
+            show_signature_annotations: true
             members_order: source
             docstring_style: google
             docstring_options:
               ignore_init_summary: true
             docstring_section_style: list
             merge_init_into_class: true
+
   - search
   - gen-files:
       scripts:
-        - scripts/gen_ref_pages.py
+        - docs/scripts/gen_ref_pages.py
   - literate-nav:
       nav_file: SUMMARY.md
   - section-index
+  - social
+  - git-revision-date-localized:
+      enable_creation_date: false
 
 markdown_extensions:
   - toc:
       permalink: true
   - pymdownx.arithmatex:
       generic: true
+  - admonition
+  - attr_list
+  - abbr
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.mark
+  - pymdownx.tilde
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.smartsymbols
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
 
 extra_javascript:
   - javascripts/mathjax.js
@@ -43,3 +124,6 @@ nav:
   - How-To Guides: how-to-guides.md
   - Code Reference: reference/
   - explanation.md
+
+watch:
+  - libmg

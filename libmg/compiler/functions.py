@@ -29,7 +29,7 @@ from collections import UserDict
 from typing import Callable, Any
 
 
-class FunctionDict(UserDict[str, Callable]):
+class FunctionDict(UserDict):
     """Dictionary that maps mG labels to functions.
 
     This dictionary is instantiated by passing in a dictionary where keys are strings that are valid mG labels and values are either ``Function`` objects,
@@ -193,9 +193,9 @@ class Function(tf.keras.layers.Layer):
         """
         # check if f has only a single argument e.g. lambda x: lambda y: foo(x)(y)
         if f.__code__.co_argcount == 1:
-            return lambda a: cls(f(a), name)
+            return lambda a: cls(f(a), name + '_' + a if name is not None else None)
         else:  # e.g. lambda x, y: foo(x)(y)
-            return lambda a: cls(partial(f, a), name)
+            return lambda a: cls(partial(f, a), name + '_' + a if name is not None else None)
 
     @property
     def name(self):
@@ -326,7 +326,8 @@ class PsiNonLocal(Psi):
             args['single_op' if cls is not PsiLocal else 'f'] = single_op
         if multiple_op is not None:
             args['multiple_op'] = multiple_op
-        return lambda a: cls(**{k: v(a) if v.__code__.co_argcount == 1 else partial(v, a) for k, v in args.items()}, name=name)
+        return lambda a: cls(**{k: v(a) if v.__code__.co_argcount == 1 else partial(v, a) for k, v in args.items()},
+                             name=name + '_' + a if name is not None else None)
 
     def __call__(self, x: tf.Tensor, i: tf.Tensor | None = None) -> tf.Tensor:
         if i is not None:

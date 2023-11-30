@@ -8,6 +8,7 @@ The module contains the following functions:
 - ``print_layer(model, inputs, labels=None, layer_name=None, layer_idx=None, open_browser=True)``
 - ``print_graph(graph, node_names_func='id', hierarchical=False, show_labels=False, open_browser=True)``
 """
+import json
 import os
 import shutil
 import webbrowser
@@ -21,9 +22,9 @@ from pyvis.network import Network
 from pyvis.options import Layout, Options
 from spektral.data import Graph
 
-from libmg.compiler.compiler import MGModel
 from libmg.language.grammar import mg_parser, mg_reconstructor
 from libmg.compiler.layers import unpack_inputs
+from libmg.compiler.compiler import MGModel
 
 
 def fetch_layer(model: MGModel, layer_name: str | Tree | None = None, layer_idx: int | None = None) -> tf.keras.layers.Layer:
@@ -86,18 +87,15 @@ def show_pyvis(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, in
         edge_labels = None
     if labels is not None:
         true_labels = [' | '.join([str(label) for label in label_list]) for label_list in labels.tolist()]
+        node_labels = ['[' + feat + '] → [' + target + ']' for feat, target in zip(node_labels, true_labels)]
     else:
-        true_labels = None
+        node_labels = ['[' + feat + ']' for feat in node_labels]
+
     titles = [str(i) for i in nodes]
 
     # Build the pyvis network
     net = Network(directed=True, neighborhood_highlight=True, select_menu=True, filter_menu=True)
     layout = Layout(improvedLayout=True)
-
-    if true_labels is not None:
-        node_labels = ['[' + feat + '] → [' + target + ']' for feat, target in zip(node_labels, true_labels)]
-    else:
-        node_labels = ['[' + feat + ']' for feat in node_labels]
 
     if hierarchy is not None:
         net.options = Options(layout)
@@ -123,13 +121,26 @@ def show_pyvis(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, in
         net.save_graph('graph_' + filename + '.html')
 
 
+# Edge labels are not supported
+# Hierarchy to be implemented using timeline or histograms
 def show_cosmo(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, int]], edge_values: np.ndarray | None, labels: np.ndarray | None,
                hierarchy: list[int] | None, id_generator: Callable[[int], int | str], filename: str, open_browser: bool) -> None:
-    data = '"use strict";(self.webpackChunkmy_react_app=self.webpackChunkmy_react_app||[]).push([[126],{{468:e=>{{e.exports=JSON.parse(\'{}\')}}}}]);'
-    formatted_data = data.format('{"nodes":[{"id":0,"color":"red"},{"id":1,"color":"green"},{"id":2,"color":"blue"}],"links":[{"source":0,"target":1,'
-                                 '"color":"blue"},{"source":1,"target":2,"color":"green"},{"source":2,"target":0,"color":"red"}]}')
+
+    node_labels = [' | '.join([str(label) for label in label_list]) for label_list in node_values.tolist()]
+    if labels is not None:
+        true_labels = [' | '.join([str(label) for label in label_list]) for label_list in labels.tolist()]
+        node_labels = ['[' + feat + '] → [' + target + ']' for feat, target in zip(node_labels, true_labels)]
+    else:
+        node_labels = ['[' + feat + ']' for feat in node_labels]
+
+    nodes = [{'id': id_generator(i), 'label': node_labels[i], 'hierarchy': hierarchy[i] if hierarchy else None} for i in range(node_values.shape[0])]
+    edges = [{'source': int(e[0]), 'target': int(e[1])} for e in adj]
+    data = {'nodes': nodes, 'links': edges}
+
+    jsfile = '"use strict";(self.webpackChunkmy_react_app=self.webpackChunkmy_react_app||[]).push([[126],{{468:e=>{{e.exports=JSON.parse(\'{}\')}}}}]);'
+    jsfile = jsfile.format(json.dumps(data))
     shutil.copytree(os.path.join(os.path.dirname(__file__), 'site_template'), 'graph_' + filename, dirs_exist_ok=True)
-    pathlib.Path(os.path.join('graph_' + filename, 'data.js')).write_text(formatted_data)
+    pathlib.Path(os.path.join('graph_' + filename, 'data.js')).write_text(jsfile)
     if open_browser:
         webbrowser.open('file://' + os.path.realpath(os.path.join('graph_' + filename, 'index.html')))
 
@@ -170,7 +181,7 @@ def print_layer(model: MGModel, inputs: list[tf.Tensor], labels: tf.Tensor | Non
                     filename + '_' + str(idx_or_name) if filename is not None else str(idx_or_name), open_browser)
 
 
-def print_graph(graph: Graph, id_generator: Callable[[int], int | str] = lambda x: x, hierarchical: bool = False, show_labels: bool = False,
+def print_graph(graph: Graph, id_generator: Callable[[int], int] = lambda x: x, hierarchical: bool = False, show_labels: bool = False,
                 filename: str | None = None, open_browser: bool = True, engine: Literal["pyvis", "cosmo"] = 'pyvis') -> None:
     """Visualizes a graph.
 
