@@ -101,17 +101,28 @@ def show_pyvis(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, in
         net.options = Options(layout)
         for i, v in enumerate(nodes):
             net.add_node(v, title=titles[i], label=node_labels[i], shape='circle', level=hierarchy[i])
+
+        for i in range(len(edges)):
+            edge = edges[i]
+            hidden = hierarchy[edge[0]] == hierarchy[edge[1]]
+            if edge_labels is None:
+                net.add_edge(*edge, hidden=hidden)
+            else:
+                net.add_edge(*edge, label=edge_labels[i], hidden=hidden)
+
     else:
         layout.hierarchical = layout.Hierarchical(enabled=False)
         net.options = Options(layout)
         del net.options['layout'].hierarchical
         net.add_nodes(nodes, title=titles, label=node_labels, shape=['circle'] * len(nodes))
 
-    if edge_labels is None:
-        net.add_edges(edges)
-    else:
-        for i, edge in enumerate(edges):
-            net.add_edge(*edge, label=edge_labels[i])
+        if edge_labels is None:
+            net.add_edges(edges)
+        else:
+            for i in range(len(edges)):
+                edge = edges[i]
+                net.add_edge(*edge, label=edge_labels[i])
+
 
     net.force_atlas_2based()
     net.show_buttons()
