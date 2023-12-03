@@ -39,25 +39,21 @@ class TestVisualizer(tf.test.TestCase):
         for loader, compiler, filename in zip(loaders, self.compilers, ['xa', 'xai', 'xae', 'xaei']):
             model = compiler.compile(expr)
             for inputs, y in loader.load():
-                print_layer(model, inputs, labels=y, layer_idx=-1, filename='test_nolabels_' + filename, open_browser=False)
-                print_layer(model, inputs, labels=None, layer_idx=-1, filename='test_labels_' + filename, open_browser=False)
-                print_layer(model, inputs, labels=y, layer_idx=3, filename='test_nolabels_' + filename, open_browser=False)
-                print_layer(model, inputs, labels=None, layer_idx=3, filename='test_labels_' + filename, open_browser=False)
-                print_layer(model, inputs, labels=y, layer_name='a || b', filename='test_labels_' + filename, open_browser=False)
-                print_layer(model, inputs, labels=None, layer_name='a || b', filename='test_nolabels_' + filename, open_browser=False)
-                print_layer(model, inputs, labels=y, layer_name='(fix X = false in ((a || X) ; or))', filename='test_labels_' + filename, open_browser=False)
-                print_layer(model, inputs, labels=None, layer_name='(fix X = false in ((a || X) ; or))', filename='test_nolabels_' + filename,
-                            open_browser=False)
+                for engine in ['pyvis', 'cosmo']:
+                    print_layer(model, inputs, labels=y, layer_idx=-1, filename='test_nolabels_' + filename, open_browser=False, engine=engine)
+                    print_layer(model, inputs, labels=None, layer_idx=-1, filename='test_labels_' + filename, open_browser=False, engine=engine)
+                    print_layer(model, inputs, labels=y, layer_idx=3, filename='test_nolabels_' + filename, open_browser=False, engine=engine)
+                    print_layer(model, inputs, labels=None, layer_idx=3, filename='test_labels_' + filename, open_browser=False, engine=engine)
+                    print_layer(model, inputs, labels=y, layer_name='a || b', filename='test_labels_' + filename, open_browser=False, engine=engine)
+                    print_layer(model, inputs, labels=None, layer_name='a || b', filename='test_nolabels_' + filename, open_browser=False, engine=engine)
+                    print_layer(model, inputs, labels=y, layer_name='(fix X = false in ((a || X) ; or))', filename='test_labels_' + filename,
+                                open_browser=False, engine=engine)
+                    print_layer(model, inputs, labels=None, layer_name='(fix X = false in ((a || X) ; or))', filename='test_nolabels_' + filename,
+                                open_browser=False, engine=engine)
 
     def test_print_graph(self):
         xaei_dataset = self.datasets[-1]
         for i, graph in enumerate(xaei_dataset):
-            print_graph(graph, show_labels=False, open_browser=False, filename='test_nolabels_' + str(i))
-            print_graph(graph, show_labels=True, open_browser=False, filename='test_labels_' + str(i))
-
-    # def test_cosmo(self):
-    #     xaei_dataset = self.datasets[-1]
-    #     for i, graph in enumerate(xaei_dataset):
-    #         print_graph(graph, show_labels=False, open_browser=True, filename='test_nolabels_' + str(i), engine='cosmo')
-    #         break
-    #         # print_graph(graph, show_labels=True, open_browser=False, filename='test_labels_' + str(i), engine='cosmo')
+            for engine in ['pyvis', 'cosmo']:
+                print_graph(graph, show_labels=False, open_browser=False, filename='test_nolabels_' + str(i), engine=engine)
+                print_graph(graph, show_labels=True, open_browser=False, filename='test_labels_' + str(i), engine=engine)

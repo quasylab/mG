@@ -123,7 +123,6 @@ def show_pyvis(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, in
                 edge = edges[i]
                 net.add_edge(*edge, label=edge_labels[i])
 
-
     net.force_atlas_2based()
     net.show_buttons()
     if open_browser:
@@ -145,7 +144,10 @@ def show_cosmo(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, in
         node_labels = ['[' + feat + ']' for feat in node_labels]
 
     nodes = [{'id': id_generator(i), 'label': node_labels[i], 'hierarchy': hierarchy[i] if hierarchy else None} for i in range(node_values.shape[0])]
-    edges = [{'source': int(e[0]), 'target': int(e[1])} for e in adj]
+    if hierarchy is not None:
+        edges = [{'source': int(e[0]), 'target': int(e[1])} for e in adj if hierarchy[int(e[0])] != hierarchy[int(e[1])]]
+    else:
+        edges = [{'source': int(e[0]), 'target': int(e[1])} for e in adj]
     data = {'nodes': nodes, 'links': edges}
 
     jsfile = '"use strict";(self.webpackChunkmy_react_app=self.webpackChunkmy_react_app||[]).push([[126],{{468:e=>{{e.exports=JSON.parse(\'{}\')}}}}]);'

@@ -11,7 +11,8 @@ The module contains the following classes:
 """
 from __future__ import annotations
 import typing
-from typing import Callable
+from copy import deepcopy
+from typing import Callable, Literal
 
 from lark import Tree, Token
 from lark.exceptions import VisitError
@@ -93,7 +94,7 @@ class MGExplainer(Interpreter):
     # localize_node = lambda y: PsiLocal(lambda x: tf.one_hot(indices=[int(y)], depth=tf.shape(x)[0],
     # axis=0, on_value=0, off_value=ExplainerMG.INF, dtype=tf.float32))
     id = PsiLocal(lambda x: x)
-    proj3 = Phi.make('proj', lambda i, e, j: i)
+    proj1 = Phi.make('proj', lambda i, e, j: i)
     or_agg = Sigma(lambda m, i, n, x: tf.minimum(tf.math.unsorted_segment_min(m, i, n) + 1, x))
     or_fun = PsiLocal(lambda x: tf.math.reduce_min(x, axis=1, keepdims=True))
     all_nodes_expr = 'fix X = id in (((X;|p3>or) || (X;<p3|or));or)'
@@ -110,7 +111,7 @@ class MGExplainer(Interpreter):
         self.context = Context()
         self.compiler = MGCompiler(psi_functions={'node': MGExplainer.localize_node, 'id': MGExplainer.id, 'or': MGExplainer.or_fun},
                                    sigma_functions={'or': MGExplainer.or_agg},
-                                   phi_functions={'p3': MGExplainer.proj3},
+                                   phi_functions={'p3': MGExplainer.proj1},
                                    config=model.config)
 
     @staticmethod
@@ -126,7 +127,8 @@ class MGExplainer(Interpreter):
         sorted_node_ids = sorted(explanation_nodes(explanation))
         return lambda x: sorted_node_ids[x]
 
-    def explain(self, query_node: int, inputs: list[tf.Tensor], filename: str | None = None, open_browser: bool = True) -> Graph:
+    def explain(self, query_node: int, inputs: list[tf.Tensor], filename: str | None = None, open_browser: bool = True,
+                engine: Literal["pyvis", "cosmo"] = 'pyvis') -> Graph:
         """Explain the label of a query node by generating the sub-graph of nodes that affected its value.
 
         The explanation is saved in a PyVis .html file in the working directory.
@@ -136,6 +138,7 @@ class MGExplainer(Interpreter):
             inputs: The inputs for the model to explain. This is the graph to which the query node belongs.
             filename: The name of the .html file to save in the working directory. The string ``graph_`` will be prepended to it.
             open_browser: If true, opens the default web browser and loads up the generated .html page.
+            engine: The visualization engine to use. Options are ``pyvis`` or ``cosmo``.
 
         Returns:
             The generated sub-graph.
@@ -145,7 +148,7 @@ class MGExplainer(Interpreter):
         self.context.clear()
         actual_outputs = self.model.call(inputs)
         try:
-            right_branch = self.visit(self.model.expr)
+            right_branch = self.visit(deepcopy(self.model.expr))
         except VisitError:
             right_branch = mg_parser.parse(MGExplainer.all_nodes_expr)
         left_branch = mg_parser.parse('node[' + str(self.query_node) + ']')
@@ -158,7 +161,7 @@ class MGExplainer(Interpreter):
         explanation = tf.math.less(hierarchy, MGExplainer.INF)
         graph = make_graph(explanation, hierarchy, inputs, actual_outputs)
         print_graph(graph, id_generator=self.get_original_ids_func(explanation), hierarchical=True,
-                    show_labels=True, filename=filename, open_browser=open_browser)
+                    show_labels=True, filename=filename, open_browser=open_browser, engine=engine)
         return graph
 
     def atom_op(self, tree: Tree) -> Tree:
@@ -260,6 +263,7 @@ class MGExplainer(Interpreter):
 
     def fix(self, tree: Tree) -> Tree:
         iters = self.model.mg_layers[hash(self.context.get(tree))].iters.numpy() - 1
+        print(iters)
         new_op = tree.copy()
         new_op.children = self.visit_children(tree) + [Token('NUMBER', iters)]
         new_op.data = 'repeat'
