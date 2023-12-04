@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmy_react_app=self.webpackChunkmy_react_app||[]).push([[359],{794:e=>{e.exports={version:"1.0.34"}}}]);
