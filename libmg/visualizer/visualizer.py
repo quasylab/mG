@@ -19,7 +19,7 @@ import numpy as np
 import tensorflow as tf
 from lark import Tree
 from pyvis.network import Network
-from pyvis.options import Layout, Options
+from pyvis.options import Layout, Options, EdgeOptions
 from spektral.data import Graph
 
 from libmg.language.grammar import mg_parser, mg_reconstructor
@@ -94,13 +94,16 @@ def show_pyvis(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, in
     titles = [str(i) for i in nodes]
 
     # Build the pyvis network
-    net = Network(directed=True, neighborhood_highlight=True, select_menu=True, filter_menu=True)
+    net = Network(directed=True, neighborhood_highlight=True, select_menu=True, filter_menu=True, font_color='white')
     layout = Layout(improvedLayout=True)
+    edge_options = EdgeOptions()
+    edge_options.color = 'red'
 
     if hierarchy is not None:
         net.options = Options(layout)
+        net.options.edges = edge_options
         for i, v in enumerate(nodes):
-            net.add_node(v, title=titles[i], label=node_labels[i], shape='circle', level=hierarchy[i])
+            net.add_node(v, title=titles[i], label=node_labels[i], shape='circle', level=hierarchy[i], color='#222C4A')
 
         for i in range(len(edges)):
             edge = edges[i]
@@ -109,12 +112,12 @@ def show_pyvis(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, in
                 net.add_edge(*edge, hidden=hidden)
             else:
                 net.add_edge(*edge, label=edge_labels[i], hidden=hidden)
-
     else:
         layout.hierarchical = layout.Hierarchical(enabled=False)
         net.options = Options(layout)
+        net.options.edges = edge_options
         del net.options['layout'].hierarchical
-        net.add_nodes(nodes, title=titles, label=node_labels, shape=['circle'] * len(nodes))
+        net.add_nodes(nodes, title=titles, label=node_labels, shape=['circle'] * len(nodes), color=['#222C4A'] * len(nodes))
 
         if edge_labels is None:
             net.add_edges(edges)
@@ -123,7 +126,7 @@ def show_pyvis(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, in
                 edge = edges[i]
                 net.add_edge(*edge, label=edge_labels[i])
 
-    net.force_atlas_2based()
+    net.force_atlas_2based(overlap=1.0)
     net.show_buttons()
     if open_browser:
         net.show('graph_' + filename + '.html', notebook=False)
