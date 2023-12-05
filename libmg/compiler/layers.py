@@ -424,6 +424,7 @@ class FixPoint(MGLayer):
         gnn_x: The model whose fixpoint will be computed by this layer.
         comparator: The function that defines when the fixed point has been reached, i.e. when two guesses are equal.
         fixpoint_printer: The function that will be called during each iteration on the most recent guess. Used for debug prints.
+        iters: Number of iterations that this layer executed.
     """
 
     def __init__(self, gnn_x: tf.keras.Model, tolerance: float | None, debug: bool = False):
@@ -443,6 +444,7 @@ class FixPoint(MGLayer):
         else:
             self.comparator = lambda curr, prev: curr == prev
         self.fixpoint_printer = self.fixpoint_print_and_return if debug else lambda x: x
+        self.iters = None
 
     @staticmethod
     def fixpoint_print_and_return(x: tf.Tensor) -> tf.Tensor:
@@ -450,13 +452,13 @@ class FixPoint(MGLayer):
         return x
 
     @staticmethod
-    def standard_fixpoint(f: tf.keras.Model, x0: list[tf.Tensor],
+    def standard_fixpoint(f: Callable, x0: list[tf.Tensor],
                           comparator: Callable[[tf.Tensor, tf.Tensor], bool],
                           fixpoint_printer: Callable[[tf.Tensor], tf.Tensor]) -> Any:
         """Fixed point solver that repeats the execution of a model until it converges.
 
         Args:
-            f: The model for which to compute the fixed point.
+            f: The function for which to compute the fixed point.
             x0: The initial inputs for the fixed point computation.
             comparator: The function that defines when the fixed point has been reached, i.e. when two guesses are equal.
             fixpoint_printer: The function that will be called during each iteration on the most recent guess. Used for debug prints.
@@ -488,7 +490,8 @@ class FixPoint(MGLayer):
         # compute forward pass without tracking the gradient
         output = tf.nest.map_structure(tf.stop_gradient, self.standard_fixpoint(lambda y: [self.gnn_x(saved_args + y + additional_inputs)], x_o,
                                                                                 lambda curr, prev: self.comparator(curr, prev), self.fixpoint_printer))
-        tf.print('fixpoint iters: ', output[-1], output_stream=tf.compat.v1.logging.info)
+        self.iters = output[-1]
+        tf.print('fixpoint iters: ', self.iters, output_stream=tf.compat.v1.logging.info)
 
         # compute forward pass with the gradient being tracked
         otp = output[0]

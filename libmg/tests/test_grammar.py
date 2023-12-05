@@ -1,6 +1,6 @@
 import pytest
 
-from libmg.compiler.grammar import mg_parser, mg_reconstructor
+from libmg.language.grammar import mg_parser, mg_reconstructor
 
 
 @pytest.mark.parametrize('expr', ['a', '+', '!', 'b[5]', 'f[a]', '1'])

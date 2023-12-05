@@ -1,3 +1,4 @@
+import shutil
 import numpy as np
 import tensorflow as tf
 import os
@@ -20,8 +21,13 @@ class TestExplainer(tf.test.TestCase):
     @classmethod
     def tearDownClass(cls):
         for file in os.listdir('.'):
-            if file.startswith('graph_test_') and file.endswith('.html'):
-                os.remove(file)
+            if file.startswith('graph_test_'):
+                if file.endswith('.html'):
+                    os.remove(file)
+                    pass
+                elif os.path.isdir(file):
+                    shutil.rmtree(file)
+                    pass
 
     def test_explainer(self):
         expressions = ['a', 'a;true', 'a;true;false',
@@ -38,7 +44,9 @@ class TestExplainer(tf.test.TestCase):
                        ]
         expected_nodess = [np.array([[1]]), np.array([[1]]), np.array([[1]]), np.array([[1], [2], [4]]), np.array([[1]]), np.array([[1], [2], [4], [1]]),
                            np.array([[1]]), np.array([[1]]), np.array([[1]]), np.array([[1]]), np.array([[1], [2], [4], [1], [1]]),
-                           np.array([[1], [2], [4], [1], [1]]), np.array([[1], [2], [4], [1]]), np.array([[1], [2], [4], [1], [1]]),
+                           np.array([[1], [2], [4], [1], [1]]),
+                           np.array([[1], [2], [4], [1]]),
+                           np.array([[1], [2], [4], [1], [1]]),
                            np.array([[1], [2], [4], [1], [1]])]
         loaders = [SingleGraphLoader(self.datasets[0], epochs=1), SingleGraphLoader(self.datasets[1], epochs=1)]
         for expr, expected_nodes in zip(expressions, expected_nodess):
@@ -46,5 +54,6 @@ class TestExplainer(tf.test.TestCase):
                 model = compiler.compile(expr)
                 explainer = MGExplainer(model)
                 for inputs, y in loader.load():
-                    graph = explainer.explain(0, inputs, y, filename='test_explainer', open_browser=False)
-                    np.testing.assert_array_equal(graph.x, expected_nodes)
+                    for engine in ['pyvis', 'cosmo']:
+                        graph = explainer.explain(0, inputs, filename='test_explainer', open_browser=False, engine=engine)
+                        np.testing.assert_array_equal(graph.x, expected_nodes)

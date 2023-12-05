@@ -4,7 +4,7 @@ This module defines a container (a dataset) of graphs, based on the class of the
 
 The module contains the following classes:
 
-- ``Dataset(name, **kwargs)``
+- `Dataset(name, **kwargs)`
 """
 from typing import Any
 
@@ -14,7 +14,7 @@ from spektral.data import Dataset as _Dataset
 class Dataset(_Dataset):
     """Container for graphs.
 
-    See Spektral's `documentation <https://graphneural.network/creating-dataset/>`_ for additional information,
+    See Spektral's [documentation](https://graphneural.network/creating-dataset) for additional information,
     as this class is directly derived from Spektral's ``Dataset`` class.
 
     Attributes:

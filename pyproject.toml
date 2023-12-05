@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "libmg"
-version = "1.0.3"
+version = "1.0.5"
 description = ""
 license = "MIT"
 authors = ["Matteo Belenchia"]
@@ -31,10 +31,12 @@ flake8-pyproject = "*"
 [tool.poetry.group.docs.dependencies]
 mkdocs      = "*"
 mkdocstrings = {extras = ["python"], version = "^0.24.0"}
-mkdocs-material = "*"
+mkdocs-material = {extras = ["imaging"], version = "^9.4.14"}
 mkdocs_gen_files = "*"
 mkdocs-literate-nav = "*"
 mkdocs-section-index = "*"
+mkdocs-git-revision-date-localized-plugin = "*"
+black = "*"
 
 [build-system]
 requires = ["poetry-core"]

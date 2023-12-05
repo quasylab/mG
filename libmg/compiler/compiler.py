@@ -35,7 +35,7 @@ from libmg.data.dataset import Dataset
 from libmg.compiler.functions import FunctionDict, PsiNonLocal, Phi, Sigma, Psi
 from libmg.data.loaders import SingleGraphLoader, MultipleGraphLoader
 from libmg.normalizer.normalizer import var_occurs, mg_normalizer
-from libmg.compiler.grammar import mg_parser, mg_reconstructor
+from libmg.language.grammar import mg_parser, mg_reconstructor
 from libmg.compiler.layers import PreImage, PostImage, FunctionApplication, Ite, FixPoint, Repeat
 
 
@@ -572,7 +572,7 @@ class MGModel:
         sigma_functions: The sigma functions that have been used in the model.
     """
 
-    def __init__(self, inputs: list[tf.Tensor], outputs: tf.Tensor, expr: str, layers: dict[int, tf.keras.layers.Layer],
+    def __init__(self, inputs: list[tf.Tensor], outputs: tf.Tensor, expr: Tree, layers: dict[int, tf.keras.layers.Layer],
                  config: CompilerConfig, psi_functions: dict[str, PsiNonLocal], phi_functions: dict[str, Phi], sigma_functions: dict[str, Sigma]):
         """Initializes the instance with the inputs and outputs of the model, the expression that the model implements, the layers of the model indexed by
         expression, and the functions that have been used in it.
@@ -606,6 +606,9 @@ class MGModel:
 
     def __call__(self, *args, **kwargs):
         return self._model(*args, **kwargs)
+
+    def pretty_print_expr(self):
+        return mg_reconstructor.reconstruct(self.expr)
 
 
 class MGCompiler:
@@ -1490,7 +1493,7 @@ class MGCompiler:
         tf.keras.backend.clear_session()
         normalized_expr_tree = mg_normalizer.normalize(expr if isinstance(expr, Tree) else mg_parser.parse(expr))
         outputs = self.visitor.visit(normalized_expr_tree)
-        model = MGModel(self.model_inputs, outputs.x, mg_reconstructor.reconstruct(normalized_expr_tree), self.visitor.layers, self.config,
+        model = MGModel(self.model_inputs, outputs.x, normalized_expr_tree, self.visitor.layers, self.config,
                         self.visitor.used_psi, self.visitor.used_phi, self.visitor.used_sigma)
         if verbose is True:
             model.summary(expand_nested=True, show_trainable=True)
@@ -1515,7 +1518,7 @@ class MGCompiler:
         if api == 'predict_on_batch' and self.config.use_edges:
             raise ValueError("The predict_on_batch API, as of TF2.4, isn't compatible with graphs with edge labels.")
         if self.config.use_multiple_loader:
-            dummy_loader = MultipleGraphLoader(self.dummy_dataset, node_level=True, batch_size=1, shuffle=False, epochs=1)
+            dummy_loader = MultipleGraphLoader(self.dummy_dataset, batch_size=1, shuffle=False, epochs=1)
         else:
             dummy_loader = SingleGraphLoader(self.dummy_dataset, epochs=1)
         traced_model = MGCompiler.graph_mode_constructor(model, self.model_input_spec, api)

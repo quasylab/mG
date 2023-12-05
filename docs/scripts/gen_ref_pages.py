@@ -6,7 +6,7 @@ import mkdocs_gen_files
 
 nav = mkdocs_gen_files.Nav()
 
-src = Path(__file__).parent.parent / "libmg"
+src = Path(__file__).parent.parent.parent / "libmg"
 
 for path in sorted(src.rglob("*.py")):
     module_path = path.relative_to(src).with_suffix("")
@@ -16,9 +16,11 @@ for path in sorted(src.rglob("*.py")):
     parts = list(module_path.parts)
 
     if parts[-1] == "__init__":
-        parts = parts[:-1]
-        doc_path = doc_path.with_name("index.md")
-        full_doc_path = full_doc_path.with_name("index.md")
+        continue
+        # uncomment for pages for init modules
+        # parts = parts[:-1]
+        # doc_path = doc_path.with_name("index.md")
+        # full_doc_path = full_doc_path.with_name("index.md")
     if len(parts) == 0 or parts[-1] == "__main__" or parts[0] == "tests":
         continue
 
