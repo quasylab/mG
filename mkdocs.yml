@@ -1,4 +1,4 @@
-site_name: Libmg Documentation
+site_name: libmg
 site_url: https://quasylab.github.io/mG/
 repo_url: https://github.com/quasylab/mG
 edit_uri: https://github.com/quasylab/mG/tree/main/libmg
@@ -11,6 +11,7 @@ theme:
     primary: custom
   logo: assets/logo.png
   favicon: assets/logo.png
+  custom_dir: overrides
   features:
     - navigation.instant
     - navigation.instant.progress
@@ -119,11 +120,12 @@ extra_javascript:
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 
 nav:
-  - Libmg Docs: index.md
-  - tutorials.md
-  - How-To Guides: how-to-guides.md
-  - Code Reference: reference/
-  - explanation.md
+  - Home: index.md
+  - Tutorials: tutorials/
+  - How-To Guides: how-to_guides/
+  - Reference: reference/
+  - Explanation: explanation/
 
 watch:
   - libmg
+  - overrides

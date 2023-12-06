@@ -1,0 +1,1 @@
+# Reduction to normal form
