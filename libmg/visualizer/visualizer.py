@@ -94,16 +94,16 @@ def show_pyvis(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, in
     titles = [str(i) for i in nodes]
 
     # Build the pyvis network
-    net = Network(directed=True, neighborhood_highlight=True, select_menu=True, filter_menu=True, font_color='white')
+    net = Network(directed=True, neighborhood_highlight=True, select_menu=True, filter_menu=True, font_color='black')
     layout = Layout(improvedLayout=True)
     edge_options = EdgeOptions()
-    edge_options.color = 'red'
+    edge_options.color = 'black'
 
     if hierarchy is not None:
         net.options = Options(layout)
         net.options.edges = edge_options
         for i, v in enumerate(nodes):
-            net.add_node(v, title=titles[i], label=node_labels[i], shape='circle', level=hierarchy[i], color='#222C4A')
+            net.add_node(v, title=titles[i], label=node_labels[i], shape='circle', level=hierarchy[i], color='#FFFFFF')
 
         for i in range(len(edges)):
             edge = edges[i]
@@ -117,7 +117,7 @@ def show_pyvis(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, in
         net.options = Options(layout)
         net.options.edges = edge_options
         del net.options['layout'].hierarchical
-        net.add_nodes(nodes, title=titles, label=node_labels, shape=['circle'] * len(nodes), color=['#222C4A'] * len(nodes))
+        net.add_nodes(nodes, title=titles, label=node_labels, shape=['circle'] * len(nodes), color=['#FFFFFF'] * len(nodes))
 
         if edge_labels is None:
             net.add_edges(edges)

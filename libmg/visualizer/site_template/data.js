@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunkmy_react_app=self.webpackChunkmy_react_app||[]).push([[126],{468:e=>{e.exports=JSON.parse('{"nodes":[{"id":0,"label":"[a]","hierarchy":0},{"id":1,"label":"[b]","hierarchy":1},{"id":2,"label":"[c]","hierarchy":1}],"links":[{"source":0,"target":1},{"source":1,"target":2},{"source":2,"target":0}]}')}}]);
