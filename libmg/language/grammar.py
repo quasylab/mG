@@ -55,6 +55,9 @@ mg_grammar = r"""
 mg_reserved = {'||', 'fix', 'let', 'if', 'then', 'else', 'def', 'in', 'repeat', 'for', ',', '|', '<', '>', '(', ')', ';', '[', ']', '#', '{', '}'}
 
 mg_parser = Lark(mg_grammar, maybe_placeholders=False, parser='lalr')
+"""
+Test docstring
+"""
 
 
 class MGReconstructor(Reconstructor):
@@ -91,3 +94,6 @@ class MGReconstructor(Reconstructor):
 
 
 mg_reconstructor = MGReconstructor(mg_parser)
+"""
+Test docstring
+"""
