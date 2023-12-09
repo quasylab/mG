@@ -15,7 +15,7 @@ The module contains the following objects:
 - ``mg_reconstructor``
 """
 from typing import Iterable, Callable
-from lark import Lark, ParseTree, Tree, Token
+from lark import Lark, ParseTree
 from lark.reconstruct import Reconstructor
 
 mg_grammar = r"""
@@ -80,7 +80,9 @@ class MGReconstructor(Reconstructor):
             insert_spaces: If true, add spaces between any two words of the reconstructed string.
 
         Examples:
-            >>> mg_reconstructor.reconstruct(Tree('rhd', [Tree(Token('RULE', 'label'), [Token('__ANON_1', 'a')]), Tree(Token('RULE', 'label'), [Token('__ANON_1', 'b')])]))
+            >>> from lark import Tree, Token
+            >>> mg_reconstructor.reconstruct(Tree('rhd', [Tree(Token('RULE', 'label'), [Token('__ANON_1', 'a')]), Tree(Token('RULE', 'label'),
+            ...                              [Token('__ANON_1', 'b')])]))
             '|a>b'
 
         Returns:
@@ -106,6 +108,8 @@ mg_reconstructor = MGReconstructor(mg_parser)
 Reconstructor (unparser) instance on which to call ``reconstruct``.
 
 Examples:
-    >>> mg_reconstructor.reconstruct(Tree('rhd', [Tree(Token('RULE', 'label'), [Token('__ANON_1', 'a')]), Tree(Token('RULE', 'label'), [Token('__ANON_1', 'b')])]))
+    >>> from lark import Tree, Token
+    >>> mg_reconstructor.reconstruct(Tree('rhd', [Tree(Token('RULE', 'label'), [Token('__ANON_1', 'a')]), Tree(Token('RULE', 'label'),
+    ...                              [Token('__ANON_1', 'b')])]))
     '|a>b'
 """

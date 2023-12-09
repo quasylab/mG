@@ -223,4 +223,3 @@ Examples:
     >>> mg_normalizer.normalize('fix Y = a in (fix X = b in (Y || c))')
     "fix Y = a in (Y || c)"
 """
-
