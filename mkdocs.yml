@@ -61,6 +61,7 @@ plugins:
           options:
             show_bases: true
             show_source: true
+            inherited_members: true
             show_root_heading: false
             show_root_toc_entry: false
             separate_signature: true
@@ -121,10 +122,24 @@ extra_javascript:
 
 nav:
   - Home: index.md
-  - Tutorials: tutorials/
-  - How-To Guides: how-to_guides/
+  - Tutorials:
+      - tutorials/index.md
+      - tutorials/ctl-mc.md
+      - tutorials/gcn.md
+  - How-To Guides:
+      - how-to_guides/index.md
+      - how-to_guides/installation.md
+      - how-to_guides/datasets.md
+      - how-to_guides/functions.md
+      - how-to_guides/compiler.md
+      - how-to_guides/models.md
+      - how-to_guides/visualization.md
   - Reference: reference/
-  - Explanation: explanation/
+  - Explanation:
+      - explanation/index.md
+      - explanation/semantics.md
+      - explanation/reduction.md
+      - explanation/explanation.md
 
 watch:
   - libmg

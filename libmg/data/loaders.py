@@ -16,6 +16,7 @@ from spektral.data.utils import collate_labels_disjoint, sp_matrices_to_sp_tenso
 class SingleGraphLoader(SingleLoader):
     """Loads a dataset made up by a single graph to be used by a TensorFlow model.
 
+    Once instantiated, call the `load` method to obtain the generator that can be used with TensorFlow APIs.
     See Spektral's [documentation](https://graphneural.network/data-modes/#single-mode) for additional information,
     as this class is directly derived from Spektral's ``SingleLoader`` class.
     """
@@ -49,6 +50,7 @@ class SingleGraphLoader(SingleLoader):
 class MultipleGraphLoader(DisjointLoader):
     """Loads a dataset made up by more than one graph to be used by a TensorFlow model.
 
+    Once instantiated, call the `load` method to obtain the generator that can be used with TensorFlow APIs.
     See Spektral's [documentation](https://graphneural.network/data-modes/#single-mode/) for additional information,
     as this class is directly derived from Spektral's ``DisjointLoader`` class.
     """

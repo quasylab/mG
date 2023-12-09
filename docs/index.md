@@ -17,4 +17,4 @@ Quickly find what you're looking for depending on
 your use case by looking at the different pages.
 
 Latex embed:
-$f(x) = x_1 + 1$
+$f(x) = x_1 + \rightarrow 1$

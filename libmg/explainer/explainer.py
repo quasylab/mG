@@ -74,7 +74,7 @@ def make_graph(explanation: tf.Tensor[bool], hierarchy: tf.Tensor[float], old_gr
 
 
 class MGExplainer(Interpreter):
-    """Explains a mG model output.
+    """Generates an explanation for a mG model output.
 
     Generates the sub-graph of nodes that are responsible for the label of a given node.
 
@@ -114,7 +114,7 @@ class MGExplainer(Interpreter):
                                    config=model.config)
 
     @staticmethod
-    def get_original_ids_func(explanation: tf.Tensor[bool]) -> Callable[[int], int]:
+    def _get_original_ids_func(explanation: tf.Tensor[bool]) -> Callable[[int], int]:
         """Returns a function that given an integer i returns the i-th node ID of the nodes in the explanation.
 
         The returned function is used so that the node IDs of the explanation sub-graph are the same as the original graph.
@@ -130,14 +130,15 @@ class MGExplainer(Interpreter):
                 engine: Literal["pyvis", "cosmo"] = 'pyvis') -> Graph:
         """Explain the label of a query node by generating the sub-graph of nodes that affected its value.
 
-        The explanation is saved in a PyVis .html file in the working directory.
+        Using the pyvis engine, the explanation is saved in a html file in the working directory. Using the cosmograph engine, the explanation is saved as a
+        directory, containing an index.html file, in the working directory.
 
         Args:
             query_node: The node for which to generate the explanation.
             inputs: The inputs for the model to explain. This is the graph to which the query node belongs.
             filename: The name of the .html file to save in the working directory. The string ``graph_`` will be prepended to it.
             open_browser: If true, opens the default web browser and loads up the generated .html page.
-            engine: The visualization engine to use. Options are ``pyvis`` or ``cosmo``.
+            engine: The visualization engine to use. Options are ``pyvis`` for PyVis or ``cosmo`` for Cosmograph.
 
         Returns:
             The generated sub-graph.
@@ -159,25 +160,11 @@ class MGExplainer(Interpreter):
         hierarchy = tf.squeeze(explainer_model.call(inputs))
         explanation = tf.math.less(hierarchy, MGExplainer.INF)
         graph = make_graph(explanation, hierarchy, inputs, actual_outputs)
-        print_graph(graph, id_generator=self.get_original_ids_func(explanation), hierarchical=True,
+        print_graph(graph, id_generator=self._get_original_ids_func(explanation), hierarchical=True,
                     show_labels=True, filename=filename, open_browser=open_browser, engine=engine)
         return graph
 
     def atom_op(self, tree: Tree) -> Tree:
-        """Explains a psi function or a variable.
-
-        A local psi function is explained as an identity function (because only the query_node is affected by it). Variables are left as is. Non-local psi
-        functions makes the label of the query node dependent on the entire graph and therefore the explanation is aborted.
-
-        Args:
-            tree: The expression tree.
-
-        Returns:
-            The expression tree that explains this psi function or variable.
-
-        Raises:
-            VisitError: The expression is a non-local psi function.
-        """
         name = str(tree.children[0].children[0])
         f = self.model.psi_functions.get(name)
         if f is None:
@@ -189,30 +176,10 @@ class MGExplainer(Interpreter):
         return new_op
 
     def lhd(self, _: Tree) -> Tree:
-        """Explains a pre-image expression.
-
-        The pre-image is explained by the post-image that generates the messages as node labels of the successors and aggregates them by taking the minimum.
-
-        Args:
-            _: The expression tree.
-
-        Returns:
-            The expression tree that explains this pre-image expression.
-        """
         new_op = mg_parser.parse('|p3>or')
         return new_op
 
     def rhd(self, _: Tree) -> Tree:
-        """Explains a post-image expression.
-
-        The post-image is explained by the pre-image that generates the messages as node labels of the predecessors and aggregates them by taking the minimum.
-
-        Args:
-            _: The expression tree.
-
-        Returns:
-            The expression tree that explains this post-image expression.
-        """
         new_op = mg_parser.parse('<p3|or')
         return new_op
 
@@ -227,16 +194,6 @@ class MGExplainer(Interpreter):
         return tree
 
     def parallel_composition(self, tree: Tree) -> Tree:
-        """Explains a parallel composition expression.
-
-        The parallel composition is explained by taking the minimum of its sub-expressions.
-
-        Args:
-            tree: The expression tree.
-
-        Returns:
-            The expression tree that explains this parallel composition expression.
-        """
         children = self.visit_children(tree)
         new_op = mg_parser.parse('SUBST;or')
         tree_copy = tree.copy()
@@ -245,19 +202,6 @@ class MGExplainer(Interpreter):
         return new_op
 
     def ite(self, tree: Tree) -> Tree:
-        """Explains an if-then-else expression.
-
-        The if-then-else test is takes into consideration all the nodes in the graph, therefore the explanation is aborted.
-
-        Args:
-            tree: The expression tree.
-
-        Returns:
-            The expression tree that explains this if-then-else expression.
-
-        Raises:
-            VisitError: Always.
-        """
         raise VisitError('ite', tree, 'If-Then-Else expression')
 
     def fix(self, tree: Tree) -> Tree:
@@ -269,13 +213,5 @@ class MGExplainer(Interpreter):
         return new_op
 
     def __default__(self, tree: Tree) -> Tree:  # local var expr, fun def, fun call, repeat
-        """Explains all the other expressions.
-
-        Args:
-            tree: The expression tree.
-
-        Returns:
-            The expression tree that explains this expression.
-        """
         tree.children = self.visit_children(tree)
         return tree

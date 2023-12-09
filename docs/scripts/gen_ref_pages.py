@@ -29,7 +29,14 @@ for path in sorted(src.rglob("*.py")):
 
     with mkdocs_gen_files.open(full_doc_path, "w") as fd:
         identifier = ".".join(parts)
-        print("::: libmg." + identifier, file=fd)
+        if parts[-1] == 'language':
+            print("::: libmg." + identifier, file=fd)
+            print("\n::: libmg." + identifier + ".grammar.MGReconstructor\n\toptions:\n\t\tshow_root_heading: true\n\t\tshow_root_full_path: false", file=fd)
+        elif parts[-1] == 'normalizer':
+            print("::: libmg." + identifier, file=fd)
+            print("\n::: libmg." + identifier + ".normalizer.Normalizer\n\toptions:\n\t\tshow_root_heading: true\n\t\tshow_root_full_path: false", file=fd)
+        else:
+            print("::: libmg." + identifier, file=fd)
 
     mkdocs_gen_files.set_edit_path(full_doc_path, path)
 

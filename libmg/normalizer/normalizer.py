@@ -33,7 +33,7 @@ class Normalizer(Interpreter[Token, Tree]):
         fix_var: The stack of fixpoint variables encountered during traversal of the tree.
     """
 
-    class CompositionAnalyzer(Interpreter):
+    class _CompositionAnalyzer(Interpreter):
         """Rewrites a sequential composition expression so that the current fixpoint variable does not occur on the left-hand side.
 
         Attributes:
@@ -71,7 +71,7 @@ class Normalizer(Interpreter[Token, Tree]):
             tree.children = self.visit_children(tree)
             return tree
 
-    def current_fix_var(self) -> str:
+    def _current_fix_var(self) -> str:
         """Returns the current fixpoint variable.
         """
         return self.fix_var[-1]
@@ -119,9 +119,9 @@ class Normalizer(Interpreter[Token, Tree]):
 
     def sequential_composition(self, tree):
         left, right = tree.children
-        if len(self.fix_var) > 0 and var_occurs(right, self.current_fix_var()):
+        if len(self.fix_var) > 0 and var_occurs(right, self._current_fix_var()):
             left, right = tree.children
-            return self.CompositionAnalyzer(left, self.current_fix_var()).visit(right)
+            return self._CompositionAnalyzer(left, self._current_fix_var()).visit(right)
         else:
             return self.__default__(tree)
 
@@ -217,5 +217,10 @@ def _(expr: str, var: str) -> bool:
 
 mg_normalizer = Normalizer()
 """
-test docstring
+Normalizer instance on which to call ``normalize``.
+
+Examples:
+    >>> mg_normalizer.normalize('fix Y = a in (fix X = b in (Y || c))')
+    "fix Y = a in (Y || c)"
 """
+

@@ -14,8 +14,8 @@ from spektral.data import Dataset as _Dataset
 class Dataset(_Dataset):
     """Container for graphs.
 
-    See Spektral's [documentation](https://graphneural.network/creating-dataset) for additional information,
-    as this class is directly derived from Spektral's ``Dataset`` class.
+    This class is supposed to be extended by overriding the `read` and `download` methods. See Spektral's [documentation](
+    https://graphneural.network/creating-dataset) for additional information, as this class is directly derived from Spektral's ``Dataset`` class.
 
     Attributes:
         name: A string name for the dataset.

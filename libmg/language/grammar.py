@@ -15,7 +15,7 @@ The module contains the following objects:
 - ``mg_reconstructor``
 """
 from typing import Iterable, Callable
-from lark import Lark, ParseTree
+from lark import Lark, ParseTree, Tree, Token
 from lark.reconstruct import Reconstructor
 
 mg_grammar = r"""
@@ -56,7 +56,11 @@ mg_reserved = {'||', 'fix', 'let', 'if', 'then', 'else', 'def', 'in', 'repeat', 
 
 mg_parser = Lark(mg_grammar, maybe_placeholders=False, parser='lalr')
 """
-Test docstring
+Parser instance on which to call ``parse``.
+
+Examples:
+    >>> mg_parser.parse('(a || b) ; c')
+    Tree('sequential_composition', [Tree('parallel_composition', ...)])
 """
 
 
@@ -74,6 +78,10 @@ class MGReconstructor(Reconstructor):
             tree: The tree to reconstruct.
             postproc: The post-processing function to apply to each word of the reconstructed string.
             insert_spaces: If true, add spaces between any two words of the reconstructed string.
+
+        Examples:
+            >>> mg_reconstructor.reconstruct(Tree('rhd', [Tree(Token('RULE', 'label'), [Token('__ANON_1', 'a')]), Tree(Token('RULE', 'label'), [Token('__ANON_1', 'b')])]))
+            '|a>b'
 
         Returns:
             The reconstructed string.
@@ -95,5 +103,9 @@ class MGReconstructor(Reconstructor):
 
 mg_reconstructor = MGReconstructor(mg_parser)
 """
-Test docstring
+Reconstructor (unparser) instance on which to call ``reconstruct``.
+
+Examples:
+    >>> mg_reconstructor.reconstruct(Tree('rhd', [Tree(Token('RULE', 'label'), [Token('__ANON_1', 'a')]), Tree(Token('RULE', 'label'), [Token('__ANON_1', 'b')])]))
+    '|a>b'
 """

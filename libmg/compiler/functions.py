@@ -213,7 +213,7 @@ class Psi(Function):
 class PsiNonLocal(Psi):
     """A psi function of the mG language.
 
-    A non-local function applied on node labels psi: (T*, T) -> U. For single graph datasets, which use the
+    A non-local function applied on node labels $\\psi: T^* \\times T \\rightarrow U$. For single graph datasets, which use the
     ``SingleGraphLoader``, only the ``single_op`` parameter is necessary. For multiple graph datasets, using the
     ``MultipleGraphLoader``, only the ``multiple_op`` parameter is necessary. The ``multiple_op`` argument is a function which
     takes an additional parameter to distinguish which values in the first argument refer to which graph. For
@@ -339,14 +339,14 @@ class PsiNonLocal(Psi):
 class PsiLocal(Psi):
     """A psi function of the mG language that only applies a local transformation of node labels.
 
-    A local transformation of node labels psi: T -> U.
+    A local transformation of node labels $\\psi: T \\rightarrow U$.
 
     Examples:
         >>> PsiLocal(lambda x: x + 1, name='Add1')
         <...functions.PsiLocal object at 0x...>
     """
 
-    def __init__(self, f: Callable | None = None, name: str | None = None):
+    def __init__(self, f: Callable[[tf.Tensor], tf.Tensor] | None = None, name: str | None = None):
         """Initializes the instance with a function and a name.
 
         Args:
@@ -370,7 +370,7 @@ class PsiLocal(Psi):
 class PsiGlobal(PsiNonLocal):
     """A psi function of the mG language that only applies a global transformation of node labels.
 
-    A global transformation (i.e. pooling) of node labels psi: T* -> U. For single graph datasets, which use the
+    A global transformation (i.e. pooling) of node labels $\\psi: T^* \\rightarrow U$. For single graph datasets, which use the
     ``SingleGraphLoader``, only the ``single_op`` parameter is necessary. For multiple graph datasets, using the
     ``MultipleGraphLoader``, only the ``multiple_op`` parameter is necessary. The ``multiple_op`` argument is a function which
     takes an additional parameter to distinguish which values in the first argument refer to which graph. For
@@ -418,7 +418,7 @@ class PsiGlobal(PsiNonLocal):
 class Phi(Function):
     """A phi function of the mG language.
 
-    A function  f: (T, U, T) -> V to compute the message sent by a node i to a node j through edge e.
+    A function $\\varphi: T \\times U \\times T \\rightarrow V$ to compute the message sent by a node i to a node j through edge e.
 
     Examples:
         >>> Phi(lambda i, e, j: i * e, name='EdgeProd')
@@ -451,7 +451,7 @@ class Phi(Function):
 class Sigma(Function):
     """A sigma function of the mG language.
 
-    A function  f: (T*, U) -> V to aggregate the messages sent to a node, including the current label of the node.
+    A function $\\sigma: T^* \\times U \\rightarrow V$ to aggregate the messages sent to a node, including the current label of the node.
 
     Examples:
         >>> Sigma(lambda m, i, n, x: tf.math.segment_max(m, i), name='Max')
@@ -484,7 +484,7 @@ class Sigma(Function):
 class Constant(PsiLocal):
     """A constant psi function of the mG language.
 
-    A constant function f: () -> U that maps every node label to a constant value.
+    A constant function $\\psi: T \\rightarrow U$ that maps every node label to a constant value.
 
     Examples:
         >>> Constant(tf.constant(False), name='False')
@@ -516,7 +516,7 @@ class Constant(PsiLocal):
 class Pi(PsiLocal):
     """A projection psi function of the mG language.
 
-    A projection function f: T^i -> T^j that maps every node label to a projection of itself.
+    A projection function $\\psi: T^n \\rightarrow T^m$ that maps every node label to a projection of itself.
 
     Examples:
         >>> Pi(0, 2, name='FirstTwo')

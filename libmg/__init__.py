@@ -1,10 +1,9 @@
 import importlib.metadata
 
-from spektral.data import Graph
-from .compiler import (PsiLocal, PsiGlobal, PsiNonLocal, Phi, Sigma, Constant, Pi, make_uoperator, make_boperator, make_koperator, MGCompiler, CompilerConfig,
-                       NodeConfig, EdgeConfig)
+from .compiler import (PsiLocal, PsiGlobal, PsiNonLocal, Phi, Sigma, Constant, Pi, make_uoperator, make_boperator, make_koperator, CompilerConfig,
+                       NodeConfig, EdgeConfig, MGCompiler)
 from .language import mg_reconstructor, mg_parser
-from .data import Dataset, SingleGraphLoader, MultipleGraphLoader
+from .data import Graph, Dataset, SingleGraphLoader, MultipleGraphLoader
 from .explainer import MGExplainer
 from .normalizer import mg_normalizer
 from .visualizer import print_graph, print_layer

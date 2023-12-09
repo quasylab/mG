@@ -624,7 +624,7 @@ class MGCompiler:
         visitor: The visitor that traverses an expression tree to construct the model.
     """
 
-    class TreeToTF(Interpreter):
+    class _TreeToTF(Interpreter):
         """Visitor that walks a mG expression tree and builds the corresponding model.
 
         Attributes:
@@ -719,7 +719,7 @@ class MGCompiler:
             self.used_sigma = {}
             self.eval_if_clause = []
 
-        def clone(self, start_from: IntermediateOutput) -> MGCompiler.TreeToTF:
+        def clone(self, start_from: IntermediateOutput) -> MGCompiler._TreeToTF:
             """Returns a fresh copy of this visitor, except that:
                 - The initial inputs are those specified in ``start_from``.
                 - The defined functions and variables are carried over.
@@ -796,7 +796,7 @@ class MGCompiler:
                 tree: The expression tree of the composite mG expression.
                 interpreted_children: The sub-expressions of ``tree``.
             """
-            return MGCompiler.TreeToTF.composite_name_generator[tree.data](tree, interpreted_children)
+            return MGCompiler._TreeToTF.composite_name_generator[tree.data](tree, interpreted_children)
 
         def get_tolerance(self, _type: str) -> float | None:
             """Returns the tolerance for the given type, if present.
@@ -1391,11 +1391,11 @@ class MGCompiler:
         self.model_input_spec = config.input_spec
         self.dummy_dataset = DummyDataset(NodeConfig(config.node_feature_type, config.node_feature_size), config.matrix_type,
                                           EdgeConfig(config.edge_feature_type, config.edge_feature_size) if config.use_edges else None)  # type: ignore
-        self.visitor = self.TreeToTF(FunctionDict(psi_functions), FunctionDict(sigma_functions), FunctionDict(phi_functions), config.tolerance)
+        self.visitor = self._TreeToTF(FunctionDict(psi_functions), FunctionDict(sigma_functions), FunctionDict(phi_functions), config.tolerance)
 
     @staticmethod
-    def graph_mode_constructor(model: MGModel, input_spec: tuple[tf.TensorSpec, ...],
-                               method: Literal["call", "predict", "predict_on_batch"]) -> Callable[[list[tf.Tensor]], tf.Tensor] | MGModel:
+    def _graph_mode_constructor(model: MGModel, input_spec: tuple[tf.TensorSpec, ...],
+                                method: Literal["call", "predict", "predict_on_batch"]) -> Callable[[list[tf.Tensor]], tf.Tensor] | MGModel:
         """Prepares a model for tracing.
 
         The ``predict_on_batch`` API cannot be used if the graphs have edge labels as of TF 2.4.
@@ -1424,8 +1424,8 @@ class MGCompiler:
             return model
 
     @staticmethod
-    def dummy_run(model: MGModel | Callable[[list[tf.Tensor]], tf.Tensor], dummy_loader: Loader,
-                  method: Literal["call", "predict", "predict_on_batch"]) -> float:
+    def _dummy_run(model: MGModel | Callable[[list[tf.Tensor]], tf.Tensor], dummy_loader: Loader,
+                   method: Literal["call", "predict", "predict_on_batch"]) -> float:
         """Runs the model on the dummy dataset.
 
         The ``predict_on_batch`` API cannot be used if the graphs have edge labels as of TF 2.4.
@@ -1521,6 +1521,6 @@ class MGCompiler:
             dummy_loader = MultipleGraphLoader(self.dummy_dataset, batch_size=1, shuffle=False, epochs=1)
         else:
             dummy_loader = SingleGraphLoader(self.dummy_dataset, epochs=1)
-        traced_model = MGCompiler.graph_mode_constructor(model, self.model_input_spec, api)
-        compile_time = MGCompiler.dummy_run(traced_model, dummy_loader, api)
+        traced_model = MGCompiler._graph_mode_constructor(model, self.model_input_spec, api)
+        compile_time = MGCompiler._dummy_run(traced_model, dummy_loader, api)
         return traced_model, compile_time
