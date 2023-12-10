@@ -108,14 +108,6 @@ class CompilerConfig:
     """Defines the configuration for the mG compiler.
 
     It is recommended to use the static constructor methods to instantiate this class.
-
-    :param node_config: A NodeConfig object specifying the initial type of the node labels in the graph
-    :param edge_config: An EdgeConfig object specifying the initial type of the node edges in the graph, if any
-    :param matrix_type: A Tensorflow type specifying the type of the adjacency matrix entries, usually tf.uint8
-    :param tolerance: A ``dict`` that maps strings to tuples of (float, string).
-     The values are tuples that contain a tolerance value and the solver for fixpoint expressions. Missing keys are
-     interpreted as exact equality.
-    :param multiple_loader: Set this to True if will be using a MultipleGraphLoader, False for a SingleGraphLoader
     """
 
     def __init__(self, node_config: NodeConfig, edge_config: EdgeConfig | None, matrix_type: tf.DType, tolerance: dict[str, float], multiple_loader: bool):

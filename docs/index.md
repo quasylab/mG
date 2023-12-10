@@ -1,20 +1,22 @@
 # <span style="font-variant:small-caps;">libmg</span>
-...
+Welcome to the home page of <span style="font-variant:small-caps;">libmg</span>,
+the Python implementation of the $\mu\mathcal{G}$ language for programming graph neural networks.
 
-## Table Of Contents
+You can find the installation instructions [here](how-to_guides/installation.md).
 
-The documentation follows the best practice for
-project documentation as described by Daniele Procida
-in the [Diátaxis documentation framework](https://diataxis.fr/)
-and consists of four separate parts:
+Tutorials
+-------------------
+In the [tutorials](tutorials/index.md) section you can find a quick overview of the library's functionalities.
 
-1. [Tutorials](tutorial1.md)
-2. [How-To Guides](how-to-guides.md)
-3. [Reference](reference/SUMMARY.md)
-4. [Explanation](explanation.md)
+How-to Guides
+-------------------
+You can check out the [how-to guides](how-to_guides/index.md) to gain quick insights on how to use the library in your work. 
 
-Quickly find what you're looking for depending on
-your use case by looking at the different pages.
+Reference
+-------------------
+The full reference is available [here](reference/index.md).
 
-Latex embed:
-$f(x) = x_1 + \rightarrow 1$
+Explanation
+-------------------
+The semantics of $\mu\mathcal{G}$ and details on some of the algorithms in <span style="font-variant:small-caps;">libmg</span> can be accessed [here](explanation/explanation.md).
+
