@@ -14,11 +14,11 @@ packages = [{include = "libmg"}]
 python      = "~3.11"
 tensorflow  = "~2.12"
 spektral    = "~1.3"
-numpy       = "*"
-scipy       = "*"
+numpy       = "~1"
+scipy       = "~1"
 bidict      = "*"
-lark        = "^1"
-pyvis       = "*"
+lark        = "~1"
+pyvis       = "~0.3"
 
 
 [tool.poetry.group.test.dependencies]
