@@ -62,13 +62,9 @@ To verify your installation, you can print the library's version number:
 ```
 
 Additionally, it is possible to run the <span style="font-variant:small-caps;">libmg</span> test suite. For that, it is necessary to have
-[pytest](https://doc.pytest.org/en/latest/) installed. If you are installing with pip, pytest can be installed together with the library by running
+[pytest](https://doc.pytest.org/en/latest/) and [pytest-cov](https://pytest-cov.readthedocs.io/en/latest/) installed.
 
-``` commandline
-$ pip install libmg[tests]
-```
-
-If you are installing from source, make sure to run `poetry install` with the `--with tests` option.
+If you are installing from source, these dependencies can be installed by running `poetry install` with the `--with tests` option.
 
 The tests can be run using the `run_tests` function:
 
