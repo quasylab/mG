@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "libmg"
-version = "1.0.6"
+version = "1.0.7"
 description = "The Python implementation of the μG language for programming graph neural networks"
 license = "MIT"
 authors = ["Matteo Belenchia"]
@@ -19,13 +19,13 @@ scipy       = "~1"
 bidict      = "*"
 lark        = "~1"
 pyvis       = "~0.3"
+pytest      = {version = "*", optional = true}
+pytest-cov  = {version = "*", optional = true}
 
 [tool.poetry.group.tests]
 optional = true
 
 [tool.poetry.group.tests.dependencies]
-pytest      = "*"
-pytest-cov  = "*"
 mypy        = "*"
 flake8      = "*"
 flake8-pyproject = "*"
