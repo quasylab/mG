@@ -132,9 +132,9 @@ class TestCompiler(tf.test.TestCase):
             model = compiler.compile(expr)
             for inputs in loader.load():
                 if expected_output.dtype.is_floating:
-                    self.assertAllClose(model.call([inputs], training=False), expected_output, atol=0.01, rtol=0.01)
+                    self.assertAllClose(model.call(inputs, training=False), expected_output, atol=0.01, rtol=0.01)
                 else:
-                    self.assertAllEqual(model.call([inputs], training=False), expected_output)
+                    self.assertAllEqual(model.call(inputs, training=False), expected_output)
 
     def test_psi(self):
         expressions = ['a', 'true', 'add1']
