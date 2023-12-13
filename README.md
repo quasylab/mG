@@ -1,6 +1,12 @@
 # <span style="font-variant:small-caps;">libmg</span>
 
 [![Tests](https://github.com/quasylab/mG/actions/workflows/testing.yml/badge.svg)](https://github.com/Unicam-mG/mG/actions/workflows/testing.yml)
+[![PyPI - Version](https://img.shields.io/pypi/v/libmg?logo=pypi?stile=flat)](https://pypi.org/project/libmg/)
+[![Checked with mypy](http://www.mypy-lang.org/static/mypy_badge.svg?style=flat)](http://mypy-lang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://mit-license.org/)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/libmg?logo=python)
+[![tensorflow](https://img.shields.io/badge/TensorFlow-2.12-FF6F00.svg?style=flat&logo=tensorflow)](https://www.tensorflow.org)
+
 
 <span style="font-variant:small-caps;">libmg</span> is a Python library for compiling μG expressions into TensorFlow model. It allows the parsing, unparsing,
 normalization, compilation of μG expressions. It also provides functionalities to visualize graphs and model outputs.
