@@ -214,7 +214,7 @@ class FunctionApplication(MGLayer):
         Args:
             psi: The psi function that this layer will apply.
         """
-        super().__init__(psi.name)
+        super().__init__(psi.fname)
         self.psi = psi
 
     def call(self, inputs: list[tf.Tensor], **kwargs) -> tf.Tensor:
@@ -247,7 +247,7 @@ class PreImage(MGLayer):
             sigma: The sigma function that aggregates messages.
             phi: The phi function that generates messages, defaults to sending the node label of the sender node.
         """
-        super().__init__(phi.name + '_' + sigma.name)
+        super().__init__(phi.fname + '_' + sigma.fname)
         self.sigma = sigma
         self.phi = phi
 
@@ -276,7 +276,7 @@ class PostImage(MGLayer):
             sigma: The sigma function that aggregates messages.
             phi: The phi function that generates messages, defaults to sending the node label of the sender node.
         """
-        super().__init__(phi.name + '_' + sigma.name)
+        super().__init__(phi.fname + '_' + sigma.fname)
         self.sigma = sigma
         self.phi = phi
 
