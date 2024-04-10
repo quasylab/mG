@@ -101,7 +101,7 @@ class FixVarConfig(LabelConfig):
             var_size: Dimension of the variable labels.
         """
         super().__init__(var_type, var_size)
-        self.signature = tf.keras.Input(shape=self.size, dtype=self.type, name=backend.unique_object_name('var', zero_based=True))
+        self.signature = tf.keras.Input(shape=(self.size, ), dtype=self.type, name=backend.unique_object_name('var', zero_based=True))
 
 
 class CompilerConfig:
@@ -449,7 +449,7 @@ class IntermediateOutput:
     def as_new_inputs(self) -> IntermediateOutput:
         """Returns a copy of this object where the node labels X have been substituted with a new ``tf.keras.layers.Input`` layer with the same signature as X.
         """
-        sym_x = tf.keras.Input(type_spec=self.x.type_spec)
+        sym_x = tf.keras.Input(shape=self.x.shape[1:], dtype=self.x.dtype)
         return IntermediateOutput(self.name, sym_x, self.a, self.e, self.i, self.memoize)
 
     def step(self, name: Tree, x: tf.Tensor, free_vars: bidict, memoize: bool | None = None) -> IntermediateOutput:
@@ -465,8 +465,8 @@ class IntermediateOutput:
             free_vars: The free variables that have been encountered so far.
             memoize: Whether the node labels ``x`` are memoizable. If ``None``, this property is inherited from the instance.
         """
-        if self.x.ref() in free_vars:
-            free_vars[x.ref()] = free_vars.pop(self.x.ref())
+        if self.x in free_vars:
+            free_vars[x] = free_vars.pop(self.x)
         if memoize is None:
             memoize = self.memoize
         return IntermediateOutput(name, x, self.a, self.e, self.i, memoize)
@@ -891,7 +891,7 @@ class MGCompiler:
                 return self.inputs.step(tree, self.current_fix_var_config().signature, self.free_fix_var)
             elif label in self.fix_var:  # the label is a fix_var, but not the current one
                 output = self.inputs.step(tree, self.fix_var[label].signature, self.free_fix_var, memoize=False)
-                self.free_fix_var[output.x.ref()] = label
+                self.free_fix_var[output.x] = label
                 return output
             elif label in self.var_input:  # we are inside a defined function being called
                 if isinstance(self.var_input[label], FixPointExpression):
@@ -1010,7 +1010,6 @@ class MGCompiler:
                 outputs: The outputs or fixpoint expressions to compose in parallel in a new fixpoint expression.
                 name: The name for the fixpoint expression.
             """
-            op_layer = tf.keras.layers.Concatenate()
             new_model_inputs = []
             to_concatenate = []
             new_args = []
@@ -1020,21 +1019,21 @@ class MGCompiler:
                 if isinstance(layer, FixPointExpression):
                     to_concatenate.append(layer.output_signature)
                     for input_signature in layer.input_signature:
-                        fixpoints_input_signatures.pop(input_signature.ref(), None)
-                        fixpoints_input_signatures[input_signature.ref()] = None
+                        fixpoints_input_signatures.pop(input_signature, None)
+                        fixpoints_input_signatures[input_signature] = None
                     for saved_arg in layer.args:
-                        fixpoints_saved_args.pop(saved_arg.ref(), None)
-                        fixpoints_saved_args[saved_arg.ref()] = None
+                        fixpoints_saved_args.pop(saved_arg, None)
+                        fixpoints_saved_args[saved_arg] = None
                 else:
-                    symbolic_layer = tf.keras.Input(type_spec=layer.x.type_spec)
+                    symbolic_layer = tf.keras.Input(shape=layer.x.shape[1:], dtype=layer.x.dtype)
                     new_model_inputs.append(symbolic_layer)
                     to_concatenate.append(symbolic_layer)
                     new_args.append(layer.x)
 
-            old_expr_input_signatures = [input_sig.deref() for input_sig in fixpoints_input_signatures.keys()]
-            old_expr_args = [saved_arg.deref() for saved_arg in fixpoints_saved_args.keys()]
+            old_expr_input_signatures = [input_sig for input_sig in fixpoints_input_signatures.keys()]
+            old_expr_args = [saved_arg for saved_arg in fixpoints_saved_args.keys()]
             new_expr = FixPointExpression(name, inputs=new_model_inputs + old_expr_input_signatures,
-                                          output=op_layer(to_concatenate))
+                                          output=tf.keras.layers.Concatenate(dtype=to_concatenate[0].dtype)(to_concatenate))
             new_expr.args = new_args + old_expr_args
             return new_expr
 
@@ -1058,7 +1057,7 @@ class MGCompiler:
             if has_var:
                 return self.make_fixpoint_expr_par(children, name)
             else:
-                op_layer = tf.keras.layers.Concatenate()
+                op_layer = tf.keras.layers.Concatenate(dtype=children[0].x.dtype)
                 if self.undef_layer(ctx_name):
                     output = self.inputs.step(name, op_layer([arg.x for arg in children]), self.free_fix_var)
                     self.add_layer(output, op_layer, ctx_name)
@@ -1238,7 +1237,7 @@ class MGCompiler:
             if isinstance(t, FixPointExpression):
                 return t.output_signature.shape[1], t.output_signature.dtype
             else:
-                return t.x.shape[1], t.x.dtype
+                return t.x.shape[1], tf.as_dtype(t.x.dtype)
 
         def evaluate_loop_expr(self, tree: Tree, op: Literal['fix', 'repeat']) -> IntermediateOutput | FixPointExpression:
             """Evaluates a mG loop expression, either a fixpoint expression or a repeat expression.
@@ -1269,7 +1268,7 @@ class MGCompiler:
             if not isinstance(nx, FixPointExpression):
                 raise SyntaxError('Invalid fixpoint expression')
             if op == 'fix':
-                tolerance = self.get_tolerance(initial_gnn_var_type.name)
+                tolerance = self.get_tolerance(tf.as_dtype(initial_gnn_var_type).name)
                 fix_layer = FixPoint(nx.model, tolerance, debug=False)
                 name = self.get_composite_name(tree, [variable_decl, initial_var_gnn, nx])
             else:
@@ -1293,7 +1292,7 @@ class MGCompiler:
                 freevars = []
                 outputs = []
                 for i, t in enumerate(nx.args):
-                    if self.free_fix_var[t.ref()] == self.current_fix_var():
+                    if self.free_fix_var[t] == self.current_fix_var():
                         freevars.append(self.current_fix_var_config())
                         outputs.append(t)
                         nx.args.pop(i)
@@ -1374,10 +1373,10 @@ class MGCompiler:
         elif config.node_feature_type == tf.float16 or config.edge_feature_type == tf.float16:
             tf.keras.backend.set_floatx('float16')
         self.config = config
-        self.model_inputs = [tf.keras.Input(shape=config.node_feature_size, name="INPUT_X", dtype=config.node_feature_type),
+        self.model_inputs = [tf.keras.Input(shape=(config.node_feature_size, ), name="INPUT_X", dtype=config.node_feature_type),
                              tf.keras.Input(shape=(None,), sparse=True, name="INPUT_A", dtype=config.matrix_type)]
         if config.use_edges:
-            self.model_inputs.append(tf.keras.Input(shape=config.edge_feature_size, name="INPUT_E", dtype=config.edge_feature_type))
+            self.model_inputs.append(tf.keras.Input(shape=(config.edge_feature_size, ), name="INPUT_E", dtype=config.edge_feature_type))
         if config.use_multiple_loader:
             self.model_inputs.append(tf.keras.Input(shape=(), name="INPUT_I", dtype=tf.int64))
         self.model_input_spec = config.input_spec

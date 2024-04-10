@@ -198,7 +198,7 @@ class Function(tf.keras.layers.Layer):
             return lambda a: cls(partial(f, a), name + '_' + a if name is not None else None)
 
     @property
-    def name(self):
+    def fname(self):
         """ The name of this function. This can be either the name provided during initialization, if it was provided, or the dynamic class name.
         """
         return self._function_name

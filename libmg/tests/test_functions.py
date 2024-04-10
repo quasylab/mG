@@ -115,8 +115,8 @@ class TestPsiNonLocal(tf.test.TestCase):
 
     def test_weights(self):
         class MultipleLayer(tf.keras.layers.Layer):
-            def __init__(self):
-                super().__init__()
+            def __init__(self, **kwargs):
+                super().__init__(**kwargs)
                 self.f = tf.keras.layers.Dense(10, activation='linear')
 
             def __call__(self, x, i):
@@ -134,8 +134,8 @@ class TestPsiNonLocal(tf.test.TestCase):
             def multiple_graph_op(self, x: tf.Tensor, i: tf.Tensor) -> tf.Tensor:
                 return self.multiple_dense(x)
 
-        inputs_x = tf.keras.Input(shape=(5,))
-        inputs_i = tf.keras.Input(shape=(None,))
+        inputs_x = tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])
+        inputs_i = tf.constant([0, 1])
         for psi in [PsiNonLocal(single_op=tf.keras.layers.Dense(10, activation='linear'), multiple_op=MultipleLayer()),
                     PsiDense(),
                     PsiNonLocal.make(single_op=tf.keras.layers.Dense(10, activation='linear'), multiple_op=MultipleLayer(), name='Dense')()]:
@@ -167,7 +167,7 @@ class TestPsiLocal(tf.test.TestCase):
             def func(self, x: tf.Tensor) -> tf.Tensor:
                 return self.dense(x)
 
-        inputs_x = tf.keras.Input(shape=(5,))
+        inputs_x = tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])
         for psi in [PsiLocal(tf.keras.layers.Dense(10, activation='linear')),
                     PsiLocalDense(),
                     PsiLocal.make('Dense', tf.keras.layers.Dense(10, activation='linear'))()]:
@@ -194,8 +194,8 @@ class TestPsiGlobal(tf.test.TestCase):
     def test_weights(self):
 
         class MultipleLayer(tf.keras.layers.Layer):
-            def __init__(self):
-                super().__init__()
+            def __init__(self, **kwargs):
+                super().__init__(**kwargs)
                 self.f = tf.keras.layers.Dense(10, activation='linear')
 
             def __call__(self, x, i):
@@ -213,8 +213,8 @@ class TestPsiGlobal(tf.test.TestCase):
             def multiple_graph_op(self, x: tf.Tensor, i: tf.Tensor) -> tf.Tensor:
                 return self.multiple_dense(x)
 
-        inputs_x = tf.keras.Input(shape=(5,))
-        inputs_i = tf.keras.Input(shape=(None,))
+        inputs_x = tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])
+        inputs_i = tf.constant([0, 1])
         for psi in [PsiGlobal(single_op=tf.keras.layers.Dense(10, activation='linear'), multiple_op=MultipleLayer()),
                     PsiGlobalDense(),
                     PsiGlobal.make(single_op=tf.keras.layers.Dense(10, activation='linear'), multiple_op=MultipleLayer(), name='Dense')()]:
@@ -240,8 +240,8 @@ class TestPhi(tf.test.TestCase):
 
     def test_weights(self):
         class Message(tf.keras.layers.Layer):
-            def __init__(self):
-                super().__init__()
+            def __init__(self, **kwargs):
+                super().__init__(**kwargs)
                 self.f = tf.keras.layers.Dense(10, activation='linear')
 
             def __call__(self, src, e, tgt):
@@ -255,9 +255,9 @@ class TestPhi(tf.test.TestCase):
             def func(self, src: tf.Tensor, e: tf.Tensor, tgt: tf.Tensor) -> tf.Tensor:
                 return self.dense(src)
 
-        inputs_src = tf.keras.Input(shape=(5,))
-        inputs_e = tf.keras.Input(shape=(10,))
-        inputs_tgt = tf.keras.Input(shape=(5,))
+        inputs_src = tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])
+        inputs_e = tf.constant([[0., 0., 0., 0., 0., 0., 0., 0., 0., 0.], [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.], [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]])
+        inputs_tgt = tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])
         for phi in [Phi(Message()),
                     PhiDense(),
                     Phi.make('Dense', Message())()]:
@@ -280,8 +280,8 @@ class TestSigma(tf.test.TestCase):
 
     def test_weights(self):
         class Aggregate(tf.keras.layers.Layer):
-            def __init__(self):
-                super().__init__()
+            def __init__(self, **kwargs):
+                super().__init__(**kwargs)
                 self.f = tf.keras.layers.Dense(10, activation='linear')
 
             def __call__(self, m, i, n, x):
@@ -295,10 +295,10 @@ class TestSigma(tf.test.TestCase):
             def func(self, m: tf.Tensor, i: tf.Tensor, n: int, x: tf.Tensor) -> tf.Tensor:
                 return self.dense(m)
 
-        inputs_m = tf.keras.Input(shape=(5,))
-        inputs_i = tf.keras.Input(shape=(None,))
+        inputs_m = tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])
+        inputs_i = tf.constant([0, 1])
         inputs_n = 5
-        inputs_x = tf.keras.Input(shape=(5,))
+        inputs_x = tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])
 
         for phi in [Sigma(Aggregate()),
                     SigmaDense(),
