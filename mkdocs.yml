@@ -81,7 +81,7 @@ plugins:
   - literate-nav:
       nav_file: SUMMARY.md
   - section-index
-  - social
+  # - social
   - git-revision-date-localized:
       enable_creation_date: false
 
