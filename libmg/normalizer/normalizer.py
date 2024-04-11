@@ -33,53 +33,53 @@ class Normalizer(Interpreter[Token, Tree]):
         fix_var: The stack of fixpoint variables encountered during traversal of the tree.
     """
 
-    class _CompositionAnalyzer(Interpreter):
-        """Rewrites a sequential composition expression so that the current fixpoint variable does not occur on the left-hand side.
+    # class _CompositionAnalyzer(Interpreter):
+    #     """Rewrites a sequential composition expression so that the current fixpoint variable does not occur on the left-hand side.
+    #
+    #     Attributes:
+    #         left: The tree of the left-hand side of the sequential composition expression.
+    #         var: The fixpoint variable.
+    #     """
+    #
+    #     def __init__(self, left: Tree, var: str):
+    #         """Initializes the instance with the left-hand side tree and the variable.
+    #
+    #         Args:
+    #             left: The tree of the left-hand side of the sequential composition expression.
+    #             var: The fixpoint variable.
+    #         """
+    #         self.left = left
+    #         self.var = var
+    #         super().__init__()
+    #
+    #     def atom_op(self, tree):
+    #         if str(tree.children[0].children[0]) == self.var:
+    #             return tree
+    #         else:
+    #             expr = mg_parser.parse('left;right')
+    #             expr.children[0] = self.left
+    #             expr.children[1] = tree
+    #             return expr
+    #
+    #     def sequential_composition(self, tree):
+    #         left, right = tree.children
+    #         left = self.visit(left)
+    #         self.left = left
+    #         return self.visit(right)
+    #
+    #     def __default__(self, tree):
+    #         tree.children = self.visit_children(tree)
+    #         return tree
 
-        Attributes:
-            left: The tree of the left-hand side of the sequential composition expression.
-            var: The fixpoint variable.
-        """
-
-        def __init__(self, left: Tree, var: str):
-            """Initializes the instance with the left-hand side tree and the variable.
-
-            Args:
-                left: The tree of the left-hand side of the sequential composition expression.
-                var: The fixpoint variable.
-            """
-            self.left = left
-            self.var = var
-            super().__init__()
-
-        def atom_op(self, tree):
-            if str(tree.children[0].children[0]) == self.var:
-                return tree
-            else:
-                expr = mg_parser.parse('left;right')
-                expr.children[0] = self.left
-                expr.children[1] = tree
-                return expr
-
-        def sequential_composition(self, tree):
-            left, right = tree.children
-            left = self.visit(left)
-            self.left = left
-            return self.visit(right)
-
-        def __default__(self, tree):
-            tree.children = self.visit_children(tree)
-            return tree
-
-    def _current_fix_var(self) -> str:
-        """Returns the current fixpoint variable.
-        """
-        return self.fix_var[-1]
+    # def _current_fix_var(self) -> str:
+    #     """Returns the current fixpoint variable.
+    #     """
+    #     return self.fix_var[-1]
 
     def __init__(self):
         """Initializes the instance.
         """
-        self.fix_var: list[str] = []
+        # self.fix_var: list[str] = []
         super().__init__()
 
     @singledispatchmethod
@@ -117,40 +117,41 @@ class Normalizer(Interpreter[Token, Tree]):
         assert isinstance(normalized_tree, Tree)
         return mg_reconstructor.reconstruct(normalized_tree)
 
-    def sequential_composition(self, tree):
-        left, right = tree.children
-        if len(self.fix_var) > 0 and var_occurs(right, self._current_fix_var()):
-            left, right = tree.children
-            return self._CompositionAnalyzer(left, self._current_fix_var()).visit(right)
-        else:
-            return self.__default__(tree)
+    # def sequential_composition(self, tree):
+    #     left, right = tree.children
+    #     if len(self.fix_var) > 0 and var_occurs(right, self._current_fix_var()):
+    #         left, right = tree.children
+    #         return self._CompositionAnalyzer(left, self._current_fix_var()).visit(right)
+    #     else:
+    #         return self.__default__(tree)
 
     def fix(self, tree):
-        fix_var, init, body = tree.children
-        fix_var_name = str(fix_var.children[0])
-        if not var_occurs(body, fix_var_name):
+        body, = tree.children
+        if body.data == 'fix':
+            body = self.visit(body)
+            return body
+        elif body.data == 'repeat':
+            body.data = 'fix'
+            body.children = body.children[:-1]
             body = self.visit(body)
             return body
         else:
-            parsed_init = self.visit(init)
-            self.fix_var.append(fix_var_name)
             parsed_body = self.visit(body)
-            self.fix_var.pop()
-            tree.children = [fix_var, parsed_init, parsed_body]
+            tree.children = [parsed_body]
             return tree
 
     def repeat(self, tree):
-        fix_var, init, body, iters = tree.children
-        fix_var_name = str(fix_var.children[0])
-        if not var_occurs(body, fix_var_name):
+        body, iters = tree.children
+        if body.data == 'fix':
+            body = self.visit(body)
+            return body
+        elif body.data == 'repeat':
+            body.children[-1] = Token('NUMBER', int(iters) * int(body.children[-1]))
             body = self.visit(body)
             return body
         else:
-            parsed_init = self.visit(init)
-            self.fix_var.append(fix_var_name)
             parsed_body = self.visit(body)
-            self.fix_var.pop()
-            tree.children = [fix_var, parsed_init, parsed_body, iters]
+            tree.children = [parsed_body, iters]
             return tree
 
     def __default__(self, tree):
