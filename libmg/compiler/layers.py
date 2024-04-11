@@ -20,10 +20,10 @@ from typing import Callable, Any
 
 import tensorflow as tf
 import re
-from tensorflow.python.eager.backprop_util import IsTrainable
-from tensorflow.python.keras import backend
+# from tensorflow.python.eager.backprop_util import IsTrainable
+from tf_keras.src import backend
 from spektral.layers import MessagePassing
-from tensorflow.python.keras.utils import generic_utils
+from tf_keras.src.utils import generic_utils
 
 from libmg.compiler.functions import Phi, PsiNonLocal, Sigma
 
@@ -214,7 +214,7 @@ class FunctionApplication(MGLayer):
         Args:
             psi: The psi function that this layer will apply.
         """
-        super().__init__(psi.name)
+        super().__init__(psi.fname)
         self.psi = psi
 
     def call(self, inputs: list[tf.Tensor], **kwargs) -> tf.Tensor:
@@ -247,7 +247,7 @@ class PreImage(MGLayer):
             sigma: The sigma function that aggregates messages.
             phi: The phi function that generates messages, defaults to sending the node label of the sender node.
         """
-        super().__init__(phi.name + '_' + sigma.name)
+        super().__init__(phi.fname + '_' + sigma.fname)
         self.sigma = sigma
         self.phi = phi
 
@@ -276,7 +276,7 @@ class PostImage(MGLayer):
             sigma: The sigma function that aggregates messages.
             phi: The phi function that generates messages, defaults to sending the node label of the sender node.
         """
-        super().__init__(phi.name + '_' + sigma.name)
+        super().__init__(phi.fname + '_' + sigma.fname)
         self.sigma = sigma
         self.phi = phi
 
@@ -496,8 +496,8 @@ class FixPoint(MGLayer):
         # compute forward pass with the gradient being tracked
         otp = output[0]
         with tf.GradientTape(persistent=True, watch_accessed_variables=False) as tape:
-            if IsTrainable(otp[0]):
-                tape.watch(otp)
+            # if IsTrainable(otp[0]):
+            tape.watch(otp)
             output = self.gnn_x(saved_args + otp + additional_inputs)
 
         # computation of the gradient
