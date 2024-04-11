@@ -2,7 +2,7 @@
 
 This module defines the objects holding the grammar, the LALR parser, and the (experimental) reconstructor.
 The reserved words of the grammar are: || fix let if then else def in repeat for
-The reserved symbols of the grammar are: , | < > = ( ) ; [ ] # { }
+The reserved symbols of the grammar are: , | < > = ( ) ; [ ] # { } + *
 Variables should not be named with two initial underscores __, e.g. don't name variables such as __X.
 
 The module contains the following classes:
@@ -18,32 +18,46 @@ from typing import Iterable, Callable
 from lark import Lark, ParseTree
 from lark.reconstruct import Reconstructor
 
+# top lowest priority
+# bottom highest priority
+
 mg_grammar = r"""
-                ?gnn_formula: label                                                                               -> atom_op
-                         | "<" label? "|" label                                                                   -> lhd
-                         | "|" label? ">" label                                                                   -> rhd
-                         | label "(" (c_formula ",")* c_formula ")"                                               -> fun_call
-                         | "let" (label_decl "=" c_formula ",")* label_decl "=" c_formula "in" c_formula          -> local_var_expr
-                         | "def" label_decl "(" (label_decl ",")* label_decl ")" "{" c_formula "}" "in" c_formula -> fun_def
-                         | "if" c_formula "then" c_formula "else" c_formula                                       -> ite
-                         | "fix" label_decl "=" c_formula "in" c_formula                                          -> fix
-                         | "repeat" label_decl "=" c_formula "in" c_formula "for" NUMBER                          -> repeat
-                         | "(" c_formula ")"
+                ?formula: "if" formula "then" formula "else" formula                                            -> ite
+                         | "let" (label_decl "=" formula ",")* label_decl "=" formula "in" formula              -> local_var_expr
+                         | "def" label_decl "(" (label_decl ",")* label_decl ")" "{" formula "}" "in" formula   -> fun_def
+                         | expression
+                
+                ?expression:  choice
+                
+                ?choice: choice "+" parallel                                                                   -> choice
+                        | parallel
+                                                                          
+                ?parallel: parallel "||" sequential                                                            -> parallel_composition
+                          | sequential             
+                
+                ?sequential: sequential ";" unary                                                              -> sequential_composition 
+                            | unary                                
+                         
+                ?unary:  unary "*"                                                                             -> fix
+                       | unary "*" NUMBER                                                                      -> repeat
+                       | primary                                                                                  
+                
+                ?primary: label                                                                                -> atom_op
+                          | "<" label? "|" label                                                               -> lhd
+                          | "|" label? ">" label                                                               -> rhd
+                          | label "(" (formula ",")* formula ")"                                               -> fun_call
+                          | "(" formula ")"
 
-                ?c_formula: gnn_formula
-                         | gnn_formula ";" c_formula                                                              -> sequential_composition
-                         | gnn_formula ( "||" gnn_formula )+                                                      -> parallel_composition
-
-                ?start: c_formula
-
-                label: /[a-zA-Z_0-9\+\*\^\-\!\%\&\~\/\@]+/
+                label: /[a-zA-Z_0-9\^\-\!\%\&\~\/\@]+/
                             |  FUNC_GEN
 
-                FUNC_GEN: /[a-zA-Z_0-9\+\*\^\-\!\%\&\~\/\@]+/ "[" /[^\]\[]+/ "]"
+                FUNC_GEN: /[a-zA-Z_0-9\^\-\!\%\&\~\/\@]+/ "[" /[^\]\[]+/ "]"
 
-                label_decl: /[a-zA-Z_0-9\+\*\^\-\!\%\&\~\/\@]+/
+                label_decl: /[a-zA-Z_0-9\^\-\!\%\&\~\/\@]+/
 
                 COMMENT: "#" /[^\n]/*
+                
+                ?start: formula
 
                 %ignore COMMENT
                 %import common.WS
@@ -52,7 +66,7 @@ mg_grammar = r"""
                 %ignore WS
                 """
 
-mg_reserved = {'||', 'fix', 'let', 'if', 'then', 'else', 'def', 'in', 'repeat', 'for', ',', '|', '<', '>', '(', ')', ';', '[', ']', '#', '{', '}'}
+mg_reserved = {'||', 'fix', 'let', 'if', 'then', 'else', 'def', 'in', 'repeat', 'for', ',', '|', '<', '>', '(', ')', ';', '[', ']', '#', '{', '}', '+', '*'}
 
 mg_parser = Lark(mg_grammar, maybe_placeholders=False, parser='lalr')
 """
