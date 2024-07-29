@@ -30,8 +30,9 @@ class TestExplainer(tf.test.TestCase):
                     pass
 
     def test_explainer(self):
-        expressions = ['a', 'a;true', 'a;true;false',
-                       '|>or', '<|u*', '|>or;|>or',
+        expressions = [
+                       'a', 'a;true', 'a;true;false',
+                       '|>or', '<|u^', '|>or;|>or',
                        'a || b || true',
                        'a ; (false || true)',
                        'let X = a in X',

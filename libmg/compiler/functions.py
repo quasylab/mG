@@ -29,6 +29,14 @@ from collections import UserDict
 from typing import Callable, Any
 
 
+# class MultipleOp(Protocol):
+#     def __call__(self, *x: tf.Tensor, i: tf.Tensor) -> tf.Tensor: ...
+#
+#
+# class SingleOp(Protocol):
+#     def __call__(self, *x: tf.Tensor) -> tf.Tensor: ...
+
+
 class FunctionDict(UserDict):
     """Dictionary that maps mG labels to functions.
 
@@ -207,7 +215,9 @@ class Function(tf.keras.layers.Layer):
 class Psi(Function):
     """A psi function of the mG language.
     """
-    pass
+
+    def __call__(self, x: tuple[tf.Tensor], i: tf.Tensor | None = None) -> tf.Tensor:
+        raise NotImplementedError
 
 
 class PsiNonLocal(Psi):
@@ -221,15 +231,15 @@ class PsiNonLocal(Psi):
 
     Examples:
         >>> PsiNonLocal(single_op=lambda x: x + 1, multiple_op=lambda x, i: x + 1, name='Add1')
-        <...functions.PsiNonLocal object at 0x...>
+        <PsiNonLocal ...>
 
     Attributes:
         single_op: A function to be used in conjunction with a ``SingleGraphLoader``
         multiple_op: A function to be used in conjunction with a ``MultipleGraphLoader``
     """
 
-    def __init__(self, single_op: Callable[[tf.Tensor], tf.Tensor] | None = None,
-                 multiple_op: Callable[[tf.Tensor, tf.Tensor], tf.Tensor] | None = None,
+    def __init__(self, single_op: Callable | None = None,
+                 multiple_op: Callable | None = None,
                  name: str | None = None):
         """Initializes the instance with a function for a single graph and/or a function a multiple graph operation, and a name.
 
@@ -255,10 +265,10 @@ class PsiNonLocal(Psi):
             self.multiple_op = multiple_op  # type: ignore
         super().__init__(self.single_op, name)
 
-    def single_graph_op(self, x: tf.Tensor) -> tf.Tensor:
+    def single_graph_op(self, *x: tf.Tensor) -> tf.Tensor:
         raise NotImplementedError
 
-    def multiple_graph_op(self, x: tf.Tensor, i: tf.Tensor) -> tf.Tensor:
+    def multiple_graph_op(self, *x: tf.Tensor, i: tf.Tensor | None = None) -> tf.Tensor:
         raise NotImplementedError
 
     @classmethod
@@ -329,11 +339,11 @@ class PsiNonLocal(Psi):
         return lambda a: cls(**{k: v(a) if v.__code__.co_argcount == 1 else partial(v, a) for k, v in args.items()},
                              name=name + '_' + a if name is not None else None)
 
-    def __call__(self, x: tf.Tensor, i: tf.Tensor | None = None) -> tf.Tensor:
+    def __call__(self, x: tuple[tf.Tensor], i: tf.Tensor | None = None) -> tf.Tensor:
         if i is not None:
-            return self.multiple_op(x, i)
+            return self.multiple_op(*x, i=i)
         else:
-            return self.single_op(x)
+            return self.single_op(*x)
 
 
 class PsiLocal(Psi):
@@ -343,10 +353,10 @@ class PsiLocal(Psi):
 
     Examples:
         >>> PsiLocal(lambda x: x + 1, name='Add1')
-        <...functions.PsiLocal object at 0x...>
+        <PsiLocal ...>
     """
 
-    def __init__(self, f: Callable[[tf.Tensor], tf.Tensor] | None = None, name: str | None = None):
+    def __init__(self, f: Callable | None = None, name: str | None = None):
         """Initializes the instance with a function and a name.
 
         Args:
@@ -360,11 +370,11 @@ class PsiLocal(Psi):
             f = self.func
         super().__init__(f, name)
 
-    def func(self, x: tf.Tensor) -> tf.Tensor:
+    def func(self, *x: tf.Tensor) -> tf.Tensor:
         raise NotImplementedError
 
-    def __call__(self, x: tf.Tensor, i: tf.Tensor | None = None) -> tf.Tensor:
-        return self.f(x)
+    def __call__(self, x: tuple[tf.Tensor], i: tf.Tensor | None = None) -> tf.Tensor:
+        return self.f(*x)
 
 
 class PsiGlobal(PsiNonLocal):
@@ -378,11 +388,11 @@ class PsiGlobal(PsiNonLocal):
 
     Examples:
         >>> PsiGlobal(single_op=lambda x: tf.reduce_sum(x, axis=0, keepdims=True), multiple_op=lambda x, i: tf.math.segment_sum(x, i), name='SumPooling')
-        <...functions.PsiGlobal object at 0x...>
+        <PsiGlobal ...>
     """
 
-    def __init__(self, single_op: Callable[[tf.Tensor], tf.Tensor] | None = None,
-                 multiple_op: Callable[[tf.Tensor, tf.Tensor], tf.Tensor] | None = None, name: str | None = None):
+    def __init__(self, single_op: Callable | None = None,
+                 multiple_op: Callable | None = None, name: str | None = None):
         """Initializes the instance with a function for a single graph and/or a function a multiple graph operation, and a name.
 
         Args:
@@ -399,20 +409,20 @@ class PsiGlobal(PsiNonLocal):
         """
         super().__init__(single_op=single_op, multiple_op=multiple_op, name=name)
 
-    def single_graph_op(self, x: tf.Tensor) -> tf.Tensor:
+    def single_graph_op(self, *x: tf.Tensor) -> tf.Tensor:
         raise NotImplementedError
 
-    def multiple_graph_op(self, x: tf.Tensor, i: tf.Tensor) -> tf.Tensor:
+    def multiple_graph_op(self, *x: tf.Tensor, i: tf.Tensor | None = None) -> tf.Tensor:
         raise NotImplementedError
 
     def __call__(self, x: tf.Tensor, i: tf.Tensor | None = None) -> tf.Tensor:
         if i is not None:
-            output = self.multiple_op(x, i)
+            output = self.multiple_op(*x, i=i)
             _, _, count = tf.unique_with_counts(i)
             return tf.repeat(output, count, axis=0)
         else:
-            output = tf.expand_dims(self.single_op(x), axis=0)
-            return tf.repeat(output, tf.shape(x)[0], axis=0)
+            output = tf.expand_dims(self.single_op(*x), axis=0)
+            return tf.repeat(output, tf.shape(x[0])[0], axis=0)
 
 
 class Phi(Function):
@@ -422,7 +432,7 @@ class Phi(Function):
 
     Examples:
         >>> Phi(lambda i, e, j: i * e, name='EdgeProd')
-        <...functions.Phi object at 0x...>
+        <Phi ...>
     """
 
     def __init__(self, f: Callable[[tf.Tensor, tf.Tensor, tf.Tensor], tf.Tensor] | None = None,
@@ -445,7 +455,7 @@ class Phi(Function):
         raise NotImplementedError
 
     def __call__(self, src: tf.Tensor, e: tf.Tensor, tgt: tf.Tensor) -> tf.Tensor:
-        return self.f(src, e, tgt)
+        return self.f(*src, e, *tgt)
 
 
 class Sigma(Function):
@@ -455,7 +465,7 @@ class Sigma(Function):
 
     Examples:
         >>> Sigma(lambda m, i, n, x: tf.math.segment_max(m, i), name='Max')
-        <...functions.Sigma object at 0x...>
+        <Sigma ...>
     """
 
     def __init__(self, f: Callable[[tf.Tensor, tf.Tensor, int, tf.Tensor], tf.Tensor] | None = None,
@@ -478,7 +488,7 @@ class Sigma(Function):
         raise NotImplementedError
 
     def __call__(self, m: tf.Tensor, i: tf.Tensor, n: int, x: tf.Tensor) -> tf.Tensor:
-        return self.f(m, i, n, x)
+        return self.f(m, i, n, *x)
 
 
 class Constant(PsiLocal):
@@ -488,7 +498,7 @@ class Constant(PsiLocal):
 
     Examples:
         >>> Constant(tf.constant(False), name='False')
-        <...functions.Constant object at 0x...>
+        <Constant ...>
     """
 
     def __init__(self, v: tf.Tensor, name: str | None = None):
@@ -520,7 +530,7 @@ class Pi(PsiLocal):
 
     Examples:
         >>> Pi(0, 2, name='FirstTwo')
-        <...functions.Pi object at 0x...>
+        <Pi ...>
     """
 
     def __init__(self, i: int, j: int | None = None, name: str | None = None):
@@ -602,9 +612,8 @@ def make_boperator(op: Callable[[tf.Tensor, tf.Tensor], tf.Tensor], name: str | 
         A subclass of Operator that implements the operator.
     """
 
-    def func(self, x: tf.Tensor) -> tf.Tensor:
-        dim = tf.shape(x)[-1] // 2
-        return op(x[:, :dim], x[:, dim:])
+    def func(self, *x: list[tf.Tensor]) -> tf.Tensor:
+        return op(x[0], x[1])
 
     return type(name or "BOperator", (Operator,), {'func': func})
 
@@ -625,8 +634,7 @@ def make_koperator(op: Callable[..., tf.Tensor], name: str | None = None) -> typ
         A subclass of Operator that implements the operator.
     """
 
-    def func(self, x: tf.Tensor) -> tf.Tensor:
-        dim = tf.shape(x)[-1] // self.k
-        return op([x[:, i * dim:(i * dim) + dim] for i in range(self.k)])
+    def func(self, *x: tf.Tensor) -> tf.Tensor:
+        return op(*x)
 
     return type(name or "KOperator", (Operator,), {'func': func})

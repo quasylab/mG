@@ -110,8 +110,8 @@ class TestPsiNonLocal(tf.test.TestCase):
         for psi in [PsiNonLocal(single_op=lambda x: x + 1, multiple_op=lambda x, i: x + 1),
                     IncrementPsi(),
                     PsiNonLocal.make(single_op=lambda x: x + 1, multiple_op=lambda x, i: x + 1, name='Increment')()]:
-            self.assertAllEqual(psi(tf.constant([[1], [2], [3]])), tf.constant([[2], [3], [4]]))
-            self.assertAllEqual(psi(tf.constant([[1], [2], [3]]), tf.constant([0, 0, 1])), tf.constant([[2], [3], [4]]))
+            self.assertAllEqual(psi([tf.constant([[1], [2], [3]])]), tf.constant([[2], [3], [4]]))
+            self.assertAllEqual(psi([tf.constant([[1], [2], [3]])], tf.constant([0, 0, 1])), tf.constant([[2], [3], [4]]))
 
     def test_weights(self):
         class MultipleLayer(tf.keras.layers.Layer):
@@ -134,7 +134,7 @@ class TestPsiNonLocal(tf.test.TestCase):
             def multiple_graph_op(self, x: tf.Tensor, i: tf.Tensor) -> tf.Tensor:
                 return self.multiple_dense(x)
 
-        inputs_x = tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])
+        inputs_x = [tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])]
         inputs_i = tf.constant([0, 1])
         for psi in [PsiNonLocal(single_op=tf.keras.layers.Dense(10, activation='linear'), multiple_op=MultipleLayer()),
                     PsiDense(),
@@ -156,7 +156,7 @@ class TestPsiLocal(tf.test.TestCase):
         for psi in [PsiLocal(lambda x: x + 1),
                     IncrementPsi(),
                     PsiLocal.make('Increment', lambda x: x + 1)()]:
-            self.assertAllEqual(psi(tf.constant([[1], [2], [3]])), tf.constant([[2], [3], [4]]))
+            self.assertAllEqual(psi([tf.constant([[1], [2], [3]])]), tf.constant([[2], [3], [4]]))
 
     def test_weights(self):
         class PsiLocalDense(PsiLocal):
@@ -167,7 +167,7 @@ class TestPsiLocal(tf.test.TestCase):
             def func(self, x: tf.Tensor) -> tf.Tensor:
                 return self.dense(x)
 
-        inputs_x = tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])
+        inputs_x = [tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])]
         for psi in [PsiLocal(tf.keras.layers.Dense(10, activation='linear')),
                     PsiLocalDense(),
                     PsiLocal.make('Dense', tf.keras.layers.Dense(10, activation='linear'))()]:
@@ -188,8 +188,8 @@ class TestPsiGlobal(tf.test.TestCase):
         for psi in [PsiGlobal(single_op=lambda x: tf.reduce_sum(x, axis=0, keepdims=False), multiple_op=lambda x, i: tf.math.segment_sum(x, i)),
                     PoolPsi(),
                     PsiGlobal.make('Pool', single_op=lambda x: tf.reduce_sum(x, axis=0, keepdims=False), multiple_op=lambda x, i: tf.math.segment_sum(x, i))()]:
-            self.assertAllEqual(psi(tf.constant([[1], [2], [3]])), tf.constant([[6], [6], [6]]))
-            self.assertAllEqual(psi(tf.constant([[1], [2], [3], [4]]), tf.constant([0, 0, 1, 1])), tf.constant([[3], [3], [7], [7]]))
+            self.assertAllEqual(psi([tf.constant([[1], [2], [3]])]), tf.constant([[6], [6], [6]]))
+            self.assertAllEqual(psi([tf.constant([[1], [2], [3], [4]])], tf.constant([0, 0, 1, 1])), tf.constant([[3], [3], [7], [7]]))
 
     def test_weights(self):
 
@@ -213,7 +213,7 @@ class TestPsiGlobal(tf.test.TestCase):
             def multiple_graph_op(self, x: tf.Tensor, i: tf.Tensor) -> tf.Tensor:
                 return self.multiple_dense(x)
 
-        inputs_x = tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])
+        inputs_x = [tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])]
         inputs_i = tf.constant([0, 1])
         for psi in [PsiGlobal(single_op=tf.keras.layers.Dense(10, activation='linear'), multiple_op=MultipleLayer()),
                     PsiGlobalDense(),
@@ -235,7 +235,7 @@ class TestPhi(tf.test.TestCase):
         for phi in [Phi(lambda i, e, j: i * e),
                     EdgeProd(),
                     Phi.make('Pool', lambda i, e, j: i * e)()]:
-            self.assertAllEqual(phi(tf.constant([[1], [2], [2], [3]]), tf.constant([[1], [0], [3], [1]]), tf.constant([[3], [2], [1], [1]])),
+            self.assertAllEqual(phi([tf.constant([[1], [2], [2], [3]])], tf.constant([[1], [0], [3], [1]]), [tf.constant([[3], [2], [1], [1]])]),
                                 tf.constant([[1], [0], [6], [3]]))
 
     def test_weights(self):
@@ -255,9 +255,9 @@ class TestPhi(tf.test.TestCase):
             def func(self, src: tf.Tensor, e: tf.Tensor, tgt: tf.Tensor) -> tf.Tensor:
                 return self.dense(src)
 
-        inputs_src = tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])
+        inputs_src = [tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])]
         inputs_e = tf.constant([[0., 0., 0., 0., 0., 0., 0., 0., 0., 0.], [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.], [0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]])
-        inputs_tgt = tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])
+        inputs_tgt = [tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])]
         for phi in [Phi(Message()),
                     PhiDense(),
                     Phi.make('Dense', Message())()]:
@@ -275,7 +275,7 @@ class TestSigma(tf.test.TestCase):
         for sigma in [Sigma(lambda m, i, n, x: tf.math.segment_max(m, i)),
                       Max(),
                       Sigma.make('Max', lambda m, i, n, x: tf.math.segment_max(m, i))()]:
-            self.assertAllEqual(sigma(tf.constant([[1], [2], [2], [3]]), tf.constant([0, 0, 1, 2]), 3, tf.constant([[1], [2], [3]])),
+            self.assertAllEqual(sigma(tf.constant([[1], [2], [2], [3]]), tf.constant([0, 0, 1, 2]), 3, [tf.constant([[1], [2], [3]])]),
                                 tf.constant([[2], [2], [3]]))
 
     def test_weights(self):
@@ -298,7 +298,7 @@ class TestSigma(tf.test.TestCase):
         inputs_m = tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])
         inputs_i = tf.constant([0, 1])
         inputs_n = 5
-        inputs_x = tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])
+        inputs_x = [tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])]
 
         for phi in [Sigma(Aggregate()),
                     SigmaDense(),
@@ -314,7 +314,7 @@ class TestConstant(tf.test.TestCase):
                        (Constant(tf.constant([5, 5])), tf.constant([[5, 5], [5, 5], [5, 5]])),
                        (Constant(tf.constant([True])), tf.constant([[True], [True], [True]])),
                        (Constant(tf.constant([False])), tf.constant([[False], [False], [False]]))]:
-            self.assertAllEqual(c(tf.constant([[1], [2], [3]])), out)
+            self.assertAllEqual(c([tf.constant([[1], [2], [3]])]), out)
 
 
 class TestPi(tf.test.TestCase):
@@ -323,18 +323,22 @@ class TestPi(tf.test.TestCase):
                         (Pi(1, 2), tf.constant([[2], [7]])),
                         (Pi(2, -1), tf.constant([[3, 4], [8, 9]])),
                         (Pi(1, 5), tf.constant([[2, 3, 4, 5], [7, 8, 9, 10]]))]:
-            self.assertAllEqual(pi(tf.constant([[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]])), out)
+            self.assertAllEqual(pi([tf.constant([[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]])]), out)
 
 
 class TestOperators(tf.test.TestCase):
     def test_make_uoperator(self):
         op = make_uoperator(lambda x: x + 1, 'successor')('1')
-        self.assertAllEqual(op(tf.constant([[1], [2], [3]])), tf.constant([[2], [3], [4]]))
+        self.assertAllEqual(op([tf.constant([[1], [2], [3]])]), tf.constant([[2], [3], [4]]))
 
     def test_make_boperator(self):
         op = make_boperator(lambda x, y: x + y, 'add')('2')
-        self.assertAllEqual(op(tf.constant([[1, 4], [2, 5], [3, 6]])), tf.constant([[5], [7], [9]]))
+        self.assertAllEqual(op([tf.constant([[1], [2], [3]]), tf.constant([[4], [5], [6]])]), tf.constant([[5], [7], [9]]))
 
     def test_make_koperator(self):
         op = make_koperator(tf.math.add_n, 'add')('5')
-        self.assertAllEqual(op(tf.constant([[1, 2, 3, 4, 5], [6, 7, 8, 9, 10], [11, 12, 13, 14, 15]])), tf.constant([[15], [40], [65]]))
+        self.assertAllEqual(op([[tf.constant([[1], [6], [11]]),
+                                tf.constant([[2], [7], [12]]),
+                                tf.constant([[3], [8], [13]]),
+                                tf.constant([[4], [9], [14]]),
+                                tf.constant([[5], [10], [15]])]]), tf.constant([[15], [40], [65]]))

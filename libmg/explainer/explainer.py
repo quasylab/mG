@@ -10,6 +10,8 @@ The module contains the following classes:
 - ``MGExplainer``
 """
 from __future__ import annotations
+
+import re
 import typing
 from copy import deepcopy
 from typing import Callable, Literal
@@ -39,7 +41,7 @@ def explanation_nodes(explanation: tf.Tensor[bool]) -> list[int]:
     return typing.cast(list[int], tf.squeeze(tf.where(explanation), axis=-1).numpy().tolist())
 
 
-def make_graph(explanation: tf.Tensor[bool], hierarchy: tf.Tensor[float], old_graph: list[tf.Tensor], actual_outputs: tf.Tensor) -> Graph:
+def make_graph(explanation: tf.Tensor[bool], hierarchy: tf.Tensor[float], old_graph: tuple[tf.Tensor, ...], actual_outputs: tf.Tensor) -> Graph:
     """Returns the explanation sub-graph.
 
     Args:
@@ -53,7 +55,7 @@ def make_graph(explanation: tf.Tensor[bool], hierarchy: tf.Tensor[float], old_gr
     node_feats, adj, edge_feats, _ = unpack_inputs(old_graph)
 
     new_node_feats = tf.boolean_mask(node_feats, explanation).numpy()
-    new_actual_outputs = tf.boolean_mask(actual_outputs, explanation).numpy()
+    new_actual_outputs = [tf.boolean_mask(output, explanation).numpy() for output in actual_outputs]
     # new_labels = tf.boolean_mask(labels, explanation).numpy() if labels is not None else None
 
     nodes = set(explanation_nodes(explanation))
@@ -92,11 +94,10 @@ class MGExplainer(Interpreter):
                                                                                                off_value=MGExplainer.INF, dtype=tf.float32))
     # localize_node = lambda y: PsiLocal(lambda x: tf.one_hot(indices=[int(y)], depth=tf.shape(x)[0],
     # axis=0, on_value=0, off_value=ExplainerMG.INF, dtype=tf.float32))
-    id = PsiLocal(lambda x: x)
-    proj1 = Phi.make('proj', lambda i, e, j: i)
+    proj1 = Phi(lambda i, e, j: i)
     or_agg = Sigma(lambda m, i, n, x: tf.minimum(tf.math.unsorted_segment_min(m, i, n) + 1, x))
-    or_fun = PsiLocal(lambda x: tf.math.reduce_min(x, axis=1, keepdims=True))
-    all_nodes_expr = 'fix X = id in (((X;|p3>or) || (X;<p3|or));or)'
+    or_fun = PsiLocal(lambda *x: tf.math.reduce_min(tf.concat(x, axis=1), axis=1, keepdims=True))
+    all_nodes_expr = 'fix X = i in (((X;|p3>or) || (X;<p3|or));or)'
 
     def __init__(self, model: MGModel):
         """Initializes the instance with the model to explain.
@@ -106,9 +107,11 @@ class MGExplainer(Interpreter):
         """
         super().__init__()
         self.model = model
+        if model.config is None:
+            raise ValueError("Explained model must have a valid config!")
         self.query_node: int
         self.context = Context()
-        self.compiler = MGCompiler(psi_functions={'node': MGExplainer.localize_node, 'id': MGExplainer.id, 'or': MGExplainer.or_fun},
+        self.compiler = MGCompiler(psi_functions={'node': MGExplainer.localize_node, 'or': MGExplainer.or_fun},
                                    sigma_functions={'or': MGExplainer.or_agg},
                                    phi_functions={'p3': MGExplainer.proj1},
                                    config=model.config)
@@ -126,7 +129,7 @@ class MGExplainer(Interpreter):
         sorted_node_ids = sorted(explanation_nodes(explanation))
         return lambda x: sorted_node_ids[x]
 
-    def explain(self, query_node: int, inputs: list[tf.Tensor], filename: str | None = None, open_browser: bool = True,
+    def explain(self, query_node: int, inputs: tuple[tf.Tensor, ...], filename: str | None = None, open_browser: bool = True,
                 engine: Literal["pyvis", "cosmo"] = 'pyvis') -> Graph:
         """Explain the label of a query node by generating the sub-graph of nodes that affected its value.
 
@@ -143,6 +146,8 @@ class MGExplainer(Interpreter):
         Returns:
             The generated sub-graph.
         """
+        if self.model.expr is None:
+            raise ValueError("Explained model must have a valid expr!")
         # Build the model
         self.query_node = query_node
         self.context.clear()
@@ -166,13 +171,18 @@ class MGExplainer(Interpreter):
 
     def atom_op(self, tree: Tree) -> Tree:
         name = str(tree.children[0].children[0])
+        assert self.model.psi_functions is not None
         f = self.model.psi_functions.get(name)
-        if f is None:
+        if re.search(r'^(p\d+|p\d+-|p-\d+|p\d+-\d+)$', name) is not None or isinstance(f, PsiLocal):  # is a projection
+            new_op = mg_parser.parse('i')
+        elif f is None:  # is a variable for an operator
             new_op = tree
-        elif isinstance(f, PsiLocal):
-            new_op = mg_parser.parse('id')
         else:  # not local neither a variable
             raise VisitError('atom_op', tree, 'Nonlocal psi function')
+        return new_op
+
+    def id(self, tree):
+        new_op = mg_parser.parse('i')
         return new_op
 
     def lhd(self, _: Tree) -> Tree:
@@ -204,7 +214,8 @@ class MGExplainer(Interpreter):
     def ite(self, tree: Tree) -> Tree:
         raise VisitError('ite', tree, 'If-Then-Else expression')
 
-    def fix(self, tree: Tree) -> Tree:
+    def star(self, tree: Tree) -> Tree:
+        assert self.model.mg_layers is not None
         iters = self.model.mg_layers[hash(self.context.get(tree))].iters.numpy() - 1
         print(iters)
         new_op = tree.copy()

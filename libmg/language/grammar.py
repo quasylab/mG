@@ -25,24 +25,27 @@ mg_grammar = r"""
                 ?formula: "if" formula "then" formula "else" formula                                            -> ite
                          | "let" (label_decl "=" formula ",")* label_decl "=" formula "in" formula              -> local_var_expr
                          | "def" label_decl "(" (label_decl ",")* label_decl ")" "{" formula "}" "in" formula   -> fun_def
+                         | "fix" label_decl "=" formula "in" formula                                            -> fix
+                         | "repeat" label_decl "=" formula "in" formula "for" NUMBER                            -> rep
                          | expression
-                
+
                 ?expression:  choice
-                
+
                 ?choice: choice "+" parallel                                                                   -> choice
                         | parallel
-                                                                          
-                ?parallel: parallel "||" sequential                                                            -> parallel_composition
-                          | sequential             
-                
-                ?sequential: sequential ";" unary                                                              -> sequential_composition 
-                            | unary                                
-                         
-                ?unary:  unary "*"                                                                             -> fix
-                       | unary "*" NUMBER                                                                      -> repeat
-                       | primary                                                                                  
-                
+
+                ?parallel: parallel ("||" sequential)+                                                         -> parallel_composition
+                          | sequential
+
+                ?sequential: sequential ";" unary                                                             -> sequential_composition
+                            | unary
+
+                ?unary:  unary "*"                                                                             -> star
+                       | "repeat" unary "for" NUMBER                                                           -> repeat
+                       | primary
+
                 ?primary: label                                                                                -> atom_op
+                          | "i"                                                                                -> id
                           | "<" label? "|" label                                                               -> lhd
                           | "|" label? ">" label                                                               -> rhd
                           | label "(" (formula ",")* formula ")"                                               -> fun_call
@@ -56,7 +59,7 @@ mg_grammar = r"""
                 label_decl: /[a-zA-Z_0-9\^\-\!\%\&\~\/\@]+/
 
                 COMMENT: "#" /[^\n]/*
-                
+
                 ?start: formula
 
                 %ignore COMMENT

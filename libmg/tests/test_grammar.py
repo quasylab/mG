@@ -54,7 +54,7 @@ def test_parallel_composition():
     rec_expr = mg_reconstructor.reconstruct(tree)
     rec_expr_tree = mg_parser.parse(rec_expr)
     assert tree.data == 'parallel_composition'
-    assert tree == mg_parser.parse('(((a || b) || c) || d) || e')
+    assert tree == mg_parser.parse('a || b || c || d || e')
     assert rec_expr == expr
     assert rec_expr_tree == tree
 
@@ -66,9 +66,7 @@ def test_parallel_nested_sequential():
     rec_expr_tree = mg_parser.parse(rec_expr)
 
     assert tree.data == 'parallel_composition'
-    assert tree.children[0].data == 'parallel_composition'
-    assert tree.children[1].data == 'atom_op'
-    assert tree == mg_parser.parse('(a || (b ; c ; d ; e)) || f')
+    assert tree == mg_parser.parse('a || (b ; c ; d ; e) || f')
     assert rec_expr == expr
     assert rec_expr_tree == tree
 
@@ -161,20 +159,20 @@ def test_ite():
     assert rec_expr_tree == tree
 
 
-def test_fix():
+def test_star():
     expr = '((a || b ; |>or) ; and) *'
     tree = mg_parser.parse(expr)
     rec_expr = mg_reconstructor.reconstruct(tree)
     rec_expr_tree = mg_parser.parse(rec_expr)
 
-    assert tree.data == 'fix'
+    assert tree.data == 'star'
     assert tree.children[0].data == 'sequential_composition'
     assert rec_expr == expr
     assert rec_expr_tree == tree
 
 
 def test_repeat():
-    expr = '((a || b ; |>or) ; and) * 5'
+    expr = 'repeat ((a || b ; |>or) ; and) for 5'
     tree = mg_parser.parse(expr)
     rec_expr = mg_reconstructor.reconstruct(tree)
     rec_expr_tree = mg_parser.parse(rec_expr)
@@ -182,6 +180,42 @@ def test_repeat():
     assert tree.data == 'repeat'
     assert tree.children[0].data == 'sequential_composition'
     assert int(tree.children[1]) == 5
+    assert rec_expr == expr
+    assert rec_expr_tree == tree
+
+
+def test_fix():
+    expr = 'fix X = b in (a || X ; |>or) ; and'
+    tree = mg_parser.parse(expr)
+    rec_expr = mg_reconstructor.reconstruct(tree)
+    rec_expr_tree = mg_parser.parse(rec_expr)
+
+    assert tree.data == 'fix'
+    assert tree.children[2].data == 'sequential_composition'
+    assert rec_expr == expr
+    assert rec_expr_tree == tree
+
+
+def test_rep():
+    expr = 'repeat X = b in (a || b ; |>or) ; and for 5'
+    tree = mg_parser.parse(expr)
+    rec_expr = mg_reconstructor.reconstruct(tree)
+    rec_expr_tree = mg_parser.parse(rec_expr)
+
+    assert tree.data == 'rep'
+    assert tree.children[2].data == 'sequential_composition'
+    assert int(tree.children[-1]) == 5
+    assert rec_expr == expr
+    assert rec_expr_tree == tree
+
+
+def test_id():
+    expr = 'i'
+    tree = mg_parser.parse(expr)
+    rec_expr = mg_reconstructor.reconstruct(tree)
+    rec_expr_tree = mg_parser.parse(rec_expr)
+
+    assert tree.data == 'id'
     assert rec_expr == expr
     assert rec_expr_tree == tree
 
@@ -198,5 +232,3 @@ def test_comment():
     assert tree.data == 'parallel_composition'
     assert rec_expr == 'a || b ; c'
     assert rec_expr_tree == tree
-
-

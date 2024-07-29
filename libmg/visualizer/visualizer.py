@@ -22,6 +22,7 @@ from pyvis.network import Network
 from pyvis.options import Layout, Options, EdgeOptions
 from spektral.data import Graph
 
+from libmg.normalizer.normalizer import mg_normalizer
 from libmg.language.grammar import mg_parser, mg_reconstructor
 from libmg.compiler.layers import unpack_inputs
 from libmg.compiler.compiler import MGModel
@@ -46,8 +47,9 @@ def fetch_layer(model: MGModel, layer_name: str | Tree | None = None, layer_idx:
     """
     if layer_idx is not None:
         return model.get_layer(index=layer_idx)
-    elif layer_name is not None:
+    elif layer_name is not None and model.mg_layers is not None:
         tree = layer_name if isinstance(layer_name, Tree) else mg_parser.parse(layer_name)
+        tree = mg_normalizer.normalize(tree)
         layer_hash = hash(tree)
         if layer_hash in model.mg_layers:
             return model.mg_layers[layer_hash]
@@ -57,8 +59,9 @@ def fetch_layer(model: MGModel, layer_name: str | Tree | None = None, layer_idx:
         raise ValueError("Layer name or index must be provided!")
 
 
-def show_pyvis(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, int]], edge_values: np.ndarray | None, labels: np.ndarray | None,
-               hierarchy: list[int] | None, id_generator: Callable[[int], int | str], filename: str, open_browser: bool) -> None:
+def show_pyvis(node_values: np.ndarray | tuple[np.ndarray, ...], adj: np.ndarray | Iterator[tuple[int, int]], edge_values: np.ndarray | None,
+               labels: np.ndarray | tuple[np.ndarray, ...] | None, hierarchy: list[int] | None, id_generator: Callable[[int], int | str], filename: str,
+               open_browser: bool) -> None:
     """
     Builds a PyVis network using the node features, labels, adjacency matrix and edge features. The result is an .html
     page named graph_``filename``.html.
@@ -78,15 +81,24 @@ def show_pyvis(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, in
     Returns:
         Nothing.
     """
-    nodes = [id_generator(i) for i in range(node_values.shape[0])]
     edges = [(int(e[0]), int(e[1])) for e in adj]
-    node_labels = [' | '.join([str(label) for label in label_list]) for label_list in node_values.tolist()]
+    if isinstance(node_values, (list, tuple)):
+        nodes = [id_generator(i) for i in range(node_values[0].shape[0])]
+        node_values_list = [node_value.tolist() for node_value in node_values]
+        node_labels = [' | '.join([str(e) for label in label_list for e in label]) for label_list in zip(*node_values_list)]
+    else:
+        nodes = [id_generator(i) for i in range(node_values.shape[0])]
+        node_labels = [' | '.join([str(label) for label in label_list]) for label_list in node_values]
     if edge_values is not None:
         edge_labels = [' | '.join([str(label) for label in label_list]) for label_list in edge_values.tolist()]
     else:
         edge_labels = None
     if labels is not None:
-        true_labels = [' | '.join([str(label) for label in label_list]) for label_list in labels.tolist()]
+        if isinstance(labels, (tuple, list)):
+            labels_list = [label.tolist() for label in labels]
+            true_labels = [' | '.join([str(e) for label in label_list for e in label]) for label_list in zip(*labels_list)]
+        else:
+            true_labels = [' | '.join([str(label) for label in label_list]) for label_list in labels.tolist()]
         node_labels = ['[' + feat + '] → [' + target + ']' for feat, target in zip(node_labels, true_labels)]
     else:
         node_labels = ['[' + feat + ']' for feat in node_labels]
@@ -136,17 +148,27 @@ def show_pyvis(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, in
 
 # Edge labels are not supported
 # Hierarchy to be implemented using timeline or histograms
-def show_cosmo(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, int]], edge_values: np.ndarray | None, labels: np.ndarray | None,
-               hierarchy: list[int] | None, id_generator: Callable[[int], int | str], filename: str, open_browser: bool) -> None:
+def show_cosmo(node_values: np.ndarray | tuple[np.ndarray, ...], adj: np.ndarray | Iterator[tuple[int, int]], edge_values: np.ndarray | None,
+               labels: np.ndarray | tuple[np.ndarray, ...] | None, hierarchy: list[int] | None, id_generator: Callable[[int], int | str],
+               filename: str, open_browser: bool) -> None:
 
-    node_labels = [' | '.join([str(label) for label in label_list]) for label_list in node_values.tolist()]
+    n_nodes = node_values[0].shape[0]
+    if isinstance(node_values, (list, tuple)):
+        node_values_list = [node_value.tolist() for node_value in node_values]
+        node_labels = [' | '.join([str(e) for label in label_list for e in label]) for label_list in zip(*node_values_list)]
+    else:
+        node_labels = [' | '.join([str(label) for label in label_list]) for label_list in node_values]
     if labels is not None:
-        true_labels = [' | '.join([str(label) for label in label_list]) for label_list in labels.tolist()]
+        if isinstance(labels, (list, tuple)):
+            labels_list = [label.tolist() for label in labels]
+            true_labels = [' | '.join([str(e) for label in label_list for e in label]) for label_list in zip(*labels_list)]
+        else:
+            true_labels = [' | '.join([str(label) for label in label_list]) for label_list in labels.tolist()]
         node_labels = ['[' + feat + '] → [' + target + ']' for feat, target in zip(node_labels, true_labels)]
     else:
         node_labels = ['[' + feat + ']' for feat in node_labels]
 
-    nodes = [{'id': id_generator(i), 'label': node_labels[i], 'hierarchy': hierarchy[i] if hierarchy else None} for i in range(node_values.shape[0])]
+    nodes = [{'id': id_generator(i), 'label': node_labels[i], 'hierarchy': hierarchy[i] if hierarchy else None} for i in range(n_nodes)]
     if hierarchy is not None:
         edges = [{'source': int(e[0]), 'target': int(e[1])} for e in adj if hierarchy[int(e[0])] != hierarchy[int(e[1])]]
     else:
@@ -164,8 +186,8 @@ def show_cosmo(node_values: np.ndarray, adj: np.ndarray | Iterator[tuple[int, in
 engines = {'pyvis': show_pyvis, 'cosmo': show_cosmo}
 
 
-def print_layer(model: MGModel, inputs: list[tf.Tensor], labels: tf.Tensor | None = None, layer_name: str | Tree | None = None, layer_idx: int | None = None,
-                filename: str | None = None, open_browser: bool = True, engine: Literal["pyvis", "cosmo"] = 'pyvis') -> None:
+def print_layer(model: MGModel, inputs: tuple[tf.Tensor, ...], labels: tf.Tensor | None = None, layer_name: str | Tree | None = None,
+                layer_idx: int | None = None, filename: str | None = None, open_browser: bool = True, engine: Literal["pyvis", "cosmo"] = 'pyvis') -> None:
     """Visualizes the outputs of a model's layer.
 
     Layer must be identified either by name or index. If both are given, index takes precedence.
@@ -189,11 +211,11 @@ def print_layer(model: MGModel, inputs: list[tf.Tensor], labels: tf.Tensor | Non
         KeyError: No layer of the given name is present in the model.
     """
     layer = fetch_layer(model, layer_name, layer_idx)
-    debug_model = tf.keras.Model(inputs=model.inputs, outputs=layer.output)
+    debug_model = MGModel(model.inputs, layer.output, None, None, None, None, None, None)
     idx_or_name = layer_idx if layer_idx is not None else layer.name
     labels = labels.numpy() if labels is not None else None
     _, a, e, _ = unpack_inputs(inputs)
-    engines[engine](debug_model(inputs).numpy(), a.indices.numpy(), e.numpy() if e is not None else None, labels, None, lambda x: x,
+    engines[engine](tuple(t.numpy() for t in debug_model(inputs)), a.indices.numpy(), e.numpy() if e is not None else None, labels, None, lambda x: x,
                     filename + '_' + str(idx_or_name) if filename is not None else str(idx_or_name), open_browser)
 
 
