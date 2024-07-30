@@ -11,6 +11,7 @@ The module contains the following classes:
 - ``FunctionApplication``
 - ``PreImage``
 - ``PostImage``
+- ``Parallel``
 - ``Ite``
 - ``FixPoint``
 - ``Repeat``
@@ -282,16 +283,16 @@ class PreImage(MGLayer):
 
         return output
 
-    def get_targets(self, x):
-        return [tf.gather(t, self.index_targets, axis=-2) for t in x]
+    def get_targets(self, x: tuple[tf.Tensor, ...]):
+        return tuple(tf.gather(t, self.index_targets, axis=-2) for t in x)
 
-    def get_sources(self, x):
-        return [tf.gather(t, self.index_sources, axis=-2) for t in x]
+    def get_sources(self, x: tuple[tf.Tensor, ...]):
+        return tuple(tf.gather(t, self.index_sources, axis=-2) for t in x)
 
-    def message(self, x: tf.Tensor, e: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
+    def message(self, x: tuple[tf.Tensor, ...], e: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
         return self.phi(self.get_sources(x), e, self.get_targets(x))
 
-    def aggregate(self, messages: tf.Tensor, x: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
+    def aggregate(self, messages: tf.Tensor, x: tuple[tf.Tensor, ...] | None = None, **kwargs) -> tf.Tensor:
         return self.sigma(messages, self.index_targets, self.n_nodes, x)
 
     def update(self, embeddings, **kwargs):
@@ -340,16 +341,16 @@ class PostImage(MGLayer):
 
         return output
 
-    def get_targets(self, x):
-        return [tf.gather(t, self.index_targets, axis=-2) for t in x]
+    def get_targets(self, x: tuple[tf.Tensor, ...]):
+        return tuple(tf.gather(t, self.index_targets, axis=-2) for t in x)
 
-    def get_sources(self, x):
-        return [tf.gather(t, self.index_sources, axis=-2) for t in x]
+    def get_sources(self, x: tuple[tf.Tensor, ...]):
+        return tuple(tf.gather(t, self.index_sources, axis=-2) for t in x)
 
-    def message(self, x: tf.Tensor, e: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
+    def message(self, x: tuple[tf.Tensor, ...], e: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
         return self.phi(self.get_targets(x), e, self.get_sources(x))
 
-    def aggregate(self, messages: tf.Tensor, x: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
+    def aggregate(self, messages: tf.Tensor, x: tuple[tf.Tensor, ...] | None = None, **kwargs) -> tf.Tensor:
         return self.sigma(messages, self.index_sources, self.n_nodes, x)
 
     def update(self, embeddings, **kwargs):
@@ -357,11 +358,15 @@ class PostImage(MGLayer):
 
 
 class Parallel(MGLayer):
-    def call(self, inputs: tuple[tf.Tensor, ...], **kwargs) -> tuple[tf.Tensor]:
+    """Layer that applies a mG parallel composition expression.
+
+    The layer simply return the input tuple of labels as is. This class exists for debugging and introspection purposes.
+    """
+    def call(self, inputs: tuple[tf.Tensor, ...], **kwargs) -> tuple[tf.Tensor, ...]:
         x, a, e, i = unpack_inputs(inputs, accumulate_x=True)
         return self.propagate(x)
 
-    def propagate(self, x: tuple[tf.Tensor, ...], **kwargs) -> tuple[tf.Tensor]:
+    def propagate(self, x: tuple[tf.Tensor, ...], **kwargs) -> tuple[tf.Tensor, ...]:
         return x
 
 
@@ -393,11 +398,7 @@ class Ite(MGLayer):
         self.is_ite = is_ite
 
     def call(self, inputs: tuple[tf.Tensor, ...], **kwargs) -> tf.Tensor:
-        # if self.is_ite:
         x, a, e, i = unpack_inputs(inputs, True)
-        # else:
-        #     x, a, e, i = unpack_inputs(inputs, False)
-        #     x = [x[:, :1], x[:, 1:]]
         return self.propagate(x, a, e, i)
 
     def propagate(self, x: tuple[tf.Tensor, ...], a: tf.SparseTensor, e: tf.Tensor | None = None, i: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
@@ -409,24 +410,16 @@ class Ite(MGLayer):
             inputs = inputs + (e,)
             values_offset += 1
         if i is not None:
-            # iftrue_input_len = self.iftrue_input_len - 2
-            # iffalse_input_len = self.iffalse_input_len - 2
             values_offset += 1
             _, _, count = tf.unique_with_counts(i)
             n_graphs = tf.shape(count)[0]
             partitioned_test_array = tf.TensorArray(dtype=tf.bool, size=n_graphs, infer_shape=False).split(test, count)
-            # partitioned_test = tf.ragged.stack_dynamic_partitions(test, tf.cast(i, dtype=tf.int32), tf.size(count))
-            # partitioned_values = tf.ragged.stack_dynamic_partitions(values[0], tf.cast(i, dtype=tf.int32), tf.size(count))
-            # partitioned_values_array = tf.TensorArray(dtype=values[0].dtype, size=n_graphs, infer_shape=False).split(values[0], count)
             partitioned_values_arrays = []
             val: tf.Tensor
             for val in values:
                 partitioned_values_arrays.append(tf.TensorArray(dtype=val.dtype, size=n_graphs, infer_shape=False).split(val, count))
             n_node_features = values[0].shape[-1]
-            # partitioned_idx = tf.ragged.stack_dynamic_partitions(i, tf.cast(i, dtype=tf.int32), tf.size(count))
             partitioned_idx_array = tf.TensorArray(dtype=tf.int32, size=n_graphs, infer_shape=False).split(tf.cast(i, dtype=tf.int32), count)
-            # branch = tf.map_fn(lambda args: tf.reduce_all(args), partitioned_test, swap_memory=True, infer_shape=False,
-            #                    fn_output_signature=tf.TensorSpec(shape=(), dtype=tf.bool))
             output_array = tf.TensorArray(dtype=self.iftrue.outputs[0].dtype, size=n_graphs, infer_shape=False)
 
             if True:
@@ -449,56 +442,6 @@ class Ite(MGLayer):
                                        loop_vars=[tf.constant(0, dtype=tf.int32), output_array]
                                        )[1]
                 return tf.ensure_shape(output.concat(), self.iftrue.outputs[0].shape)
-                # output = tf.cond(branch[0], lambda: self.iftrue([partitioned_values[0]] + inputs + [partitioned_idx[0]]),
-                #                                          lambda: self.iffalse([partitioned_values[0]] + inputs + [partitioned_idx[0]]))
-                # return output
-                # '''
-                # return tf.reshape(tf.map_fn(lambda args: tf.cond(tf.reduce_all(args[0]),
-                #                                                  lambda: self.iftrue([args[1]] + inputs + [args[2]]),
-                #                                                  lambda: self.iffalse([args[1]] + inputs + [args[2]])),
-                #                             (tf.expand_dims(branch, -1), partitioned_values, partitioned_idx),
-                #                             swap_memory=True,
-                #                             infer_shape=False,
-                #                             fn_output_signature=self.iftrue.outputs[0].type_spec),
-                #                   [-1, self.iftrue.outputs[0].shape[-1]])
-                # '''
-            # else:
-            # raise ValueError("Shouldnt happen")
-            # # partitioned_fix_var = tf.ragged.stack_dynamic_partitions(values[1], tf.cast(i, dtype=tf.int32), tf.size(count))
-            # partitioned_fix_var_array = tf.TensorArray(dtype=values[1].dtype, size=n_graphs, infer_shape=False).split(values[1], count)
-            # n_fix_var_features = values[1].shape[-1]
-            # output = tf.while_loop(cond=lambda it, _: it < n_graphs,
-            #                        body=lambda it, out_arr: [it + 1, out_arr.write(it, tf.cond(tf.reduce_all(partitioned_test_array.read(it)),
-            #                                                                                    lambda: self.iftrue([tf.ensure_shape(
-            #                                                                                        partitioned_values_array.read(it),
-            #                                                                                        (None, n_node_features)), tf.ensure_shape(
-            #                                                                                        partitioned_fix_var_array.read(it),
-            #                                                                                        (None, n_fix_var_features))][
-            #                                                                                                        :self.iftrue_input_len - values_offset] +
-            #                                                                                                        inputs + [tf.ensure_shape(
-            #                                                                                                                partitioned_idx_array.read(it),
-            #                                                                                                                (None,))]),
-            #                                                                                    lambda: self.iffalse([tf.ensure_shape(
-            #                                                                                        partitioned_values_array.read(it),
-            #                                                                                        (None, n_node_features)), tf.ensure_shape(
-            #                                                                                        partitioned_fix_var_array.read(it),
-            #                                                                                        (None, n_fix_var_features))][
-            #                                                                                                         :self.iffalse_input_len - values_offset]
-            #                                                                                                         + inputs + [tf.ensure_shape(
-            #                                                                                                                 partitioned_idx_array.read(it),
-            #                                                                                                                 (None,))])))],
-            #                        loop_vars=[tf.constant(0, dtype=tf.int32), output_array]
-            #                        )[1]
-            # return tf.ensure_shape(output.concat(), self.iftrue.outputs[0].shape)
-
-            # return tf.reshape(tf.map_fn(lambda args: tf.cond(tf.reduce_all(args[0]),
-            #                                                  lambda: self.iftrue([args[1], args[2]][:iftrue_input_len] + inputs + [args[3]]),
-            #                                                  lambda: self.iffalse([args[1], args[2]][:iffalse_input_len] + inputs + [args[3]])),
-            #                             (tf.expand_dims(branch, -1), partitioned_values, partitioned_fix_var, partitioned_idx),
-            #                             swap_memory=True,
-            #                             infer_shape=False,
-            #                             fn_output_signature=self.iftrue.outputs[0].type_spec),
-            #                   [-1, self.iftrue.outputs[0].shape[-1]])
         else:
             inputs_iftrue = values[:self.iftrue_input_len - values_offset] + inputs
             inputs_iffalse = values[:self.iffalse_input_len - values_offset] + inputs
@@ -514,7 +457,7 @@ class FixPoint(MGLayer):
 
     Attributes:
         gnn_x: The model whose fixpoint will be computed by this layer.
-        comparator: The function that defines when the fixed point has been reached, i.e. when two guesses are equal.
+        comparators: A list of functions that define when the fixed point has been reached for each input label, i.e. when two guesses are equal.
         fixpoint_printer: The function that will be called during each iteration on the most recent guess. Used for debug prints.
         iters: Number of iterations that this layer executed.
     """
@@ -525,12 +468,11 @@ class FixPoint(MGLayer):
 
         Args:
             gnn_x: The model whose fixpoint will be computed by this layer.
-            tolerance: Maximum difference between any two numeric values to consider them to have the same value.
+            tolerance: List of maximum differences between any two numeric labels to consider them to have the same value.
             debug: If true, print debugging information such as intermediate outputs during fixpoint computation and total number of iterations for convergence.
                 Prints to the logging console of TensorFlow.
         """
         super().__init__()
-        # self.gnn_x = lambda x: (o,) if not isinstance(o := gnn_x(x), tuple) else o
         self.gnn_x = gnn_x
         self.comparators = []
         for tol in tolerance:
@@ -547,7 +489,7 @@ class FixPoint(MGLayer):
         return x
 
     @staticmethod
-    def standard_fixpoint(f: Callable, x0: tuple[tf.Tensor],
+    def standard_fixpoint(f: Callable, x0: tuple[tf.Tensor, ...],
                           comparator: Callable[[tf.Tensor, tf.Tensor], list[bool]],
                           fixpoint_printer: Callable[[tf.Tensor], tf.Tensor]) -> Any:
         """Fixed point solver that repeats the execution of a model until it converges.
@@ -584,12 +526,9 @@ class FixPoint(MGLayer):
 
         # compute forward pass without tracking the gradient
         output = tf.nest.map_structure(tf.stop_gradient, self.standard_fixpoint(lambda y: self.gnn_x(y + additional_inputs), x_o,
-                                                                                lambda curr, prev: [self.comparators[i](curr[i], prev[i]) for i in
+                                                                                lambda curr, prev: [self.comparators[j](curr[j], prev[j]) for j in
                                                                                                     range(len(curr))],
                                                                                 self.fixpoint_printer))
-        # output = self.standard_fixpoint(lambda y: self.gnn_x(y + additional_inputs), x_o,
-        #                        lambda curr, prev: [self.comparators[i](curr[i], prev[i]) for i in range(len(curr))],
-        #                        self.fixpoint_printer)
         self.iters = output[-1]
         tf.print('fixpoint iters: ', self.iters, output_stream=tf.compat.v1.logging.info)
         return self.gnn_x(output[0] + additional_inputs)
@@ -658,10 +597,3 @@ class Repeat(MGLayer):
             loop_vars=[x_o, 0],
             shape_invariants=[tuple(t.get_shape() for t in x), None]
         )[0]
-
-        # return tf.while_loop(
-        #     cond=lambda curr, prev, k: tf.math.logical_not(tf.reduce_all(comparator(curr, prev))),
-        #     body=lambda curr, prev, k: [f(curr), fixpoint_printer(curr), k + 1],
-        #     loop_vars=[x, x0, iter],
-        #     shape_invariants=[tuple(t.get_shape() for t in x), tuple(t.get_shape() for t in x), iter.get_shape()]
-        # )

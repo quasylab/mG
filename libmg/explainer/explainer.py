@@ -56,7 +56,6 @@ def make_graph(explanation: tf.Tensor[bool], hierarchy: tf.Tensor[float], old_gr
 
     new_node_feats = tf.boolean_mask(node_feats, explanation).numpy()
     new_actual_outputs = [tf.boolean_mask(output, explanation).numpy() for output in actual_outputs]
-    # new_labels = tf.boolean_mask(labels, explanation).numpy() if labels is not None else None
 
     nodes = set(explanation_nodes(explanation))
     edges = adj.indices.numpy().tolist()
@@ -92,8 +91,6 @@ class MGExplainer(Interpreter):
                                                                                                axis=0,
                                                                                                on_value=0,
                                                                                                off_value=MGExplainer.INF, dtype=tf.float32))
-    # localize_node = lambda y: PsiLocal(lambda x: tf.one_hot(indices=[int(y)], depth=tf.shape(x)[0],
-    # axis=0, on_value=0, off_value=ExplainerMG.INF, dtype=tf.float32))
     proj1 = Phi(lambda i, e, j: i)
     or_agg = Sigma(lambda m, i, n, x: tf.minimum(tf.math.unsorted_segment_min(m, i, n) + 1, x))
     or_fun = PsiLocal(lambda *x: tf.math.reduce_min(tf.concat(x, axis=1), axis=1, keepdims=True))
@@ -109,7 +106,7 @@ class MGExplainer(Interpreter):
         self.model = model
         if model.config is None:
             raise ValueError("Explained model must have a valid config!")
-        self.query_node: int
+        self.query_node: int | None = None
         self.context = Context()
         self.compiler = MGCompiler(psi_functions={'node': MGExplainer.localize_node, 'or': MGExplainer.or_fun},
                                    sigma_functions={'or': MGExplainer.or_agg},

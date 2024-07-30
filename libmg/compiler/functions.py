@@ -216,7 +216,7 @@ class Psi(Function):
     """A psi function of the mG language.
     """
 
-    def __call__(self, x: tuple[tf.Tensor], i: tf.Tensor | None = None) -> tf.Tensor:
+    def __call__(self, x: tuple[tf.Tensor, ...], i: tf.Tensor | None = None) -> tf.Tensor:
         raise NotImplementedError
 
 
@@ -435,7 +435,7 @@ class Phi(Function):
         <Phi ...>
     """
 
-    def __init__(self, f: Callable[[tf.Tensor, tf.Tensor, tf.Tensor], tf.Tensor] | None = None,
+    def __init__(self, f: Callable[[tuple[tf.Tensor, ...], tf.Tensor, tuple[tf.Tensor, ...]], tf.Tensor] | None = None,
                  name: str | None = None):
         """Initializes the instance with a function and a name.
 
@@ -451,10 +451,10 @@ class Phi(Function):
             f = self.func
         super().__init__(f, name)
 
-    def func(self, src: tf.Tensor, e: tf.Tensor, tgt: tf.Tensor) -> tf.Tensor:
+    def func(self, src: tuple[tf.Tensor, ...], e: tf.Tensor, tgt: tuple[tf.Tensor, ...],) -> tf.Tensor:
         raise NotImplementedError
 
-    def __call__(self, src: tf.Tensor, e: tf.Tensor, tgt: tf.Tensor) -> tf.Tensor:
+    def __call__(self, src: tuple[tf.Tensor, ...], e: tf.Tensor, tgt: tuple[tf.Tensor, ...]) -> tf.Tensor:
         return self.f(*src, e, *tgt)
 
 
@@ -468,7 +468,7 @@ class Sigma(Function):
         <Sigma ...>
     """
 
-    def __init__(self, f: Callable[[tf.Tensor, tf.Tensor, int, tf.Tensor], tf.Tensor] | None = None,
+    def __init__(self, f: Callable[[tf.Tensor, tf.Tensor, int, tuple[tf.Tensor, ...]], tf.Tensor] | None = None,
                  name: str | None = None):
         """Initializes the instance with a function and a name.
 
@@ -484,10 +484,11 @@ class Sigma(Function):
             f = self.func
         super().__init__(f, name)
 
-    def func(self, m: tf.Tensor, i: tf.Tensor, n: int, x: tf.Tensor) -> tf.Tensor:
+    def func(self, m: tf.Tensor, i: tf.Tensor, n: int, x: tuple[tf.Tensor, ...]) -> tf.Tensor:
         raise NotImplementedError
 
-    def __call__(self, m: tf.Tensor, i: tf.Tensor, n: int, x: tf.Tensor) -> tf.Tensor:
+    def __call__(self, m: tf.Tensor, i: tf.Tensor, n: int, x: tuple[tf.Tensor, ...] | None) -> tf.Tensor:
+        assert x is not None
         return self.f(m, i, n, *x)
 
 
