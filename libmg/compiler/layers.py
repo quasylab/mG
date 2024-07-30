@@ -11,6 +11,7 @@ The module contains the following classes:
 - ``FunctionApplication``
 - ``PreImage``
 - ``PostImage``
+- ``Parallel``
 - ``Ite``
 - ``FixPoint``
 - ``Repeat``
@@ -20,12 +21,12 @@ from typing import Callable, Any
 
 import tensorflow as tf
 import re
-from tensorflow.python.eager.backprop_util import IsTrainable
-from tensorflow.python.keras import backend
+# from tensorflow.python.eager.backprop_util import IsTrainable
+from tf_keras.src import backend
 from spektral.layers import MessagePassing
-from tensorflow.python.keras.utils import generic_utils
+from tf_keras.src.utils import generic_utils
 
-from libmg.compiler.functions import Phi, PsiNonLocal, Sigma
+from libmg.compiler.functions import Phi, Sigma, Psi
 
 
 # def loop_body(X, F, H, k, m, beta, lam, x0, f, y, fixpoint_printer):
@@ -116,8 +117,8 @@ from libmg.compiler.functions import Phi, PsiNonLocal, Sigma
 #     """
 #     return anderson_mixing(lambda x: f([x])[0], x0[0], comparator, fixpoint_printer)
 
-def unpack_inputs(inputs: list[tf.Tensor], accumulate_x: bool = False) \
-        -> tuple[tf.Tensor | list[tf.Tensor], tf.SparseTensor, tf.Tensor | None, tf.Tensor | None]:
+def unpack_inputs(inputs: tuple[tf.Tensor | tf.SparseTensor, ...], accumulate_x: bool = False) \
+        -> tuple[tf.Tensor | tuple[tf.Tensor], tf.SparseTensor, tf.Tensor | None, tf.Tensor | None]:
     """Examines a list of tensors and returns it unpacked into its constituents.
 
     If accumulate_x is true, the first element of the output will be a list of tensors instead of a single tensor.
@@ -129,28 +130,43 @@ def unpack_inputs(inputs: list[tf.Tensor], accumulate_x: bool = False) \
     Returns:
         A 4-element tuple, which may contain ``None`` values for missing elements, that corresponds to the unpacked list.
     """
-    if backend.is_sparse(inputs[-1]):
+    if len(inputs) == 1 or (backend.ndim(inputs[-1]) == 2 and not backend.is_sparse(inputs[-1]) and not backend.is_sparse(inputs[-2])):  # X
         if accumulate_x:
-            *node_feats, adj = inputs
+            node_feats = inputs
+        else:
+            node_feats, = inputs
+        adj = None
+        edge_feats = None
+        indexes = None
+    elif backend.is_sparse(inputs[-1]):  # X, A
+        if accumulate_x:
+            node_feats, adj = inputs[:-1], inputs[-1]
         else:
             node_feats, adj = inputs
         edge_feats = None
         indexes = None
-    elif backend.ndim(inputs[-1]) == 2:
+    elif backend.ndim(inputs[-1]) == 1 and not backend.is_sparse(inputs[-2]) and (len(inputs) == 2 or not backend.is_sparse(inputs[-3])):  # X, I
         if accumulate_x:
-            *node_feats, adj, edge_feats = inputs
+            node_feats, indexes = inputs[:-1], inputs[-1]
+        else:
+            node_feats, indexes = inputs
+        adj = None
+        edge_feats = None
+    elif backend.ndim(inputs[-1]) == 2 and backend.is_sparse(inputs[-2]):  # X, A, E
+        if accumulate_x:
+            node_feats, adj, edge_feats = inputs[:-2], inputs[-2], inputs[-1]
         else:
             node_feats, adj, edge_feats = inputs
         indexes = None
-    elif backend.ndim(inputs[-1]) == 1 and backend.is_sparse(inputs[-2]):
+    elif backend.ndim(inputs[-1]) == 1 and backend.is_sparse(inputs[-2]):  # X, A, I
         if accumulate_x:
-            *node_feats, adj, indexes = inputs
+            node_feats, adj, indexes = inputs[:-2], inputs[-2], inputs[-1]
         else:
             node_feats, adj, indexes = inputs
         edge_feats = None
-    else:
+    else:  # X, A, E, I
         if accumulate_x:
-            *node_feats, adj, edge_feats, indexes = inputs
+            node_feats, adj, edge_feats, indexes = inputs[:-3], inputs[-3], inputs[-2], inputs[-1]
         else:
             node_feats, adj, edge_feats, indexes = inputs
     return node_feats, adj, edge_feats, indexes
@@ -208,24 +224,20 @@ class FunctionApplication(MGLayer):
         psi: The psi function to apply.
     """
 
-    def __init__(self, psi: PsiNonLocal):
+    def __init__(self, psi: Psi):
         """Initializes the instance with a psi function.
 
         Args:
             psi: The psi function that this layer will apply.
         """
-        super().__init__(psi.name)
+        super().__init__(psi.fname)
         self.psi = psi
 
-    def call(self, inputs: list[tf.Tensor], **kwargs) -> tf.Tensor:
-        if len(inputs) == 1:
-            x, = inputs
-            i = None
-        else:
-            x, i = inputs
+    def call(self, inputs: tuple[tf.Tensor, ...], **kwargs) -> tf.Tensor:
+        x, a, e, i = unpack_inputs(inputs, accumulate_x=True)
         return self.propagate(x, i)
 
-    def propagate(self, x: tf.Tensor, i: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
+    def propagate(self, x: tuple[tf.Tensor, ...], i: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
         return self.psi(x, i)
 
 
@@ -247,15 +259,44 @@ class PreImage(MGLayer):
             sigma: The sigma function that aggregates messages.
             phi: The phi function that generates messages, defaults to sending the node label of the sender node.
         """
-        super().__init__(phi.name + '_' + sigma.name)
+        super().__init__(phi.fname + '_' + sigma.fname)
         self.sigma = sigma
         self.phi = phi
 
-    def message(self, x: tf.Tensor, e: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
+    def call(self, inputs: tuple[tf.Tensor, ...], **kwargs) -> tf.Tensor:
+        x, a, e, i = unpack_inputs(inputs, accumulate_x=True)
+        return self.propagate(x, a, e)
+
+    def propagate(self, x: tuple[tf.Tensor, ...], a, e=None, **kwargs):
+        self.n_nodes = tf.shape(x[0])[-2]
+        self.index_targets = a.indices[:, 1]  # Nodes receiving the message
+        self.index_sources = a.indices[:, 0]  # Nodes sending the message (ie neighbors)
+
+        # Message
+        messages = self.message(x, e)
+
+        # Aggregate
+        embeddings = self.aggregate(messages, x)
+
+        # Update
+        output = self.update(embeddings)
+
+        return output
+
+    def get_targets(self, x: tuple[tf.Tensor, ...]):
+        return tuple(tf.gather(t, self.index_targets, axis=-2) for t in x)
+
+    def get_sources(self, x: tuple[tf.Tensor, ...]):
+        return tuple(tf.gather(t, self.index_sources, axis=-2) for t in x)
+
+    def message(self, x: tuple[tf.Tensor, ...], e: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
         return self.phi(self.get_sources(x), e, self.get_targets(x))
 
-    def aggregate(self, messages: tf.Tensor, x: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
+    def aggregate(self, messages: tf.Tensor, x: tuple[tf.Tensor, ...] | None = None, **kwargs) -> tf.Tensor:
         return self.sigma(messages, self.index_targets, self.n_nodes, x)
+
+    def update(self, embeddings, **kwargs):
+        return embeddings
 
 
 class PostImage(MGLayer):
@@ -276,15 +317,57 @@ class PostImage(MGLayer):
             sigma: The sigma function that aggregates messages.
             phi: The phi function that generates messages, defaults to sending the node label of the sender node.
         """
-        super().__init__(phi.name + '_' + sigma.name)
+        super().__init__(phi.fname + '_' + sigma.fname)
         self.sigma = sigma
         self.phi = phi
 
-    def message(self, x: tf.Tensor, e: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
+    def call(self, inputs: tuple[tf.Tensor, ...], **kwargs) -> tf.Tensor:
+        x, a, e, i = unpack_inputs(inputs, accumulate_x=True)
+        return self.propagate(x, a, e)
+
+    def propagate(self, x: tuple[tf.Tensor, ...], a, e=None, **kwargs):
+        self.n_nodes = tf.shape(x[0])[-2]
+        self.index_targets = a.indices[:, 1]  # Nodes receiving the message
+        self.index_sources = a.indices[:, 0]  # Nodes sending the message (ie neighbors)
+
+        # Message
+        messages = self.message(x, e)
+
+        # Aggregate
+        embeddings = self.aggregate(messages, x)
+
+        # Update
+        output = self.update(embeddings)
+
+        return output
+
+    def get_targets(self, x: tuple[tf.Tensor, ...]):
+        return tuple(tf.gather(t, self.index_targets, axis=-2) for t in x)
+
+    def get_sources(self, x: tuple[tf.Tensor, ...]):
+        return tuple(tf.gather(t, self.index_sources, axis=-2) for t in x)
+
+    def message(self, x: tuple[tf.Tensor, ...], e: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
         return self.phi(self.get_targets(x), e, self.get_sources(x))
 
-    def aggregate(self, messages: tf.Tensor, x: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
+    def aggregate(self, messages: tf.Tensor, x: tuple[tf.Tensor, ...] | None = None, **kwargs) -> tf.Tensor:
         return self.sigma(messages, self.index_sources, self.n_nodes, x)
+
+    def update(self, embeddings, **kwargs):
+        return embeddings
+
+
+class Parallel(MGLayer):
+    """Layer that applies a mG parallel composition expression.
+
+    The layer simply return the input tuple of labels as is. This class exists for debugging and introspection purposes.
+    """
+    def call(self, inputs: tuple[tf.Tensor, ...], **kwargs) -> tuple[tf.Tensor, ...]:
+        x, a, e, i = unpack_inputs(inputs, accumulate_x=True)
+        return self.propagate(x)
+
+    def propagate(self, x: tuple[tf.Tensor, ...], **kwargs) -> tuple[tf.Tensor, ...]:
+        return x
 
 
 class Ite(MGLayer):
@@ -300,7 +383,7 @@ class Ite(MGLayer):
         iffalse_input_len: The number of inputs that the model ``iffalse`` expects to receive.
     """
 
-    def __init__(self, iftrue: tf.keras.Model, iffalse: tf.keras.Model):
+    def __init__(self, iftrue: tf.keras.Model, iffalse: tf.keras.Model, is_ite: bool = True):
         """Initializes the instance with the models to run according to the outcome of the test.
 
         Args:
@@ -312,101 +395,53 @@ class Ite(MGLayer):
         self.iffalse = iffalse
         self.iftrue_input_len = len(self.iftrue.inputs)
         self.iffalse_input_len = len(self.iffalse.inputs)
+        self.is_ite = is_ite
 
-    def call(self, inputs: list[tf.Tensor], **kwargs) -> tf.Tensor:
+    def call(self, inputs: tuple[tf.Tensor, ...], **kwargs) -> tf.Tensor:
         x, a, e, i = unpack_inputs(inputs, True)
         return self.propagate(x, a, e, i)
 
-    def propagate(self, x: tf.Tensor, a: tf.SparseTensor, e: tf.Tensor | None = None, i: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
+    def propagate(self, x: tuple[tf.Tensor, ...], a: tf.SparseTensor, e: tf.Tensor | None = None, i: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
         test = x[0]
-        values = x[1:]  # (node labels, fix_var) or (node labels)
-        inputs = [a]
+        values = x[1:]  # (node labels)
+        inputs = (a,)  # type: tuple[tf.SparseTensor, ...]
         values_offset = 1
         if e is not None:
-            inputs.append(e)
+            inputs = inputs + (e,)
             values_offset += 1
         if i is not None:
-            # iftrue_input_len = self.iftrue_input_len - 2
-            # iffalse_input_len = self.iffalse_input_len - 2
             values_offset += 1
             _, _, count = tf.unique_with_counts(i)
             n_graphs = tf.shape(count)[0]
             partitioned_test_array = tf.TensorArray(dtype=tf.bool, size=n_graphs, infer_shape=False).split(test, count)
-            # partitioned_test = tf.ragged.stack_dynamic_partitions(test, tf.cast(i, dtype=tf.int32), tf.size(count))
-            # partitioned_values = tf.ragged.stack_dynamic_partitions(values[0], tf.cast(i, dtype=tf.int32), tf.size(count))
-            partitioned_values_array = tf.TensorArray(dtype=values[0].dtype, size=n_graphs, infer_shape=False).split(values[0], count)
+            partitioned_values_arrays = []
+            val: tf.Tensor
+            for val in values:
+                partitioned_values_arrays.append(tf.TensorArray(dtype=val.dtype, size=n_graphs, infer_shape=False).split(val, count))
             n_node_features = values[0].shape[-1]
-            # partitioned_idx = tf.ragged.stack_dynamic_partitions(i, tf.cast(i, dtype=tf.int32), tf.size(count))
             partitioned_idx_array = tf.TensorArray(dtype=tf.int32, size=n_graphs, infer_shape=False).split(tf.cast(i, dtype=tf.int32), count)
-            # branch = tf.map_fn(lambda args: tf.reduce_all(args), partitioned_test, swap_memory=True, infer_shape=False,
-            #                    fn_output_signature=tf.TensorSpec(shape=(), dtype=tf.bool))
             output_array = tf.TensorArray(dtype=self.iftrue.outputs[0].dtype, size=n_graphs, infer_shape=False)
 
-            if len(values) == 1:
+            if True:
                 output = tf.while_loop(cond=lambda it, _: it < n_graphs,
                                        body=lambda it, out_arr: [it + 1, out_arr.write(it, tf.cond(tf.reduce_all(partitioned_test_array.read(it)),
                                                                                                    lambda: self.iftrue(
-                                                                                                       [tf.ensure_shape(partitioned_values_array.read(it),
-                                                                                                                        (None, n_node_features))] +
-                                                                                                       inputs + [tf.ensure_shape(partitioned_idx_array.read(it),
-                                                                                                                                 (None,))]),
+                                                                                                       tuple(tf.ensure_shape(partitioned_values_array.read(it),
+                                                                                                                             (None, n_node_features)) for
+                                                                                                             partitioned_values_array in
+                                                                                                             partitioned_values_arrays) +
+                                                                                                       inputs + (tf.ensure_shape(partitioned_idx_array.read(it),
+                                                                                                                                 (None,)),)),
                                                                                                    lambda: self.iffalse(
-                                                                                                       [tf.ensure_shape(partitioned_values_array.read(it),
-                                                                                                                        (None, n_node_features))] +
-                                                                                                       inputs + [tf.ensure_shape(partitioned_idx_array.read(it),
-                                                                                                                                 (None,))])))],
+                                                                                                       tuple(tf.ensure_shape(partitioned_values_array.read(it),
+                                                                                                                             (None, n_node_features)) for
+                                                                                                             partitioned_values_array in
+                                                                                                             partitioned_values_arrays) +
+                                                                                                       inputs + (tf.ensure_shape(partitioned_idx_array.read(it),
+                                                                                                                                 (None,)),))))],
                                        loop_vars=[tf.constant(0, dtype=tf.int32), output_array]
                                        )[1]
                 return tf.ensure_shape(output.concat(), self.iftrue.outputs[0].shape)
-                # output = tf.cond(branch[0], lambda: self.iftrue([partitioned_values[0]] + inputs + [partitioned_idx[0]]),
-                #                                          lambda: self.iffalse([partitioned_values[0]] + inputs + [partitioned_idx[0]]))
-                # return output
-                # '''
-                # return tf.reshape(tf.map_fn(lambda args: tf.cond(tf.reduce_all(args[0]),
-                #                                                  lambda: self.iftrue([args[1]] + inputs + [args[2]]),
-                #                                                  lambda: self.iffalse([args[1]] + inputs + [args[2]])),
-                #                             (tf.expand_dims(branch, -1), partitioned_values, partitioned_idx),
-                #                             swap_memory=True,
-                #                             infer_shape=False,
-                #                             fn_output_signature=self.iftrue.outputs[0].type_spec),
-                #                   [-1, self.iftrue.outputs[0].shape[-1]])
-                # '''
-            else:
-                # partitioned_fix_var = tf.ragged.stack_dynamic_partitions(values[1], tf.cast(i, dtype=tf.int32), tf.size(count))
-                partitioned_fix_var_array = tf.TensorArray(dtype=values[1].dtype, size=n_graphs, infer_shape=False).split(values[1], count)
-                n_fix_var_features = values[1].shape[-1]
-                output = tf.while_loop(cond=lambda it, _: it < n_graphs,
-                                       body=lambda it, out_arr: [it + 1, out_arr.write(it, tf.cond(tf.reduce_all(partitioned_test_array.read(it)),
-                                                                                                   lambda: self.iftrue([tf.ensure_shape(
-                                                                                                       partitioned_values_array.read(it),
-                                                                                                       (None, n_node_features)), tf.ensure_shape(
-                                                                                                       partitioned_fix_var_array.read(it),
-                                                                                                       (None, n_fix_var_features))][
-                                                                                                                       :self.iftrue_input_len - values_offset] +
-                                                                                                                       inputs + [tf.ensure_shape(
-                                                                                                                               partitioned_idx_array.read(it),
-                                                                                                                               (None,))]),
-                                                                                                   lambda: self.iffalse([tf.ensure_shape(
-                                                                                                       partitioned_values_array.read(it),
-                                                                                                       (None, n_node_features)), tf.ensure_shape(
-                                                                                                       partitioned_fix_var_array.read(it),
-                                                                                                       (None, n_fix_var_features))][
-                                                                                                                        :self.iffalse_input_len - values_offset]
-                                                                                                                        + inputs + [tf.ensure_shape(
-                                                                                                                                partitioned_idx_array.read(it),
-                                                                                                                                (None,))])))],
-                                       loop_vars=[tf.constant(0, dtype=tf.int32), output_array]
-                                       )[1]
-                return tf.ensure_shape(output.concat(), self.iftrue.outputs[0].shape)
-
-                # return tf.reshape(tf.map_fn(lambda args: tf.cond(tf.reduce_all(args[0]),
-                #                                                  lambda: self.iftrue([args[1], args[2]][:iftrue_input_len] + inputs + [args[3]]),
-                #                                                  lambda: self.iffalse([args[1], args[2]][:iffalse_input_len] + inputs + [args[3]])),
-                #                             (tf.expand_dims(branch, -1), partitioned_values, partitioned_fix_var, partitioned_idx),
-                #                             swap_memory=True,
-                #                             infer_shape=False,
-                #                             fn_output_signature=self.iftrue.outputs[0].type_spec),
-                #                   [-1, self.iftrue.outputs[0].shape[-1]])
         else:
             inputs_iftrue = values[:self.iftrue_input_len - values_offset] + inputs
             inputs_iffalse = values[:self.iffalse_input_len - values_offset] + inputs
@@ -422,27 +457,29 @@ class FixPoint(MGLayer):
 
     Attributes:
         gnn_x: The model whose fixpoint will be computed by this layer.
-        comparator: The function that defines when the fixed point has been reached, i.e. when two guesses are equal.
+        comparators: A list of functions that define when the fixed point has been reached for each input label, i.e. when two guesses are equal.
         fixpoint_printer: The function that will be called during each iteration on the most recent guess. Used for debug prints.
         iters: Number of iterations that this layer executed.
     """
 
-    def __init__(self, gnn_x: tf.keras.Model, tolerance: float | None, debug: bool = False):
+    def __init__(self, gnn_x: tf.keras.Model, tolerance: list[float | None], debug: bool = False):
         """Initializes the instance with the model for which to compute the fixed point, a tolerance value to test when two solutions are equal and whether to
         print debug information.
 
         Args:
             gnn_x: The model whose fixpoint will be computed by this layer.
-            tolerance: Maximum difference between any two numeric values to consider them to have the same value.
+            tolerance: List of maximum differences between any two numeric labels to consider them to have the same value.
             debug: If true, print debugging information such as intermediate outputs during fixpoint computation and total number of iterations for convergence.
                 Prints to the logging console of TensorFlow.
         """
         super().__init__()
         self.gnn_x = gnn_x
-        if tolerance is not None:
-            self.comparator = lambda curr, prev: tf.math.less_equal(tf.math.abs(tf.math.subtract(curr, prev)), tolerance)
-        else:
-            self.comparator = lambda curr, prev: curr == prev
+        self.comparators = []
+        for tol in tolerance:
+            if tol is not None:
+                self.comparators.append(lambda curr, prev: tf.math.less_equal(tf.math.abs(tf.math.subtract(curr, prev)), tol))
+            else:
+                self.comparators.append(lambda curr, prev: curr == prev)
         self.fixpoint_printer = self.fixpoint_print_and_return if debug else lambda x: x
         self.iters = None
 
@@ -452,8 +489,8 @@ class FixPoint(MGLayer):
         return x
 
     @staticmethod
-    def standard_fixpoint(f: Callable, x0: list[tf.Tensor],
-                          comparator: Callable[[tf.Tensor, tf.Tensor], bool],
+    def standard_fixpoint(f: Callable, x0: tuple[tf.Tensor, ...],
+                          comparator: Callable[[tf.Tensor, tf.Tensor], list[bool]],
                           fixpoint_printer: Callable[[tf.Tensor], tf.Tensor]) -> Any:
         """Fixed point solver that repeats the execution of a model until it converges.
 
@@ -469,53 +506,57 @@ class FixPoint(MGLayer):
         iter = tf.constant(1)
         x = f(x0)
         return tf.while_loop(
-            cond=lambda curr, prev, k: tf.math.logical_not(tf.math.reduce_all(comparator(curr[0], prev[0]))),
+            cond=lambda curr, prev, k: tf.math.logical_not(tf.reduce_all(comparator(curr, prev))),
             body=lambda curr, prev, k: [f(curr), fixpoint_printer(curr), k + 1],
             loop_vars=[x, x0, iter],
-            shape_invariants=[[x[0].get_shape()], [x[0].get_shape()], iter.get_shape()]
+            shape_invariants=[tuple(t.get_shape() for t in x), tuple(t.get_shape() for t in x), iter.get_shape()]
         )
 
-    def call(self, inputs: list[tf.Tensor], **kwargs) -> tf.Tensor:
+    def call(self, inputs: tuple[tf.Tensor, ...], **kwargs) -> tf.Tensor:
         x, a, e, i = unpack_inputs(inputs, True)
         return self.propagate(x, a, e, i)
 
-    def propagate(self, x: tf.Tensor, a: tf.SparseTensor, e: tf.Tensor | None = None, i: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
-        saved_args, x_o = x[:-1], x[-1:]
-        additional_inputs = [a]
+    def propagate(self, x: tuple[tf.Tensor, ...], a: tf.SparseTensor, e: tf.Tensor | None = None, i: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
+        x_o = x
+        additional_inputs = (a,)  # type: tuple[tf.SparseTensor, ...]
         if e is not None:
-            additional_inputs.append(e)
+            additional_inputs = additional_inputs + (e,)
         if i is not None:
-            additional_inputs.append(i)
+            additional_inputs = additional_inputs + (i,)
 
         # compute forward pass without tracking the gradient
-        output = tf.nest.map_structure(tf.stop_gradient, self.standard_fixpoint(lambda y: [self.gnn_x(saved_args + y + additional_inputs)], x_o,
-                                                                                lambda curr, prev: self.comparator(curr, prev), self.fixpoint_printer))
+        output = tf.nest.map_structure(tf.stop_gradient, self.standard_fixpoint(lambda y: self.gnn_x(y + additional_inputs), x_o,
+                                                                                lambda curr, prev: [self.comparators[j](curr[j], prev[j]) for j in
+                                                                                                    range(len(curr))],
+                                                                                self.fixpoint_printer))
         self.iters = output[-1]
         tf.print('fixpoint iters: ', self.iters, output_stream=tf.compat.v1.logging.info)
+        return self.gnn_x(output[0] + additional_inputs)
+        # return output[0]
 
         # compute forward pass with the gradient being tracked
-        otp = output[0]
-        with tf.GradientTape(persistent=True, watch_accessed_variables=False) as tape:
-            if IsTrainable(otp[0]):
-                tape.watch(otp)
-            output = self.gnn_x(saved_args + otp + additional_inputs)
+        # otp = output[0]
+        # with tf.GradientTape(persistent=True, watch_accessed_variables=True) as tape:
+        #     # if IsTrainable(otp[0]):
+        #     tape.watch(otp)
+        #     output = self.gnn_x(otp + additional_inputs)
 
         # computation of the gradient
-        @tf.custom_gradient
-        def fixgrad(fixpoint):
-            def custom_grad(dy):
-                def f(y): return tape.gradient(output, otp, y)[0] + dy
-
-                x0 = dy
-                x1 = f(x0)
-                grad = tf.while_loop(lambda curr, prev: tf.math.logical_not(tf.math.reduce_all(tf.math.less_equal(tf.math.abs(tf.math.subtract(curr, prev)),
-                                                                                                                  0.001))),
-                                     lambda curr, prev: [f(curr), curr], [x1, x0])
-                return grad[0]
-
-            return tf.identity(fixpoint), custom_grad
-
-        return fixgrad(output)
+        # @tf.custom_gradient
+        # def fixgrad(fixpoint):
+        #     def custom_grad(*dy):
+        #         def f(y): return tuple(tf.unstack(tf.add(tape.gradient(output, otp, y), dy)))
+        #
+        #         x0 = dy
+        #         x1 = f(x0)
+        #         grad = tf.while_loop(lambda curr, prev: tf.math.logical_not(tf.math.reduce_all(tf.math.less_equal(tf.math.abs(tf.math.subtract(curr, prev)),
+        #                                                                                                           0.001))),
+        #                              lambda curr, prev: [f(curr), curr], [x1, x0])
+        #         return grad[0]
+        #     # a = custom_grad(tuple(tf.identity(fix) for fix in fixpoint))
+        #     return tuple(tf.identity(fix) for fix in fixpoint), custom_grad
+        #
+        # return fixgrad(output)
 
 
 class Repeat(MGLayer):
@@ -536,23 +577,23 @@ class Repeat(MGLayer):
             iters: Number of iterations.
         """
         super().__init__(name='for_' + str(iters))
-        self.gnn_x = gnn_x
+        self.gnn_x = lambda x: (o,) if not isinstance(o := gnn_x(x), tuple) else o
         self.iters = iters
 
-    def call(self, inputs: list[tf.Tensor], **kwargs) -> tf.Tensor:
+    def call(self, inputs: tuple[tf.Tensor, ...], **kwargs) -> tf.Tensor:
         x, a, e, i = unpack_inputs(inputs, True)
         return self.propagate(x, a, e, i)
 
-    def propagate(self, x: tf.Tensor, a: tf.SparseTensor, e: tf.Tensor | None = None, i: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
-        saved_args, x_o = x[:-1], x[-1:]
-        additional_inputs = [a]
+    def propagate(self, x: tuple[tf.Tensor, ...], a: tf.SparseTensor, e: tf.Tensor | None = None, i: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
+        x_o = x
+        additional_inputs = (a,)  # type: tuple[tf.SparseTensor, ...]
         if e is not None:
-            additional_inputs.append(e)
+            additional_inputs = additional_inputs + (e,)
         if i is not None:
-            additional_inputs.append(i)
+            additional_inputs = additional_inputs + (i,)
         return tf.while_loop(
             cond=lambda curr, it: tf.less(it, self.iters),
-            body=lambda curr, it: [[self.gnn_x(saved_args + curr + additional_inputs)], it + 1],
+            body=lambda curr, it: [self.gnn_x(curr + additional_inputs), it + 1],
             loop_vars=[x_o, 0],
-            shape_invariants=[[x_o[0].get_shape()], None]
-        )[0][0]
+            shape_invariants=[tuple(t.get_shape() for t in x), None]
+        )[0]
