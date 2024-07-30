@@ -50,10 +50,6 @@ class Normalizer(Interpreter[Token, Tree]):
         If the expression is provided as a parse tree, a normalized parse tree is returned.
         If the expression is provided as string, a normalized string is returned.
 
-        Examples:
-            >>> mg_normalizer.normalize('fix Y = a in (fix X = b in (Y || c))')
-            "fix Y = a in (Y || c)"
-
         Args:
             expr: The expression to normalize.
 
