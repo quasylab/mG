@@ -346,7 +346,7 @@ class TestCompiler(tf.test.TestCase):
             self.run_model(self.datasets, self.compilers, expr, expected)
 
     def test_choice(self):
-        expressions = ['(true || i) ; (add1 + sub1)', '(false || i) ; (add1 + sub1)', '((gsum;less10) || i) ; (add1 + sub1)']
+        expressions = ['(true || i) ; (add1 | sub1)', '(false || i) ; (add1 | sub1)', '((gsum;less10) || i) ; (add1 | sub1)']
         expected_output = [(tf.constant([[2], [3], [5], [2], [2]], dtype=tf.uint8),
                             tf.constant([[2], [3], [4], [5]], dtype=tf.uint8)),
                            (tf.constant([[0], [1], [3], [0], [0]], dtype=tf.uint8),
@@ -465,9 +465,9 @@ class TestCompiler(tf.test.TestCase):
             print(expr)
             self.run_model(self.datasets, self.compilers, expr, expected)
 
-    def test_repeat(self):
-        expressions = ['false ; repeat not for 3', 'false ; repeat not for 4', 'one; repeat add1 for 3',
-                       'false; repeat (if true then (i || true);(p1 || (p1 || p2);and)*;p2 else true) for 2']
+    def test_rep(self):
+        expressions = ['false ; rep not for 3', 'false ; rep not for 4', 'one; rep add1 for 3',
+                       'false; rep (if true then (i || true);(p1 || (p1 || p2);and)*;p2 else true) for 2']
 
         expected_output = [(tf.constant([[True], [True], [True], [True], [True]], dtype=tf.bool),
                             tf.constant([[True], [True], [True], [True]], dtype=tf.bool)),

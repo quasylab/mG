@@ -49,7 +49,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
-addopts = '--doctest-modules' #--cov=libmg'
+addopts = '--doctest-modules --cov=libmg'
 testpaths = ['libmg',]
 doctest_optionflags = "ELLIPSIS"
 
