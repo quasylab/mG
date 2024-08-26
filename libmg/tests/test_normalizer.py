@@ -11,8 +11,8 @@ from libmg.normalizer.normalizer import mg_normalizer, var_occurs, sub_exp_extra
                                                ('X', 'def f(Z){Z || X} in f(a)', True), ('X', 'def f(Z){Z || b} in f(X)', True),
                                                ('X', 'def f(Z){Z || a} in f(b)', False), ('X', 'def f(X){Z || a} in f(b)', False),
                                                ('X', 'if X then a else b', True), ('X', 'if a then X else b', True),
-                                               ('X', 'if a then Y else b', False), ('X', 'X + b', True), ('X', 'a + b', False), ('X', 'a + X', True),
-                                               ('X', 'X*', True), ('X', 'a*', False), ('X', 'repeat X for 5', True), ('X', 'repeat a for 5', False)])
+                                               ('X', 'if a then Y else b', False), ('X', 'X | b', True), ('X', 'a | b', False), ('X', 'a | X', True),
+                                               ('X', 'X*', True), ('X', 'a*', False), ('X', 'rep X for 5', True), ('X', 'rep a for 5', False)])
 def test_var_occurs(var, expr, occurs):
     assert var_occurs(mg_parser.parse(expr), var) is occurs
     assert var_occurs(expr, var) is occurs
@@ -37,8 +37,8 @@ def test_var_occurs(var, expr, occurs):
 #     assert string == normalized
 
 
-@pytest.mark.parametrize('expr, normalized', [('a *', 'a *'), ('a * *', 'a *'), ('(a + b || c) * *', '(a + b || c) *'),
-                                              ('(repeat a for 5) *', 'a *'), ('(repeat (a + b || c) for 5) *', '(a + b || c) *')])
+@pytest.mark.parametrize('expr, normalized', [('a *', 'a *'), ('a * *', 'a *'), ('(a | b || c) * *', '(a|b || c) *'),
+                                              ('(rep a for 5) *', 'a *'), ('(rep (a | b || c) for 5) *', '(a|b || c) *')])
 def test_double_fix(expr, normalized):
     tree = mg_normalizer.normalize(mg_parser.parse(expr))
     string = mg_normalizer.normalize(expr)
@@ -47,9 +47,9 @@ def test_double_fix(expr, normalized):
     assert string == normalized
 
 
-@pytest.mark.parametrize('expr, normalized', [('repeat a for 5', 'repeat a for 5'), ('repeat repeat a for 5 for 4', 'repeat a for 20'),
-                                              ('repeat repeat (a + b || c) for 3 for 2', 'repeat (a + b || c) for 6'),
-                                              ('repeat a * for 5', 'a *'), ('repeat (a + b || c) * for 5', '(a + b || c) *')])
+@pytest.mark.parametrize('expr, normalized', [('rep a for 5', 'rep a for 5'), ('rep rep a for 5 for 4', 'rep a for 20'),
+                                              ('rep rep (a | b || c) for 3 for 2', 'rep (a|b || c) for 6'),
+                                              ('rep a * for 5', 'a *'), ('rep (a | b || c) * for 5', '(a|b || c) *')])
 def test_double_repeat(expr, normalized):
     tree = mg_normalizer.normalize(mg_parser.parse(expr))
     string = mg_normalizer.normalize(expr)
@@ -77,11 +77,11 @@ def test_double_repeat(expr, normalized):
                                                 ('X;a', []), ('a;b', ['a;b']), ('X;b;c', []), ('a;b;c', ['a;b;c']),
                                                 ('a || b || c', ['a || b || c']), ('a || X || c', ['a', 'c']),
                                                 ('(a || X || c) ; b', ['a', 'c']), ('a || X;b || c', ['a', 'c']),
-                                                ('a + b', ['a + b']), ('a + X', ['a']), ('X + a', ['a']), ('X;b + X;a', []),
-                                                ('(a + X);b', ['a']), ('a*', ['a*']), ('X*', []), ('(X || a)*', ['a']),
+                                                ('a | b', ['a|b']), ('a | X', ['a']), ('X | a', ['a']), ('X;b | X;a', []),
+                                                ('(a | X);b', ['a']), ('a*', ['a*']), ('X*', []), ('(X || a)*', ['a']),
                                                 ('if a then b else c', ['if a then b else c']), ('if X then a else b', ['a', 'b']),
-                                                ('if a then X else c', ['a', 'c']), ('repeat a for 2', ['repeat a for 2']),
-                                                ('repeat X for 2', []), ('repeat (X || a) for 2', ['a'])])
+                                                ('if a then X else c', ['a', 'c']), ('rep a for 2', ['rep a for 2']),
+                                                ('rep X for 2', []), ('rep (X || a) for 2', ['a'])])
 def test_sub_exp(expr, sub_exp_list):
     assert sub_exp_extract(expr, 'X') == [mg_parser.parse(x) for x in sub_exp_list]
 
@@ -105,7 +105,7 @@ def test_subst(expr1, bindings, expr2):
 
 @pytest.mark.parametrize('expr, ln', [('a', 1), ('|>a', 1), ('<|a', 1), ('i', 1), ('a;b', 1), ('a || b', 2), ('a || b || c', 3),
                                       ('(a || b);c', 1), ('(a || b);i', 2), ('(a || b);(c || d)', 2), ('a;(b || c)', 2),
-                                      ('(true || a) ; (b + c)', 1)])
+                                      ('(true || a) ; (b | c)', 1)])
 def test_expr_len(expr, ln):
     assert exp_len(mg_parser.parse(expr)) == ln
 
@@ -117,7 +117,7 @@ def test_fix(expr1, expr2):
     assert mg_normalizer.normalize(mg_parser.parse(expr1)) == mg_parser.parse(expr2)
 
 
-@pytest.mark.parametrize('expr1, expr2', [('repeat X = a in (c || X;|>b);and for 3', '(c || a);(repeat (p1 || ((p1 || p2;|>b);and)) for 3);p2'),
-                                          ('repeat X = a in (X;b) for 3', 'a;(repeat (i;b) for 3)')])
-def test_rep(expr1, expr2):
+@pytest.mark.parametrize('expr1, expr2', [('repeat X = a in (c || X;|>b);and for 3', '(c || a);(rep (p1 || ((p1 || p2;|>b);and)) for 3);p2'),
+                                          ('repeat X = a in (X;b) for 3', 'a;(rep (i;b) for 3)')])
+def test_repeat(expr1, expr2):
     assert mg_normalizer.normalize(mg_parser.parse(expr1)) == mg_parser.parse(expr2)

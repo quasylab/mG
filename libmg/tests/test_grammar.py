@@ -133,7 +133,7 @@ def test_local_var_expr():
 
 
 def test_choice():
-    expr = "a + b"
+    expr = "a|b"
     tree = mg_parser.parse(expr)
     rec_expr = mg_reconstructor.reconstruct(tree)
     rec_expr_tree = mg_parser.parse(rec_expr)
@@ -172,12 +172,12 @@ def test_star():
 
 
 def test_repeat():
-    expr = 'repeat ((a || b ; |>or) ; and) for 5'
+    expr = 'rep ((a || b ; |>or) ; and) for 5'
     tree = mg_parser.parse(expr)
     rec_expr = mg_reconstructor.reconstruct(tree)
     rec_expr_tree = mg_parser.parse(rec_expr)
 
-    assert tree.data == 'repeat'
+    assert tree.data == 'rep'
     assert tree.children[0].data == 'sequential_composition'
     assert int(tree.children[1]) == 5
     assert rec_expr == expr
@@ -202,7 +202,7 @@ def test_rep():
     rec_expr = mg_reconstructor.reconstruct(tree)
     rec_expr_tree = mg_parser.parse(rec_expr)
 
-    assert tree.data == 'rep'
+    assert tree.data == 'repeat'
     assert tree.children[2].data == 'sequential_composition'
     assert int(tree.children[-1]) == 5
     assert rec_expr == expr

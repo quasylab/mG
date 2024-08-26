@@ -143,7 +143,7 @@ class Normalizer(Interpreter[Token, Tree]):
         if body.data == 'star':
             body = self.visit(body)
             return body
-        elif body.data == 'repeat':
+        elif body.data == 'rep':
             body.data = 'star'
             body.children = body.children[:-1]
             body = self.visit(body)
@@ -153,12 +153,12 @@ class Normalizer(Interpreter[Token, Tree]):
             tree.children = [parsed_body]
             return tree
 
-    def repeat(self, tree):
+    def rep(self, tree):
         body, iters = tree.children
         if body.data == 'star':
             body = self.visit(body)
             return body
-        elif body.data == 'repeat':
+        elif body.data == 'rep':
             body.children[-1] = Token('NUMBER', int(iters) * int(body.children[-1]))
             body = self.visit(body)
             return body
@@ -204,7 +204,7 @@ class Normalizer(Interpreter[Token, Tree]):
             return Tree(data='sequential_composition',
                         children=[Tree(data='sequential_composition', children=[par_init, par_middle]), mg_parser.parse(final_p)])
 
-    def rep(self, tree):
+    def repeat(self, tree):
         var, init, body, k = tree.children
         var = self.visit(var)
         init = self.visit(init)
@@ -215,7 +215,7 @@ class Normalizer(Interpreter[Token, Tree]):
         if len(precomputed_terms) == 1:
             bindings = {mg_parser.parse(var): mg_parser.parse('i')}
             new_body = subst(body, bindings)
-            return Tree(data='sequential_composition', children=[precomputed_terms[0], Tree(data='repeat', children=[new_body, k])])
+            return Tree(data='sequential_composition', children=[precomputed_terms[0], Tree(data='rep', children=[new_body, k])])
         else:
             par_init = Tree(data='parallel_composition', children=precomputed_terms)
             i = 1
@@ -237,7 +237,7 @@ class Normalizer(Interpreter[Token, Tree]):
                 p_list.append(next_p)
                 i = i + next_size
             assert final_p is not None
-            par_middle = Tree(data='repeat', children=[Tree(data='parallel_composition', children=[mg_parser.parse(p) for p in p_list] + [new_body]), k])
+            par_middle = Tree(data='rep', children=[Tree(data='parallel_composition', children=[mg_parser.parse(p) for p in p_list] + [new_body]), k])
             return Tree(data='sequential_composition',
                         children=[Tree(data='sequential_composition', children=[par_init, par_middle]), mg_parser.parse(final_p)])
 
@@ -410,12 +410,12 @@ def _(expr: Tree, var: str) -> list[Tree]:
             else:
                 return self.Exp(Tree(data='star', children=[body.args]))
 
-        def repeat(self, args):
+        def rep(self, args):
             body, k = args
             if isinstance(body, self.FixExp):
                 return self.FixExp(body.args)
             else:
-                return self.Exp(Tree(data='repeat', children=[body.args, k]))
+                return self.Exp(Tree(data='rep', children=[body.args, k]))
 
         # def fix(self, args):
         #     var, init, body = args

@@ -603,7 +603,7 @@ class MGCompiler:
             'ite': lambda t, c: Tree(data=t.data, meta=t.meta, children=[child.name for child in c]),
             'choice': lambda t, c: Tree(data=t.data, meta=t.meta, children=[child.name for child in c]),
             'star': lambda t, c: Tree(data=t.data, meta=t.meta, children=[c[0].name]),
-            'repeat': lambda t, c: Tree(data=t.data, meta=t.meta, children=[c[0].name, c[-1]])
+            'rep': lambda t, c: Tree(data=t.data, meta=t.meta, children=[c[0].name, c[-1]])
         }
 
         def __init__(self, psi_functions: FunctionDict, sigma_functions: FunctionDict, phi_functions: FunctionDict, tolerance: dict[str, float]):
@@ -1021,7 +1021,7 @@ class MGCompiler:
             else:
                 return self.get_layer(ctx_name)
 
-        def evaluate_loop_expr(self, tree: Tree, op: Literal['star', 'repeat']) -> IntermediateOutput:
+        def evaluate_loop_expr(self, tree: Tree, op: Literal['star', 'rep']) -> IntermediateOutput:
             """Evaluates a mG loop expression, either a fixpoint expression or a repeat expression.
 
             Args:
@@ -1038,7 +1038,7 @@ class MGCompiler:
             iters = None
             if op == 'star':
                 body, = tree.children
-            elif op == 'repeat':
+            elif op == 'rep':
                 body, n = tree.children
                 assert isinstance(n, Token)
                 iters = int(n)
@@ -1052,7 +1052,7 @@ class MGCompiler:
                 tolerance = [self.get_tolerance(tf.as_dtype(t.dtype).name) for t in nx.x]
                 fix_layer = FixPoint(model, tolerance, debug=False)
                 name = self.get_composite_name(tree, [nx])
-            elif op == 'repeat':
+            elif op == 'rep':
                 assert iters is not None
                 fix_layer = Repeat(model, iters)
                 name = self.get_composite_name(tree, [nx, iters])
@@ -1080,7 +1080,7 @@ class MGCompiler:
             """
             return self.evaluate_loop_expr(tree, 'star')
 
-        def repeat(self, tree: Tree) -> IntermediateOutput:
+        def rep(self, tree: Tree) -> IntermediateOutput:
             """Evaluates a repeat expression.
 
             Args:
@@ -1092,7 +1092,7 @@ class MGCompiler:
             Raises:
                 SyntaxError: The body of the repeat expression doesn't contain any fixpoint variable.
             """
-            return self.evaluate_loop_expr(tree, 'repeat')
+            return self.evaluate_loop_expr(tree, 'rep')
 
     def __init__(self, psi_functions: dict[str, Psi | Callable[[], Psi] | Callable[[str], Psi]],
                  sigma_functions: dict[str, Sigma | Callable[[], Sigma] | Callable[[str], Sigma]],

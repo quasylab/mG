@@ -217,7 +217,7 @@ class MGExplainer(Interpreter):
         print(iters)
         new_op = tree.copy()
         new_op.children = self.visit_children(tree) + [Token('NUMBER', iters)]
-        new_op.data = 'repeat'
+        new_op.data = 'rep'
         return new_op
 
     def __default__(self, tree: Tree) -> Tree:  # local var expr, fun def, fun call, repeat

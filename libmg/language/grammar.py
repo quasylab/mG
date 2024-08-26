@@ -2,7 +2,7 @@
 
 This module defines the objects holding the grammar, the LALR parser, and the (experimental) reconstructor.
 The reserved words of the grammar are: || fix let if then else def in repeat for
-The reserved symbols of the grammar are: , | < > = ( ) ; [ ] # { } + *
+The reserved symbols of the grammar are: , | < > = ( ) ; [ ] # { } *
 Variables should not be named with two initial underscores __, e.g. don't name variables such as __X.
 
 The module contains the following classes:
@@ -26,12 +26,12 @@ mg_grammar = r"""
                          | "let" (label_decl "=" formula ",")* label_decl "=" formula "in" formula              -> local_var_expr
                          | "def" label_decl "(" (label_decl ",")* label_decl ")" "{" formula "}" "in" formula   -> fun_def
                          | "fix" label_decl "=" formula "in" formula                                            -> fix
-                         | "repeat" label_decl "=" formula "in" formula "for" NUMBER                            -> rep
+                         | "repeat" label_decl "=" formula "in" formula "for" NUMBER                            -> repeat
                          | expression
 
                 ?expression:  choice
 
-                ?choice: choice "+" parallel                                                                   -> choice
+                ?choice: choice "|" parallel                                                                   -> choice
                         | parallel
 
                 ?parallel: parallel ("||" sequential)+                                                         -> parallel_composition
@@ -41,7 +41,7 @@ mg_grammar = r"""
                             | unary
 
                 ?unary:  unary "*"                                                                             -> star
-                       | "repeat" unary "for" NUMBER                                                           -> repeat
+                       | "rep" unary "for" NUMBER                                                              -> rep
                        | primary
 
                 ?primary: label                                                                                -> atom_op
@@ -51,12 +51,12 @@ mg_grammar = r"""
                           | label "(" (formula ",")* formula ")"                                               -> fun_call
                           | "(" formula ")"
 
-                label: /[a-zA-Z_0-9\^\-\!\%\&\~\/\@]+/
+                label: /[a-zA-Z_0-9\^\-\!\%\&\+\~\/\@]+/
                             |  FUNC_GEN
 
-                FUNC_GEN: /[a-zA-Z_0-9\^\-\!\%\&\~\/\@]+/ "[" /[^\]\[]+/ "]"
+                FUNC_GEN: /[a-zA-Z_0-9\^\-\!\%\+\&\~\/\@]+/ "[" /[^\]\[]+/ "]"
 
-                label_decl: /[a-zA-Z_0-9\^\-\!\%\&\~\/\@]+/
+                label_decl: /[a-zA-Z_0-9\^\-\!\+\%\&\~\/\@]+/
 
                 COMMENT: "#" /[^\n]/*
 
@@ -69,7 +69,7 @@ mg_grammar = r"""
                 %ignore WS
                 """
 
-mg_reserved = {'||', 'fix', 'let', 'if', 'then', 'else', 'def', 'in', 'repeat', 'for', ',', '|', '<', '>', '(', ')', ';', '[', ']', '#', '{', '}', '+', '*'}
+mg_reserved = {'||', 'fix', 'let', 'if', 'then', 'else', 'def', 'in', 'repeat', 'rep', 'for', ',', '|', '<', '>', '(', ')', ';', '[', ']', '#', '{', '}', '*'}
 
 mg_parser = Lark(mg_grammar, maybe_placeholders=False, parser='lalr')
 """
@@ -112,8 +112,9 @@ class MGReconstructor(Reconstructor):
         prev_item = ''
         for item in x:
             if insert_spaces and prev_item and item:
-                if (prev_item not in {'<', '|', '>', '(', '{'} and item not in {'<', '|', '>', ')', '}', ','}
-                        and not (item == '(' and prev_item not in mg_reserved) or item == ';' or prev_item == ';'):
+                if (prev_item not in {'<', '>', '(', '{', '|'} and item not in {'<', '>', ')', '}', ',', '|'}
+                        and not (item == '(' and prev_item not in mg_reserved)
+                        or item == ';' or prev_item == ';'):
                     y.append(' ')
             y.append(item)
             prev_item = item
