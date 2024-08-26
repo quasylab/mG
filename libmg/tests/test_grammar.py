@@ -232,4 +232,3 @@ def test_comment():
     assert tree.data == 'parallel_composition'
     assert rec_expr == 'a || b ; c'
     assert rec_expr_tree == tree
-
