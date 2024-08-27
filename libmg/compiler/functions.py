@@ -26,7 +26,7 @@ from __future__ import annotations
 from functools import partial
 import tensorflow as tf
 from collections import UserDict
-from typing import Callable, Any
+from typing import Callable, Any, TypeVar, Type
 
 
 # class MultipleOp(Protocol):
@@ -133,6 +133,8 @@ class FunctionDict(UserDict):
             raise KeyError("Key not found", key)
 
 
+T_A = TypeVar('T_A', bound='Function')
+
 class Function(tf.keras.layers.Layer):
     """Base class for all mG functions.
 
@@ -157,7 +159,7 @@ class Function(tf.keras.layers.Layer):
         self._function_name = name or self.__class__.__name__
 
     @classmethod
-    def make(cls, name: str | None, f: Callable) -> Callable[[], Function]:
+    def make(cls: Type[T_A], name: str | None, f: Callable) -> Callable[[], T_A]:
         """Returns a zero-argument function that when called returns an instance of ``cls`` initialized with the provided function ``f`` and ``name``.
 
         The class ``cls`` is supposed to be a ``Function`` subclass. Calling this method on a suitable ``Function`` subclass
@@ -179,7 +181,7 @@ class Function(tf.keras.layers.Layer):
             return lambda: cls(f, name)
 
     @classmethod
-    def make_parametrized(cls, name: str | None, f: Callable[[str], Callable] | Callable[..., Any]) -> Callable[[str], Function]:
+    def make_parametrized(cls: Type[T_A], name: str | None, f: Callable[[str], Callable] | Callable[..., Any]) -> Callable[[str], T_A]:
         """Returns a one-argument function that when called with the argument ``a``
          returns an instance of ``cls`` initialized with the result of the application of ``a`` to the function ``f`` and ``name``.
 
