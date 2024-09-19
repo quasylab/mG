@@ -61,7 +61,7 @@ def fetch_layer(model: MGModel, layer_name: str | Tree | None = None, layer_idx:
 
 def show_pyvis(node_values: np.ndarray | tuple[np.ndarray, ...], adj: np.ndarray | Iterator[tuple[int, int]], edge_values: np.ndarray | None,
                labels: np.ndarray | tuple[np.ndarray, ...] | None, hierarchy: list[int] | None, id_generator: Callable[[int], int | str], filename: str,
-               open_browser: bool) -> None:
+               open_browser: bool, rounding) -> None:
     """
     Builds a PyVis network using the node features, labels, adjacency matrix and edge features. The result is an .html
     page named graph_``filename``.html.
@@ -77,6 +77,7 @@ def show_pyvis(node_values: np.ndarray | tuple[np.ndarray, ...], adj: np.ndarray
             so on. In other situations, it might be necessary to have different mappings for integer IDs or to use string IDs.
         filename: The name of the .html file to save in the working directory. The string ``graph_`` will be prepended to it.
         open_browser: If true, opens the default web browser and loads up the generated .html page.
+        rounding: How many decimal digits to show for floating-point labels, defaults to 2.
 
     Returns:
         Nothing.
@@ -85,20 +86,25 @@ def show_pyvis(node_values: np.ndarray | tuple[np.ndarray, ...], adj: np.ndarray
     if isinstance(node_values, (list, tuple)):
         nodes = [id_generator(i) for i in range(node_values[0].shape[0])]
         node_values_list = [node_value.tolist() for node_value in node_values]
-        node_labels = [' | '.join(['[' + ' , '.join([str(e) for e in label]) + ']' for label in label_list]) for label_list in zip(*node_values_list)]
+        node_labels = [' | '.join(['[' + ' , '.join([str(e) if not isinstance(e, float) else ("{:." + str(rounding) + "f}").format(e) for e in label]) + ']'
+                                   for label in label_list]) for label_list in zip(*node_values_list)]
     else:
         nodes = [id_generator(i) for i in range(node_values.shape[0])]
-        node_labels = ['[' + ' , '.join([str(label) for label in label_list]) + ']' for label_list in node_values]
+        node_labels = ['[' + ' , '.join([str(label) if not isinstance(label, float) else ("{:." + str(rounding) + "f}").format(label) for label in label_list])
+                       + ']' for label_list in node_values]
     if edge_values is not None:
-        edge_labels = ['[' + ' , '.join([str(label) for label in label_list]) + ']' for label_list in edge_values.tolist()]
+        edge_labels = ['[' + ' , '.join([str(label) if not isinstance(label, float) else ("{:." + str(rounding) + "f}").format(label) for label in label_list])
+                       + ']' for label_list in edge_values.tolist()]
     else:
         edge_labels = None
     if labels is not None:
         if isinstance(labels, (tuple, list)):
             labels_list = [label.tolist() for label in labels]
-            true_labels = [' | '.join(['[' + ' , '.join([str(e) for e in label]) + ']' for label in label_list]) for label_list in zip(*labels_list)]
+            true_labels = [' | '.join(['[' + ' , '.join([str(e) if not isinstance(e, float) else ("{:." + str(rounding) + "f}").format(e) for e in label]) + ']'
+                                       for label in label_list]) for label_list in zip(*labels_list)]
         else:
-            true_labels = ['[' + ' , '.join([str(label) for label in label_list]) + ']' for label_list in labels.tolist()]
+            true_labels = ['[' + ' , '.join([str(label) if not isinstance(label, float) else ("{:." + str(rounding) + "f}").format(label)
+                                             for label in label_list]) + ']' for label_list in labels.tolist()]
         node_labels = [feat + ' → ' + target for feat, target in zip(node_labels, true_labels)]
 
     titles = [str(i) for i in nodes]
@@ -148,20 +154,43 @@ def show_pyvis(node_values: np.ndarray | tuple[np.ndarray, ...], adj: np.ndarray
 # Hierarchy to be implemented using timeline or histograms
 def show_cosmo(node_values: np.ndarray | tuple[np.ndarray, ...], adj: np.ndarray | Iterator[tuple[int, int]], edge_values: np.ndarray | None,
                labels: np.ndarray | tuple[np.ndarray, ...] | None, hierarchy: list[int] | None, id_generator: Callable[[int], int | str],
-               filename: str, open_browser: bool) -> None:
+               filename: str, open_browser: bool, rounding) -> None:
+    """
+    Builds a Cosmograph network using the node features, labels and adjacency matrix. The result is a directory named graph_``filename``. The graph can be
+    visualized by opening the contained ``index.html`` file. Edge labels are not supported for now.
+    Args:
+        node_values: The node features with shape ``(n_nodes, n_node_features)``.
+        adj: The adjacency list with shape ``(n_edges, 2)``.
+        edge_values: The edge features with shape ``(n_edges, n_edge_features)``, if present.
+        labels: The true labels of the nodes with shape ``(n_nodes, n_labels)``, if present.
+        hierarchy: Used for visualizing the graph in hierarchical mode. For each node, the corresponding number in this list is the position in the hierarchy.
+            If ``None``, the graph is not visualized in hierarchical mode.
+        id_generator: Used for determining the ID of a node. Usually this is the identity function so that the first node has ID = 0, the second has ID = 1, and
+            so on. In other situations, it might be necessary to have different mappings for integer IDs or to use string IDs.
+        filename: The name of the .html file to save in the working directory. The string ``graph_`` will be prepended to it.
+        open_browser: If true, opens the default web browser and loads up the generated .html page.
+        rounding: How many decimal digits to show for floating-point labels, defaults to 2.
+
+    Returns:
+        Nothing.
+    """
 
     n_nodes = node_values[0].shape[0]
     if isinstance(node_values, (list, tuple)):
         node_values_list = [node_value.tolist() for node_value in node_values]
-        node_labels = [' | '.join(['[' + ' , '.join([str(e) for e in label]) + ']' for label in label_list]) for label_list in zip(*node_values_list)]
+        node_labels = [' | '.join(['[' + ' , '.join([str(e) if not isinstance(e, float) else ("{:." + str(rounding) + "f}").format(e) for e in label]) + ']'
+                                   for label in label_list]) for label_list in zip(*node_values_list)]
     else:
-        node_labels = ['[' + ' , '.join([str(label) for label in label_list]) + ']' for label_list in node_values]
+        node_labels = ['[' + ' , '.join([str(label) if not isinstance(label, float) else ("{:." + str(rounding) + "f}").format(label) for label in label_list])
+                       + ']' for label_list in node_values]
     if labels is not None:
         if isinstance(labels, (list, tuple)):
             labels_list = [label.tolist() for label in labels]
-            true_labels = [' | '.join(['[' + ' , '.join([str(e) for e in label]) + ']' for label in label_list]) for label_list in zip(*labels_list)]
+            true_labels = [' | '.join(['[' + ' , '.join([str(e) if not isinstance(e, float) else ("{:." + str(rounding) + "f}").format(e) for e in label]) + ']'
+                                       for label in label_list]) for label_list in zip(*labels_list)]
         else:
-            true_labels = ['[' + ' , '.join([str(label) for label in label_list]) + ']' for label_list in labels.tolist()]
+            true_labels = ['[' + ' , '.join([str(label) if not isinstance(label, float) else ("{:." + str(rounding) + "f}").format(label)
+                                             for label in label_list]) + ']' for label_list in labels.tolist()]
         node_labels = [feat + ' → ' + target for feat, target in zip(node_labels, true_labels)]
 
     nodes = [{'id': id_generator(i), 'label': node_labels[i], 'hierarchy': hierarchy[i] if hierarchy else None} for i in range(n_nodes)]
@@ -183,7 +212,8 @@ engines = {'pyvis': show_pyvis, 'cosmo': show_cosmo}
 
 
 def print_layer(model: MGModel, inputs: tuple[tf.Tensor, ...], labels: tf.Tensor | None = None, layer_name: str | Tree | None = None,
-                layer_idx: int | None = None, filename: str | None = None, open_browser: bool = True, engine: Literal["pyvis", "cosmo"] = 'pyvis') -> None:
+                layer_idx: int | None = None, filename: str | None = None, open_browser: bool = True,
+                rounding=2, engine: Literal["pyvis", "cosmo"] = 'pyvis') -> None:
     """Visualizes the outputs of a model's layer.
 
     Layer must be identified either by name or index. If both are given, index takes precedence.
@@ -197,6 +227,7 @@ def print_layer(model: MGModel, inputs: tuple[tf.Tensor, ...], labels: tf.Tensor
         filename: The name of the .html file to save in the working directory. The string ``graph_`` will be prepended to it and the provided index or layer
             name will be appended to it.
         open_browser: If true, opens the default web browser and loads up the generated .html page.
+        rounding: How many decimal digits to show for floating-point labels, defaults to 2.
         engine: The visualization engine to use. Options are ``pyvis`` or ``cosmo``.
 
     Returns:
@@ -210,13 +241,12 @@ def print_layer(model: MGModel, inputs: tuple[tf.Tensor, ...], labels: tf.Tensor
     debug_model = MGModel(model.inputs, layer.output, None, None, None, None, None, None)
     idx_or_name = layer_idx if layer_idx is not None else layer.name
     _, a, e, _ = unpack_inputs(inputs)
-    print_labels(debug_model(inputs), a, e, labels, filename + '_' + str(idx_or_name) if filename is not None else str(idx_or_name), open_browser, engine)
-    # engines[engine](tuple(t.numpy() for t in debug_model(inputs)), a.indices.numpy(), e.numpy() if e is not None else None, labels, None, lambda x: x,
-    #                 filename + '_' + str(idx_or_name) if filename is not None else str(idx_or_name), open_browser)
+    print_labels(debug_model(inputs), a, e, labels, filename + '_' + str(idx_or_name) if filename is not None else str(idx_or_name), open_browser, rounding,
+                 engine)
 
 
 def print_labels(x: tuple[tf.Tensor, ...], a: tf.SparseTensor, e: tf.Tensor | None = None, y: tf.Tensor | None = None, filename: str | None = None,
-                 open_browser: bool = True, engine: Literal["pyvis", "cosmo"] = 'pyvis'):
+                 open_browser: bool = True, rounding=2, engine: Literal["pyvis", "cosmo"] = 'pyvis'):
     """Visualizes the labeling of a graph.
 
     Args:
@@ -227,6 +257,7 @@ def print_labels(x: tuple[tf.Tensor, ...], a: tf.SparseTensor, e: tf.Tensor | No
         filename: The name of the .html file to save in the working directory. The string ``graph_`` will be prepended to it and the provided index or layer
             name will be appended to it.
         open_browser: If true, opens the default web browser and loads up the generated .html page.
+        rounding: How many decimal digits to show for floating-point labels, defaults to 2.
         engine: The visualization engine to use. Options are ``pyvis`` or ``cosmo``.
 
     Returns:
@@ -234,11 +265,11 @@ def print_labels(x: tuple[tf.Tensor, ...], a: tf.SparseTensor, e: tf.Tensor | No
     """
     labels = y.numpy() if y is not None else None
     engines[engine](tuple(t.numpy() for t in x), a.indices.numpy(), e.numpy() if e is not None else None, labels, None, lambda x: x,
-                    filename if filename is not None else 'output', open_browser)
+                    filename if filename is not None else 'output', open_browser, rounding)
 
 
 def print_graph(graph: Graph, id_generator: Callable[[int], int] = lambda x: x, hierarchical: bool = False, show_labels: bool = False,
-                filename: str | None = None, open_browser: bool = True, engine: Literal["pyvis", "cosmo"] = 'pyvis') -> None:
+                filename: str | None = None, open_browser: bool = True, rounding=2, engine: Literal["pyvis", "cosmo"] = 'pyvis') -> None:
     """Visualizes a graph.
 
     Args:
@@ -249,10 +280,11 @@ def print_graph(graph: Graph, id_generator: Callable[[int], int] = lambda x: x, 
         show_labels: If true, show the node labels alongside the node features.
         filename: The name of the .html file to save in the working directory. The string ``graph_`` will be prepended to it.
         open_browser: If true, opens the default web browser and loads up the generated .html page.
+        rounding: How many decimal digits to show for floating-point labels, defaults to 2.
         engine: The visualization engine to use. Options are ``pyvis`` or ``cosmo``.
 
     Returns:
         Nothing.
     """
     engines[engine](graph.x, zip(graph.a.row, graph.a.col), graph.e, graph.y if show_labels else None, graph.hierarchy if hierarchical else None, id_generator,
-                    filename if filename is not None else str(graph), open_browser)
+                    filename if filename is not None else str(graph), open_browser, rounding)
