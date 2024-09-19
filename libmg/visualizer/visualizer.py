@@ -85,23 +85,21 @@ def show_pyvis(node_values: np.ndarray | tuple[np.ndarray, ...], adj: np.ndarray
     if isinstance(node_values, (list, tuple)):
         nodes = [id_generator(i) for i in range(node_values[0].shape[0])]
         node_values_list = [node_value.tolist() for node_value in node_values]
-        node_labels = [' | '.join([str(e) for label in label_list for e in label]) for label_list in zip(*node_values_list)]
+        node_labels = [' | '.join(['[' + ' , '.join([str(e) for e in label]) + ']' for label in label_list]) for label_list in zip(*node_values_list)]
     else:
         nodes = [id_generator(i) for i in range(node_values.shape[0])]
-        node_labels = [' | '.join([str(label) for label in label_list]) for label_list in node_values]
+        node_labels = ['[' + ' , '.join([str(label) for label in label_list]) + ']' for label_list in node_values]
     if edge_values is not None:
-        edge_labels = [' | '.join([str(label) for label in label_list]) for label_list in edge_values.tolist()]
+        edge_labels = ['[' + ' , '.join([str(label) for label in label_list]) + ']' for label_list in edge_values.tolist()]
     else:
         edge_labels = None
     if labels is not None:
         if isinstance(labels, (tuple, list)):
             labels_list = [label.tolist() for label in labels]
-            true_labels = [' | '.join([str(e) for label in label_list for e in label]) for label_list in zip(*labels_list)]
+            true_labels = [' | '.join(['[' + ' , '.join([str(e) for e in label]) + ']' for label in label_list]) for label_list in zip(*labels_list)]
         else:
-            true_labels = [' | '.join([str(label) for label in label_list]) for label_list in labels.tolist()]
-        node_labels = ['[' + feat + '] → [' + target + ']' for feat, target in zip(node_labels, true_labels)]
-    else:
-        node_labels = ['[' + feat + ']' for feat in node_labels]
+            true_labels = ['[' + ' , '.join([str(label) for label in label_list]) + ']' for label_list in labels.tolist()]
+        node_labels = [feat + ' → ' + target for feat, target in zip(node_labels, true_labels)]
 
     titles = [str(i) for i in nodes]
 
@@ -155,18 +153,16 @@ def show_cosmo(node_values: np.ndarray | tuple[np.ndarray, ...], adj: np.ndarray
     n_nodes = node_values[0].shape[0]
     if isinstance(node_values, (list, tuple)):
         node_values_list = [node_value.tolist() for node_value in node_values]
-        node_labels = [' | '.join([str(e) for label in label_list for e in label]) for label_list in zip(*node_values_list)]
+        node_labels = [' | '.join(['[' + ' , '.join([str(e) for e in label]) + ']' for label in label_list]) for label_list in zip(*node_values_list)]
     else:
-        node_labels = [' | '.join([str(label) for label in label_list]) for label_list in node_values]
+        node_labels = ['[' + ' , '.join([str(label) for label in label_list]) + ']' for label_list in node_values]
     if labels is not None:
         if isinstance(labels, (list, tuple)):
             labels_list = [label.tolist() for label in labels]
-            true_labels = [' | '.join([str(e) for label in label_list for e in label]) for label_list in zip(*labels_list)]
+            true_labels = [' | '.join(['[' + ' , '.join([str(e) for e in label]) + ']' for label in label_list]) for label_list in zip(*labels_list)]
         else:
-            true_labels = [' | '.join([str(label) for label in label_list]) for label_list in labels.tolist()]
-        node_labels = ['[' + feat + '] → [' + target + ']' for feat, target in zip(node_labels, true_labels)]
-    else:
-        node_labels = ['[' + feat + ']' for feat in node_labels]
+            true_labels = ['[' + ' , '.join([str(label) for label in label_list]) + ']' for label_list in labels.tolist()]
+        node_labels = [feat + ' → ' + target for feat, target in zip(node_labels, true_labels)]
 
     nodes = [{'id': id_generator(i), 'label': node_labels[i], 'hierarchy': hierarchy[i] if hierarchy else None} for i in range(n_nodes)]
     if hierarchy is not None:
@@ -213,10 +209,32 @@ def print_layer(model: MGModel, inputs: tuple[tf.Tensor, ...], labels: tf.Tensor
     layer = fetch_layer(model, layer_name, layer_idx)
     debug_model = MGModel(model.inputs, layer.output, None, None, None, None, None, None)
     idx_or_name = layer_idx if layer_idx is not None else layer.name
-    labels = labels.numpy() if labels is not None else None
     _, a, e, _ = unpack_inputs(inputs)
-    engines[engine](tuple(t.numpy() for t in debug_model(inputs)), a.indices.numpy(), e.numpy() if e is not None else None, labels, None, lambda x: x,
-                    filename + '_' + str(idx_or_name) if filename is not None else str(idx_or_name), open_browser)
+    print_labels(debug_model(inputs), a, e, labels, filename + '_' + str(idx_or_name) if filename is not None else str(idx_or_name), open_browser, engine)
+    # engines[engine](tuple(t.numpy() for t in debug_model(inputs)), a.indices.numpy(), e.numpy() if e is not None else None, labels, None, lambda x: x,
+    #                 filename + '_' + str(idx_or_name) if filename is not None else str(idx_or_name), open_browser)
+
+
+def print_labels(x: tuple[tf.Tensor, ...], a: tf.SparseTensor, e: tf.Tensor | None = None, y: tf.Tensor | None = None, filename: str | None = None,
+                 open_browser: bool = True, engine: Literal["pyvis", "cosmo"] = 'pyvis'):
+    """Visualizes the labeling of a graph.
+
+    Args:
+        x: The node labels.
+        a: The adjacency matrix.
+        e: The edge labels, if any.
+        y: If provided, also show the node labels alongside the node features generated by the visualized layer.
+        filename: The name of the .html file to save in the working directory. The string ``graph_`` will be prepended to it and the provided index or layer
+            name will be appended to it.
+        open_browser: If true, opens the default web browser and loads up the generated .html page.
+        engine: The visualization engine to use. Options are ``pyvis`` or ``cosmo``.
+
+    Returns:
+        Nothing.
+    """
+    labels = y.numpy() if y is not None else None
+    engines[engine](tuple(t.numpy() for t in x), a.indices.numpy(), e.numpy() if e is not None else None, labels, None, lambda x: x,
+                    filename if filename is not None else 'output', open_browser)
 
 
 def print_graph(graph: Graph, id_generator: Callable[[int], int] = lambda x: x, hierarchical: bool = False, show_labels: bool = False,

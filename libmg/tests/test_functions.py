@@ -275,7 +275,7 @@ class TestSigma(tf.test.TestCase):
         for sigma in [Sigma(lambda m, i, n, x: tf.math.segment_max(m, i)),
                       Max(),
                       Sigma.make('Max', lambda m, i, n, x: tf.math.segment_max(m, i))()]:
-            self.assertAllEqual(sigma(tf.constant([[1], [2], [2], [3]]), tf.constant([0, 0, 1, 2]), 3, [tf.constant([[1], [2], [3]])]),
+            self.assertAllEqual(sigma((tf.constant([[1], [2], [2], [3]]),), tf.constant([0, 0, 1, 2]), 3, [tf.constant([[1], [2], [3]])]),
                                 tf.constant([[2], [2], [3]]))
 
     def test_weights(self):
@@ -295,7 +295,7 @@ class TestSigma(tf.test.TestCase):
             def func(self, m: tf.Tensor, i: tf.Tensor, n: int, x: tf.Tensor) -> tf.Tensor:
                 return self.dense(m)
 
-        inputs_m = tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])
+        inputs_m = (tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]]),)
         inputs_i = tf.constant([0, 1])
         inputs_n = 5
         inputs_x = [tf.constant([[0., 0., 0., 0., 0.], [0., 0., 0., 0., 0.]])]

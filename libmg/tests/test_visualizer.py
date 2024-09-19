@@ -40,10 +40,10 @@ class TestVisualizer(tf.test.TestCase):
             model = compiler.compile(expr)
             for inputs, y in loader.load():
                 for engine in ['pyvis', 'cosmo']:
-                    print_layer(model, inputs, labels=y, layer_idx=-1, filename='test_nolabels_' + filename, open_browser=False, engine=engine)
-                    print_layer(model, inputs, labels=None, layer_idx=-1, filename='test_labels_' + filename, open_browser=False, engine=engine)
-                    print_layer(model, inputs, labels=y, layer_idx=3, filename='test_nolabels_' + filename, open_browser=False, engine=engine)
-                    print_layer(model, inputs, labels=None, layer_idx=3, filename='test_labels_' + filename, open_browser=False, engine=engine)
+                    print_layer(model, inputs, labels=y, layer_idx=-1, filename='test_labels_' + filename, open_browser=False, engine=engine)
+                    print_layer(model, inputs, labels=None, layer_idx=-1, filename='test_nolabels_' + filename, open_browser=False, engine=engine)
+                    print_layer(model, inputs, labels=y, layer_idx=3, filename='test_labels_' + filename, open_browser=False, engine=engine)
+                    print_layer(model, inputs, labels=None, layer_idx=3, filename='test_nolabels_' + filename, open_browser=False, engine=engine)
                     print_layer(model, inputs, labels=y, layer_name='a || b', filename='test_labels_' + filename, open_browser=False, engine=engine)
                     print_layer(model, inputs, labels=None, layer_name='a || b', filename='test_nolabels_' + filename, open_browser=False, engine=engine)
                     print_layer(model, inputs, labels=y, layer_name='(fix X = false in ((a || X) ; or))', filename='test_labels_' + filename,
