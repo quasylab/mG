@@ -135,6 +135,7 @@ class FunctionDict(UserDict):
 
 T_A = TypeVar('T_A', bound='Function')
 
+
 class Function(tf.keras.layers.Layer):
     """Base class for all mG functions.
 
