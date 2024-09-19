@@ -290,10 +290,14 @@ class PreImage(MGLayer):
         return tuple(tf.gather(t, self.index_sources, axis=-2) for t in x)
 
     def message(self, x: tuple[tf.Tensor, ...], e: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
-        return self.phi(self.get_sources(x), e, self.get_targets(x))
+        messages = self.phi(self.get_sources(x), e, self.get_targets(x))
+        messages = (messages, ) if not isinstance(messages, (list, tuple)) else messages
+        return messages
 
     def aggregate(self, messages: tf.Tensor, x: tuple[tf.Tensor, ...] | None = None, **kwargs) -> tf.Tensor:
-        return self.sigma(messages, self.index_targets, self.n_nodes, x)
+        embeddings = self.sigma(messages, self.index_targets, self.n_nodes, x)
+        embeddings = (embeddings, ) if not isinstance(embeddings, (list, tuple)) else embeddings
+        return embeddings
 
     def update(self, embeddings, **kwargs):
         return embeddings
@@ -348,10 +352,14 @@ class PostImage(MGLayer):
         return tuple(tf.gather(t, self.index_sources, axis=-2) for t in x)
 
     def message(self, x: tuple[tf.Tensor, ...], e: tf.Tensor | None = None, **kwargs) -> tf.Tensor:
-        return self.phi(self.get_targets(x), e, self.get_sources(x))
+        messages = self.phi(self.get_targets(x), e, self.get_sources(x))
+        messages = (messages, ) if not isinstance(messages, (list, tuple)) else messages
+        return messages
 
     def aggregate(self, messages: tf.Tensor, x: tuple[tf.Tensor, ...] | None = None, **kwargs) -> tf.Tensor:
-        return self.sigma(messages, self.index_sources, self.n_nodes, x)
+        embeddings = self.sigma(messages, self.index_sources, self.n_nodes, x)
+        embeddings = (embeddings, ) if not isinstance(embeddings, (list, tuple)) else embeddings
+        return embeddings
 
     def update(self, embeddings, **kwargs):
         return embeddings

@@ -218,7 +218,7 @@ class Psi(Function):
     """A psi function of the mG language.
     """
 
-    def __call__(self, x: tuple[tf.Tensor, ...], i: tf.Tensor | None = None) -> tf.Tensor:
+    def __call__(self, x: tuple[tf.Tensor, ...], i: tf.Tensor | None = None) -> tf.Tensor | tuple[tf.Tensor, ...]:
         raise NotImplementedError
 
 
@@ -267,10 +267,10 @@ class PsiNonLocal(Psi):
             self.multiple_op = multiple_op  # type: ignore
         super().__init__(self.single_op, name)
 
-    def single_graph_op(self, *x: tf.Tensor) -> tf.Tensor:
+    def single_graph_op(self, *x: tf.Tensor) -> tf.Tensor | tuple[tf.Tensor, ...]:
         raise NotImplementedError
 
-    def multiple_graph_op(self, *x: tf.Tensor, i: tf.Tensor | None = None) -> tf.Tensor:
+    def multiple_graph_op(self, *x: tf.Tensor, i: tf.Tensor | None = None) -> tf.Tensor | tuple[tf.Tensor, ...]:
         raise NotImplementedError
 
     @classmethod
@@ -341,7 +341,7 @@ class PsiNonLocal(Psi):
         return lambda a: cls(**{k: v(a) if v.__code__.co_argcount == 1 else partial(v, a) for k, v in args.items()},
                              name=name + '_' + a if name is not None else None)
 
-    def __call__(self, x: tuple[tf.Tensor], i: tf.Tensor | None = None) -> tf.Tensor:
+    def __call__(self, x: tuple[tf.Tensor, ...], i: tf.Tensor | None = None) -> tf.Tensor | tuple[tf.Tensor, ...]:
         if i is not None:
             return self.multiple_op(*x, i=i)
         else:
@@ -372,10 +372,10 @@ class PsiLocal(Psi):
             f = self.func
         super().__init__(f, name)
 
-    def func(self, *x: tf.Tensor) -> tf.Tensor:
+    def func(self, *x: tf.Tensor) -> tf.Tensor | tuple[tf.Tensor, ...]:
         raise NotImplementedError
 
-    def __call__(self, x: tuple[tf.Tensor], i: tf.Tensor | None = None) -> tf.Tensor:
+    def __call__(self, x: tuple[tf.Tensor], i: tf.Tensor | None = None) -> tf.Tensor | tuple[tf.Tensor, ...]:
         return self.f(*x)
 
 
@@ -411,13 +411,13 @@ class PsiGlobal(PsiNonLocal):
         """
         super().__init__(single_op=single_op, multiple_op=multiple_op, name=name)
 
-    def single_graph_op(self, *x: tf.Tensor) -> tf.Tensor:
+    def single_graph_op(self, *x: tf.Tensor) -> tf.Tensor | tuple[tf.Tensor, ...]:
         raise NotImplementedError
 
-    def multiple_graph_op(self, *x: tf.Tensor, i: tf.Tensor | None = None) -> tf.Tensor:
+    def multiple_graph_op(self, *x: tf.Tensor, i: tf.Tensor | None = None) -> tf.Tensor | tuple[tf.Tensor, ...]:
         raise NotImplementedError
 
-    def __call__(self, x: tf.Tensor, i: tf.Tensor | None = None) -> tf.Tensor:
+    def __call__(self, x: tuple[tf.Tensor, ...], i: tf.Tensor | None = None) -> tf.Tensor | tuple[tf.Tensor, ...]:
         if i is not None:
             output = self.multiple_op(*x, i=i)
             _, _, count = tf.unique_with_counts(i)
@@ -437,7 +437,7 @@ class Phi(Function):
         <Phi ...>
     """
 
-    def __init__(self, f: Callable[[tuple[tf.Tensor, ...], tf.Tensor, tuple[tf.Tensor, ...]], tf.Tensor] | None = None,
+    def __init__(self, f: Callable[[tuple[tf.Tensor, ...], tf.Tensor, tuple[tf.Tensor, ...]], tf.Tensor | tuple[tf.Tensor, ...]] | None = None,
                  name: str | None = None):
         """Initializes the instance with a function and a name.
 
@@ -453,10 +453,10 @@ class Phi(Function):
             f = self.func
         super().__init__(f, name)
 
-    def func(self, src: tuple[tf.Tensor, ...], e: tf.Tensor, tgt: tuple[tf.Tensor, ...],) -> tf.Tensor:
+    def func(self, src: tuple[tf.Tensor, ...], e: tf.Tensor, tgt: tuple[tf.Tensor, ...],) -> tf.Tensor | tuple[tf.Tensor, ...]:
         raise NotImplementedError
 
-    def __call__(self, src: tuple[tf.Tensor, ...], e: tf.Tensor, tgt: tuple[tf.Tensor, ...]) -> tf.Tensor:
+    def __call__(self, src: tuple[tf.Tensor, ...], e: tf.Tensor, tgt: tuple[tf.Tensor, ...]) -> tf.Tensor | tuple[tf.Tensor, ...]:
         return self.f(*src, e, *tgt)
 
 
@@ -470,7 +470,7 @@ class Sigma(Function):
         <Sigma ...>
     """
 
-    def __init__(self, f: Callable[[tf.Tensor, tf.Tensor, int, tuple[tf.Tensor, ...]], tf.Tensor] | None = None,
+    def __init__(self, f: Callable[[tuple[tf.Tensor, ...], tf.Tensor, int, tuple[tf.Tensor, ...]], tf.Tensor | tuple[tf.Tensor, ...]] | None = None,
                  name: str | None = None):
         """Initializes the instance with a function and a name.
 
@@ -486,12 +486,12 @@ class Sigma(Function):
             f = self.func
         super().__init__(f, name)
 
-    def func(self, m: tf.Tensor, i: tf.Tensor, n: int, x: tuple[tf.Tensor, ...]) -> tf.Tensor:
+    def func(self, m: tuple[tf.Tensor, ...], i: tf.Tensor, n: int, x: tuple[tf.Tensor, ...]) -> tf.Tensor | tuple[tf.Tensor, ...]:
         raise NotImplementedError
 
-    def __call__(self, m: tf.Tensor, i: tf.Tensor, n: int, x: tuple[tf.Tensor, ...] | None) -> tf.Tensor:
+    def __call__(self, m: tuple[tf.Tensor, ...], i: tf.Tensor, n: int, x: tuple[tf.Tensor, ...] | None) -> tf.Tensor | tuple[tf.Tensor, ...]:
         assert x is not None
-        return self.f(m, i, n, *x)
+        return self.f(*m, i, n, *x)
 
 
 class Constant(PsiLocal):
