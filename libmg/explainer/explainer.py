@@ -67,7 +67,7 @@ def make_graph(explanation: tf.Tensor[bool], hierarchy: tf.Tensor[float], old_gr
 
     new_edge_feats = tf.boolean_mask(edge_feats, edge_mask).numpy() if edge_feats is not None else None
 
-    hierarchy = tf.cast(hierarchy[explanation], dtype=tf.int64).numpy().tolist()
+    hierarchy = tf.cast(hierarchy, dtype=tf.int64).numpy().tolist()
 
     new_graph = Graph(x=new_node_feats, a=new_adj, e=new_edge_feats, y=new_actual_outputs, hierarchy=hierarchy)
 

@@ -119,7 +119,7 @@ def show_pyvis(node_values: np.ndarray | tuple[np.ndarray, ...], adj: np.ndarray
         net.options = Options(layout)
         net.options.edges = edge_options
         for i, v in enumerate(nodes):
-            net.add_node(v, title=titles[i], label=node_labels[i], shape='circle', level=hierarchy[i], color='#FFFFFF')
+            net.add_node(v, title=titles[i], label=node_labels[i], shape='circle', level=hierarchy[int(v)], color='#FFFFFF')
 
         for i in range(len(edges)):
             edge = edges[i]
@@ -193,7 +193,7 @@ def show_cosmo(node_values: np.ndarray | tuple[np.ndarray, ...], adj: np.ndarray
                                              for label in label_list]) + ']' for label_list in labels.tolist()]
         node_labels = [feat + ' → ' + target for feat, target in zip(node_labels, true_labels)]
 
-    nodes = [{'id': id_generator(i), 'label': node_labels[i], 'hierarchy': hierarchy[i] if hierarchy else None} for i in range(n_nodes)]
+    nodes = [{'id': id_generator(i), 'label': node_labels[i], 'hierarchy': hierarchy[int(id_generator(i))] if hierarchy else None} for i in range(n_nodes)]
     if hierarchy is not None:
         edges = [{'source': int(e[0]), 'target': int(e[1])} for e in adj if hierarchy[int(e[0])] != hierarchy[int(e[1])]]
     else:
