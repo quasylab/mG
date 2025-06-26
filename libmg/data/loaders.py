@@ -9,8 +9,9 @@ The module contains the following classes:
 """
 
 import tensorflow as tf
+import numpy as np
 from spektral.data import SingleLoader, DisjointLoader
-from spektral.data.utils import collate_labels_disjoint, sp_matrices_to_sp_tensors, to_disjoint, prepend_none, to_tf_signature
+from spektral.data.utils import sp_matrices_to_sp_tensors, to_disjoint, prepend_none, to_tf_signature
 
 
 class SingleGraphLoader(SingleLoader):
@@ -61,9 +62,11 @@ class MultipleGraphLoader(DisjointLoader):
     def collate(self, batch):
         packed = self.pack(batch)
 
+        n_nodes_list = [len(x) for x in packed['x_list']]
+
         y = packed.pop("y_list", None)
         if y is not None:
-            y = collate_labels_disjoint(y, node_level=self.node_level)
+            y = collate_labels_disjoint(y, node_level=self.node_level, n_nodes_list=n_nodes_list)
 
         output = to_disjoint(**packed)
         output = sp_matrices_to_sp_tensors(output)
@@ -93,3 +96,30 @@ class MultipleGraphLoader(DisjointLoader):
             return tf_signature,
         else:
             return tf_signature
+
+
+def collate_labels_disjoint(y_list, node_level=False, n_nodes_list=None):
+    """
+    Collates the given list of labels for disjoint mode.
+
+    If `node_level=False`, the labels can be scalars or must have shape `[n_labels, ]`.
+    If `node_level=True`, the labels must have shape `[n_nodes, ]` (i.e., a scalar label
+    for each node) or `[n_nodes, n_labels]`.
+
+    :param y_list: a list of np.arrays or scalars.
+    :param node_level: bool, whether to pack the labels as node-level or graph-level.
+    :return:
+        - If `node_level=False`: a np.array of shape `[len(y_list), n_labels]`.
+        - If `node_level=True`: a np.array of shape `[n_nodes_total, n_labels]`, where
+        `n_nodes_total = sum(y.shape[0] for y in y_list)`.
+    """
+    if node_level:
+        if len(np.shape(y_list[0])) == 1:
+            y_list = [y_[:, None] for y_ in y_list]
+        return np.vstack(y_list)
+    else:
+        assert n_nodes_list is not None
+        if len(np.shape(y_list[0])) == 0:
+            y_list = [np.array([y_]) for y_ in y_list]
+        # return np.array(y_list)
+        return np.vstack([np.tile(y, (n_nodes, 1)) for y, n_nodes in zip(y_list, n_nodes_list)])
