@@ -55,8 +55,8 @@ class MultipleGraphLoader(DisjointLoader):
     as this class is directly derived from Spektral's ``DisjointLoader`` class.
     """
 
-    def __init__(self, dataset, batch_size=1, epochs=None, shuffle=True):
-        super().__init__(dataset, node_level=True, batch_size=batch_size, epochs=epochs, shuffle=shuffle)
+    def __init__(self, dataset, node_level=True, batch_size=1, epochs=None, shuffle=True):
+        super().__init__(dataset, node_level=node_level, batch_size=batch_size, epochs=epochs, shuffle=shuffle)
 
     def collate(self, batch):
         packed = self.pack(batch)

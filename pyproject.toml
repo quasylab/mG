@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "libmg"
-version = "2.1.4"
+version = "2.1.5"
 description = "The Python implementation of the μG language for programming graph neural networks"
 license = "MIT"
 authors = ["Matteo Belenchia"]
