@@ -815,7 +815,7 @@ class MGCompiler:
             if label in self.psi_functions:  # the label matches a psi function
                 op_layer = FunctionApplication(self.psi_functions[label])
                 ctx_name = self.context.get(tree)
-                self.used_psi[label] = self.psi_functions[label]
+                self.used_psi[FunctionDict.parse_key(label)[0]] = self.psi_functions[label]
             elif re.search(r'^(p\d+|p\d+-|p-\d+|p\d+-\d+)$', label) is not None:  # the label is a projection function
                 proj = [int(i) for i in re.findall(r'\d+', label)]
                 if min(proj) <= 0:
@@ -860,12 +860,12 @@ class MGCompiler:
             if len(args) == 2:
                 edge_function, agg_function = args
                 lhd_layer = PreImage(self.sigma_functions[agg_function], self.phi_functions[edge_function])
-                self.used_sigma[agg_function] = self.sigma_functions[agg_function]
-                self.used_phi[edge_function] = self.phi_functions[edge_function]
+                self.used_sigma[FunctionDict.parse_key(agg_function)[0]] = self.sigma_functions[agg_function]
+                self.used_phi[FunctionDict.parse_key(edge_function)[0]] = self.phi_functions[edge_function]
             else:
                 agg_function, = args
                 lhd_layer = PreImage(self.sigma_functions[agg_function])
-                self.used_sigma[agg_function] = self.sigma_functions[agg_function]
+                self.used_sigma[FunctionDict.parse_key(agg_function)[0]] = self.sigma_functions[agg_function]
 
             if self.undef_layer(ctx_name):
                 # noinspection PyCallingNonCallable
@@ -888,12 +888,12 @@ class MGCompiler:
             if len(args) == 2:
                 edge_function, agg_function = args
                 rhd_layer = PostImage(self.sigma_functions[agg_function], self.phi_functions[edge_function])
-                self.used_sigma[agg_function] = self.sigma_functions[agg_function]
-                self.used_phi[edge_function] = self.phi_functions[edge_function]
+                self.used_sigma[FunctionDict.parse_key(agg_function)[0]] = self.sigma_functions[agg_function]
+                self.used_phi[FunctionDict.parse_key(edge_function)[0]] = self.phi_functions[edge_function]
             else:
                 agg_function, = args
                 rhd_layer = PostImage(self.sigma_functions[agg_function])
-                self.used_sigma[agg_function] = self.sigma_functions[agg_function]
+                self.used_sigma[FunctionDict.parse_key(agg_function)[0]] = self.sigma_functions[agg_function]
 
             if self.undef_layer(ctx_name):
                 # noinspection PyCallingNonCallable
