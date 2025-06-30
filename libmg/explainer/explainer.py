@@ -24,7 +24,7 @@ from scipy.sparse import coo_matrix
 from spektral.data import Graph
 from multiprocessing.pool import ThreadPool
 
-from libmg.compiler.functions import PsiLocal, Phi, Sigma
+from libmg.compiler.functions import PsiLocal, Phi, Sigma, FunctionDict
 from libmg.compiler.compiler import MGCompiler, MGModel, Context
 from libmg.language.grammar import mg_parser
 from libmg.compiler.layers import unpack_inputs
@@ -169,7 +169,7 @@ class MGExplainer(Interpreter):
     def atom_op(self, tree: Tree) -> Tree:
         name = str(tree.children[0].children[0])
         assert self.model.psi_functions is not None
-        f = self.model.psi_functions.get(name)
+        f = self.model.psi_functions.get(FunctionDict.parse_key(name)[0])
         if re.search(r'^(p\d+|p\d+-|p-\d+|p\d+-\d+)$', name) is not None or isinstance(f, PsiLocal):  # is a projection
             new_op = mg_parser.parse('i')
         elif f is None:  # is a variable for an operator
