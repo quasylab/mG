@@ -162,8 +162,9 @@ class MGExplainer(Interpreter):
         hierarchy = tf.squeeze(explainer_model.call(inputs))
         explanation = tf.math.less(hierarchy, MGExplainer.INF)
         graph = make_graph(explanation, hierarchy, inputs, actual_outputs)
-        print_graph(graph, id_generator=self._get_original_ids_func(explanation), hierarchical=True,
-                    show_labels=True, filename=filename, open_browser=open_browser, engine=engine)
+        if filename is not None:
+            print_graph(graph, id_generator=self._get_original_ids_func(explanation), hierarchical=True,
+                        show_labels=True, filename=filename, open_browser=open_browser, engine=engine)
         return graph
 
     def atom_op(self, tree: Tree) -> Tree:
