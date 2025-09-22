@@ -63,7 +63,7 @@ def make_graph(explanation: tf.Tensor[bool], hierarchy: tf.Tensor[float], old_gr
         edge_mask = pool.map(lambda edge: edge[0] in nodes and edge[1] in nodes, edges)
     new_adj = tf.sparse.retain(adj, edge_mask)
     new_adj = coo_matrix((new_adj.values.numpy(), (new_adj.indices.numpy()[:, 0], new_adj.indices.numpy()[:, 1])),
-                         shape=(len(nodes), len(nodes)))
+                         shape=adj.shape)
 
     new_edge_feats = tf.boolean_mask(edge_feats, edge_mask).numpy() if edge_feats is not None else None
 
