@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "libmg"
-version = "2.1.10"
+version = "2.1.12"
 description = "The Python implementation of the μG language for programming graph neural networks"
 license = "MIT"
 authors = ["Matteo Belenchia"]
@@ -12,14 +12,14 @@ packages = [{include = "libmg"}]
 
 [tool.poetry.dependencies]
 python      = ">= 3.11"
-tensorflow  = ">= 2.12"
+tensorflow  = "~= 2.19"
 tf-keras    = ">= 2.16"
-spektral    = "~1.3"
-numpy       = "~1"
+numpy       = "~2"
 scipy       = "~1"
 bidict      = "*"
 lark        = "~1"
 pyvis       = "~0.3"
+spektral    = { git = "https://github.com/097475/spektral.git" }
 
 [tool.poetry.group.tests]
 optional = true
