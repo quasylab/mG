@@ -169,7 +169,7 @@ class Normalizer(Interpreter[Token, Tree]):
 
     def fix(self, tree):
         var, init, body = tree.children
-        var = self.visit(var)
+        var = str(self.visit(var))
         init = self.visit(init)
         body = self.visit(body)
         precomputed_terms = list(sub_exp_extract(body, var)) + [init]
@@ -206,7 +206,7 @@ class Normalizer(Interpreter[Token, Tree]):
 
     def repeat(self, tree):
         var, init, body, k = tree.children
-        var = self.visit(var)
+        var = str(self.visit(var))
         init = self.visit(init)
         body = self.visit(body)
         precomputed_terms = list(sub_exp_extract(body, var)) + [init]
