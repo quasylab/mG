@@ -1,4 +1,4 @@
-from libmg import Dataset, Phi, Sigma, PsiLocal, PsiGlobal, CompilerConfig, NodeConfig, EdgeConfig, MGCompiler, SingleGraphLoader, MultipleGraphLoader, MGExplainer
+from libmg import Dataset, Phi, Sigma, PsiLocal, PsiGlobal, CompilerConfig, NodeConfig, EdgeConfig, MGCompiler, MultipleGraphLoader
 from scipy.sparse import coo_matrix
 from spektral.data import Graph
 from spektral.utils import gcn_filter
@@ -6,8 +6,7 @@ import numpy as np
 import tensorflow as tf
 
 from libmg.verifier.lirpa_domain import interpreter, run_abstract_model, check_soundness
-from libmg.verifier.graph_abstraction import AbstractionSettings, NoAbstraction, EdgeAbstraction, BisimAbstraction
-
+from libmg.verifier.graph_abstraction import AbstractionSettings, BisimAbstraction
 
 
 class DatasetTest(Dataset):
@@ -36,6 +35,7 @@ def preprocess_gcn_mg(graph):
     graph.a = new_a.tocoo()
     return graph
 
+
 class CastTo:
     def __init__(self, dtype):
         self.dtype = dtype
@@ -50,9 +50,6 @@ class CastTo:
         if graph.y is not None and graph.y.dtype != self.dtype:
             graph.y = graph.y.astype(self.dtype)
         return graph
-
-
-
 
 
 def get_gcn(dataset, expr):
@@ -78,6 +75,7 @@ def get_abstract_model(model, abs_settings):
     interpreter.set_graph_abstraction(abs_settings.graph_abstraction)
     return interpreter.run(model.expr)
 
+
 def print_bounds(lb, ub, pred, truth):
     pred = pred[0]
     pred_classes = np.argmax(pred.numpy(), axis=1)
@@ -95,7 +93,6 @@ def print_bounds(lb, ub, pred, truth):
     print()
 
 
-
 # Node task
 def test_verifier():
     dataset = DatasetTest(transforms=[preprocess_gcn_mg, CastTo(np.float32)])
@@ -108,13 +105,13 @@ def test_verifier():
     # run_node_task(model, abstract_model, dataset, abs_settings)
 
     for concrete_graph_np, concrete_graph_tf in zip(dataset, MultipleGraphLoader(dataset, node_level=True, epochs=1, shuffle=False).load()):
-        ### Setting up graph
+        # Setting up graph
         abs_x, abs_a, abs_e = abs_settings.abstract(concrete_graph_np)
 
-        ### Run
+        # Run
         abs_lb, abs_ub = run_abstract_model(abstract_model, abs_x, abs_a, abs_e, abs_settings.algorithm)
 
-        ### Concretize
+        # Concretize
         lb, ub = abs_settings.concretize(abs_lb, abs_ub)
 
         (conc_x, conc_a, conc_e, _), y = concrete_graph_tf
