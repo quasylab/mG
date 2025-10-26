@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 
 from libmg.verifier.lirpa_domain import interpreter, run_abstract_model, check_soundness
-from libmg.verifier.graph_abstraction import AbstractionSettings, BisimAbstraction
+from libmg.verifier.graph_abstraction import AbstractionSettings, NoAbstraction
 
 
 class DatasetTest(Dataset):
@@ -99,10 +99,8 @@ def test_verifier():
 
     model = get_gcn(dataset, '<x|+ ; dense[32] ; <x|+ ; out')
 
-    # abs_settings = AbstractionSettings(0.1, 0.1, NoAbstraction(optimized_gcn=True), 'backward')
-    abs_settings = AbstractionSettings(0, 0, BisimAbstraction('fw'), 'backward')
+    abs_settings = AbstractionSettings(0.1, 0.1, NoAbstraction(optimized_gcn=True), 'backward')
     abstract_model = get_abstract_model(model, abs_settings)
-    # run_node_task(model, abstract_model, dataset, abs_settings)
 
     for concrete_graph_np, concrete_graph_tf in zip(dataset, MultipleGraphLoader(dataset, node_level=True, epochs=1, shuffle=False).load()):
         # Setting up graph

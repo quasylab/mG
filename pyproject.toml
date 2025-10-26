@@ -12,8 +12,6 @@ packages = [{include = "libmg"}]
 
 [tool.poetry.dependencies]
 python      = ">=3.11,<3.13"
-tensorflow  = "== 2.19"
-tf_keras    = "==2.19.0"
 numpy       = "==1.26"
 scipy       = "~1"
 bidict      = "*"
@@ -22,6 +20,8 @@ pyvis       = "~0.3"
 torch       = "==2.3.1"
 spektral    = {git = "https://github.com/097475/spektral"}
 auto_LiRPA  = {git = "https://github.com/097475/auto_LiRPA"}
+tensorflow  = "== 2.19"
+tf_keras    = "==2.19.0"
 
 [tool.poetry.group.tests]
 optional = true
